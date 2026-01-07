@@ -161,7 +161,7 @@ export const useStore = create<AppState>()(
   persist(
     (set, get) => ({
       settings: {
-        tasaBCV: 301.14, tasaTH: 600.00, defaultMargin: 30, defaultVAT: 16, lastUpdated: new Date().toISOString(), showMonitorRate: true,
+        tasaBCV: 312, tasaTH: 750, defaultMargin: 60, defaultVAT: 16, lastUpdated: new Date().toISOString(), showMonitorRate: true,
         companyName: 'TODO EN RUEDAS C.A.', rifType: 'J', rif: '12345678-9', address: 'AV. PRINCIPAL, ANACO', printerCurrency: 'BS'
       },
       // --- ASIGNACIÓN DE DATOS INICIALES ---
