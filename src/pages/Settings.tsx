@@ -1,162 +1,153 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { Save, RefreshCw, DollarSign, Eye, EyeOff } from 'lucide-react';
+import { Save, RefreshCw, DollarSign, Percent, Eye, EyeOff, Trash2, AlertTriangle, CreditCard, Plus, FileText } from 'lucide-react';
+import type { RifType, CurrencyView, PaymentCurrency } from '../types';
 
 export const Settings = () => {
-  const { settings, updateSettings } = useStore();
+  const { settings, updateSettings, paymentMethods, addPaymentMethod, deletePaymentMethod } = useStore();
 
-  const [formData, setFormData] = useState({
-    tasaBCV: settings.tasaBCV,
-    tasaTH: settings.tasaTH,
-    defaultMargin: settings.defaultMargin,
-    defaultVAT: settings.defaultVAT, // Asegurarnos de que el dato exista
-    showMonitorRate: settings.showMonitorRate,
-  });
+  const [formData, setFormData] = useState(settings);
+  const [newMethodName, setNewMethodName] = useState('');
+  const [newMethodCurrency, setNewMethodCurrency] = useState<PaymentCurrency>('USD');
 
-  const [message, setMessage] = useState('');
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : (parseFloat(value) || 0)
-    }));
-  };
+  useEffect(() => {
+    setFormData(settings);
+  }, [settings]);
 
   const handleSave = () => {
-    updateSettings(formData);
-    setMessage('¡Configuración guardada exitosamente!');
-    setTimeout(() => setMessage(''), 3000);
+    updateSettings({ ...formData, lastUpdated: new Date().toISOString() });
+    alert("¡Configuración actualizada! Se recalcularán los precios.");
+  };
+
+  const handleAddMethod = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMethodName.trim()) return;
+    addPaymentMethod(newMethodName, newMethodCurrency);
+    setNewMethodName('');
+  };
+
+  const handleFactoryReset = () => {
+    if (window.confirm("🔴 ¿ESTÁS SEGURO?\n\nEsto borrará TODAS las ventas, facturas y cambios.\nEl sistema volverá al estado original.\n\nEsta acción NO se puede deshacer.")) {
+      localStorage.removeItem('todo-en-ruedas-storage');
+      window.location.reload();
+    }
   };
 
   return (
-    <div className="p-8 space-y-8 ml-64 bg-gray-50 min-h-screen">
+    <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen w-full">
 
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Configuración Global</h2>
-          <p className="text-gray-500">Define las variables críticas de tu negocio</p>
-        </div>
-        {message && (
-          <div className="bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-medium animate-pulse">
-            {message}
-          </div>
-        )}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div><h2 className="text-2xl font-bold text-gray-800">Configuración</h2><p className="text-gray-500">Parámetros globales del sistema</p></div>
+        <button onClick={handleSave} className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition"><Save size={20} /> Guardar Cambios</button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        {/* TARJETA 1: TASAS DE CAMBIO */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-fit">
-          <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-              <RefreshCw size={20} />
+        {/* 1. DATOS FISCALES */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 md:col-span-2">
+          <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 pb-4 border-b border-gray-50"><FileText className="text-blue-600" /> Datos de Facturación (Encabezado)</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-1">
+              <label className="block text-xs font-bold text-gray-500 mb-1">Nombre del Comercio / Razón Social</label>
+              <input type="text" className="w-full border border-gray-200 rounded-lg p-2 font-bold" value={formData.companyName} onChange={e => setFormData({ ...formData, companyName: e.target.value })} />
             </div>
-            <h3 className="font-bold text-gray-800">Tasas de Cambio</h3>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tasa BCV (Oficial)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">Bs</span>
-                <input
-                  type="number"
-                  name="tasaBCV"
-                  value={formData.tasaBCV}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                />
+            <div className="flex gap-2">
+              <div className="w-20">
+                <label className="block text-xs font-bold text-gray-500 mb-1">Tipo</label>
+                <select className="w-full border border-gray-200 rounded-lg p-2" value={formData.rifType} onChange={e => setFormData({ ...formData, rifType: e.target.value as RifType })}>
+                  {['V', 'J', 'E', 'G', 'P', 'C'].map(t => <option key={t}>{t}</option>)}
+                </select>
               </div>
+              <div className="flex-1">
+                <label className="block text-xs font-bold text-gray-500 mb-1">Número RIF</label>
+                <input type="text" className="w-full border border-gray-200 rounded-lg p-2" value={formData.rif} onChange={e => setFormData({ ...formData, rif: e.target.value })} />
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-gray-500 mb-1">Dirección Fiscal</label>
+              <input type="text" className="w-full border border-gray-200 rounded-lg p-2" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tasa Monitor (Paralelo)</label>
+              <label className="block text-xs font-bold text-gray-500 mb-1">Moneda Principal de Impresión</label>
+              <select className="w-full border border-gray-200 rounded-lg p-2 font-bold bg-gray-50" value={formData.printerCurrency} onChange={e => setFormData({ ...formData, printerCurrency: e.target.value as CurrencyView })}>
+                <option value="BS">BOLÍVARES (Bs.)</option>
+                <option value="USD">DÓLARES ($)</option>
+              </select>
+              <p className="text-[10px] text-gray-400 mt-1">* La otra moneda saldrá pequeña abajo.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. TASAS DE CAMBIO */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 pb-4 border-b border-gray-50"><RefreshCw className="text-green-600" /> Tasas de Cambio (Bs/USD)</h3>
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Tasa BCV (Oficial)</label>
+              <div className="relative"><span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Bs.</span><input type="number" step="0.01" className="w-full pl-12 pr-4 py-3 border-2 border-blue-100 rounded-xl focus:border-blue-500 outline-none text-xl font-bold text-gray-800" value={formData.tasaBCV} onChange={e => setFormData({ ...formData, tasaBCV: parseFloat(e.target.value) || 0 })} /></div>
+            </div>
+            <div>
+              <div className="flex justify-between items-center mb-2"><label className="block text-sm font-bold text-gray-700">Tasa Monitor</label><button onClick={() => setFormData({ ...formData, showMonitorRate: !formData.showMonitorRate })} className="text-xs flex items-center gap-1 text-blue-600 font-bold hover:underline">{formData.showMonitorRate ? <><Eye size={14} /> Visible</> : <><EyeOff size={14} /> Oculto</>}</button></div>
+              <div className={`relative transition-opacity ${formData.showMonitorRate ? 'opacity-100' : 'opacity-50 grayscale'}`}><span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Bs.</span><input type="number" step="0.01" className="w-full pl-12 pr-4 py-3 border-2 border-gray-100 rounded-xl focus:border-gray-400 outline-none text-xl font-bold text-gray-600" value={formData.tasaTH} onChange={e => setFormData({ ...formData, tasaTH: parseFloat(e.target.value) || 0 })} disabled={!formData.showMonitorRate} /></div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. MÁRGENES E IMPUESTOS (ESTA FUE LA QUE FALTABA) */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 pb-4 border-b border-gray-50"><Percent className="text-orange-500" /> Márgenes e Impuestos Globales</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">Margen de Ganancia (%)</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">Bs</span>
-                <input
-                  type="number"
-                  name="tasaTH"
-                  value={formData.tasaTH}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
-                />
+                <input type="number" className="w-full border-2 border-orange-50 rounded-xl p-3 text-lg font-bold text-gray-800 outline-none focus:border-orange-200" value={formData.defaultMargin} onChange={e => setFormData({ ...formData, defaultMargin: parseFloat(e.target.value) || 0 })} />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
               </div>
+              <p className="text-[10px] text-gray-400 mt-1">Se aplica si el producto no tiene uno propio.</p>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1">Impuesto IVA (%)</label>
+              <div className="relative">
+                <input type="number" className="w-full border-2 border-orange-50 rounded-xl p-3 text-lg font-bold text-gray-800 outline-none focus:border-orange-200" value={formData.defaultVAT} onChange={e => setFormData({ ...formData, defaultVAT: parseFloat(e.target.value) || 0 })} />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">Normalmente 16%.</p>
             </div>
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: VARIABLES Y PRIVACIDAD */}
-        <div className="space-y-6">
-
-          {/* TARJETA 2: MÁRGENES E IMPUESTOS */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
-              <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
-                <DollarSign size={20} />
+        {/* 4. MÉTODOS DE PAGO */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 md:col-span-2">
+          <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 pb-4 border-b border-gray-50"><CreditCard className="text-purple-600" /> Métodos de Pago</h3>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {paymentMethods.map(method => (
+              <div key={method.id} className={`flex items-center gap-1 px-3 py-1 border rounded-lg text-xs font-bold ${method.currency === 'BS' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
+                {method.name}
+                <span className="text-[9px] opacity-60 ml-1">({method.currency})</span>
+                <button onClick={() => deletePaymentMethod(method.id)} className="text-gray-400 hover:text-red-500 ml-1"><Trash2 size={12} /></button>
               </div>
-              <h3 className="font-bold text-gray-800">Márgenes e Impuestos</h3>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Margen de Ganancia General (%)</label>
-                <input
-                  type="number"
-                  name="defaultMargin"
-                  value={formData.defaultMargin}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                />
-              </div>
-              {/* AQUÍ ESTÁ EL IVA DE VUELTA 👇 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">IVA General (%)</label>
-                <input
-                  type="number"
-                  name="defaultVAT"
-                  value={formData.defaultVAT}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 outline-none"
-                />
-              </div>
-            </div>
+            ))}
           </div>
+          <form onSubmit={handleAddMethod} className="flex gap-2">
+            <input type="text" placeholder="Nuevo método..." className="flex-1 border rounded-lg px-3 py-2 text-sm" value={newMethodName} onChange={e => setNewMethodName(e.target.value)} />
+            <select className="border rounded-lg px-2 py-2 text-sm bg-gray-50 font-bold" value={newMethodCurrency} onChange={e => setNewMethodCurrency(e.target.value as PaymentCurrency)}>
+              <option value="USD">USD ($)</option>
+              <option value="BS">BS (Bs)</option>
+            </select>
+            <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-bold"><Plus size={16} /></button>
+          </form>
+        </div>
 
-          {/* TARJETA 3: PRIVACIDAD */}
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-gray-100 text-gray-600 rounded-lg">
-                {formData.showMonitorRate ? <Eye size={20} /> : <EyeOff size={20} />}
-              </div>
-              <h3 className="font-bold text-gray-800">Visualización y Privacidad</h3>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Mostrar Referencias al "Dólar Monitor"</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="showMonitorRate"
-                  checked={formData.showMonitorRate}
-                  onChange={handleChange}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
-              </label>
-            </div>
-            <p className="text-xs text-gray-400 mt-2">
-              Si desactivas esto, se ocultarán las tasas paralelas y las etiquetas [TH] en todo el sistema.
-            </p>
-          </div>
+      </div>
+
+      <div className="mt-12 pt-8 border-t border-red-100">
+        <h3 className="text-red-600 font-bold text-lg mb-4 flex items-center gap-2"><AlertTriangle /> Zona de Peligro</h3>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div><p className="font-bold text-red-800">Restaurar de Fábrica</p><p className="text-sm text-red-600 mt-1">Borra todo y reinicia.</p></div>
+          <button onClick={handleFactoryReset} className="w-full md:w-auto px-6 py-3 bg-white border-2 border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white transition flex items-center justify-center gap-2"><Trash2 size={20} /> Borrar Todo</button>
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <button
-          onClick={handleSave}
-          className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition shadow-lg shadow-red-200"
-        >
-          <Save size={20} />
-          Guardar Cambios
-        </button>
-      </div>
     </div>
   );
 };

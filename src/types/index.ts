@@ -1,6 +1,16 @@
 export type Role = 'ADMIN' | 'SELLER';
 export type CostType = 'BCV' | 'TH';
 export type PaymentStatus = 'PAID' | 'PENDING' | 'PARTIAL';
+export type SaleStatus = 'COMPLETED' | 'CANCELLED';
+export type RifType = 'V' | 'E' | 'J' | 'G' | 'P' | 'C';
+export type CurrencyView = 'USD' | 'BS';
+export type PaymentCurrency = 'USD' | 'BS'; // <--- NUEVO TIPO
+
+export interface PaymentMethod {
+  id: string;
+  name: string;
+  currency: PaymentCurrency; // <--- NUEVO CAMPO OBLIGATORIO
+}
 
 export interface GlobalSettings {
   tasaBCV: number;
@@ -9,6 +19,11 @@ export interface GlobalSettings {
   defaultVAT: number;
   lastUpdated: string;
   showMonitorRate: boolean;
+  companyName: string;
+  rifType: RifType;
+  rif: string;
+  address: string;
+  printerCurrency: CurrencyView;
 }
 
 export interface Supplier {
@@ -16,11 +31,7 @@ export interface Supplier {
   name: string;
   rif?: string;
   phone?: string;
-  catalog: {
-    sku: string;
-    name: string;
-    lastCost: number;
-  }[];
+  catalog: { sku: string; name: string; lastCost: number; }[];
 }
 
 export interface Product {
@@ -38,14 +49,13 @@ export interface Product {
   customVAT?: number;
 }
 
-// --- ACTUALIZADO: AHORA ACEPTA MINSTOCK ---
 export interface IncomingItem {
   id: string;
   sku: string;
   name: string;
   quantity: number;
   costUnitUSD: number;
-  minStock?: number; // Opcional
+  minStock?: number;
 }
 
 export interface Payment {
@@ -84,5 +94,16 @@ export interface Sale {
   date: string;
   totalUSD: number;
   totalVED: number;
+  paymentMethod: string;
   items: CartItem[];
+  status?: SaleStatus;
+}
+
+export interface DailyClose {
+  id: string;
+  date: string;
+  totalUSD: number;
+  totalByMethod: Record<string, number>;
+  totalTickets: number;
+  notes?: string;
 }

@@ -1,0 +1,114 @@
+const initialSuppliers: Supplier[] = [
+  {
+    id: 'sup-1',
+    name: 'Inversiones La Fuente, C.A.',
+    catalog: [
+        // Factura 86
+        { sku: '05-023-127', name: 'Rueda Goma Elastica 3" Gira C/Freno EXX', lastCost: 4.78 },
+        { sku: '05-023-171', name: 'Rueda PU + Hierro 3" Giratoria EXXEL', lastCost: 5.97 },
+        { sku: '05-023-187', name: 'Rueda PP Roja 4" Giratoria EXXEL', lastCost: 3.99 },
+        { sku: '05-023-189', name: 'Rueda PP Roja 3" Fija EXXEL', lastCost: 2.51 },
+        { sku: '05-023-211', name: 'Rueda Hierro 3" Giratoria EXXEL', lastCost: 4.31 },
+        { sku: '05-023-213', name: 'Rueda Hierro 3" Fija EXXEL', lastCost: 6.36 },
+        { sku: '05-023-246', name: 'Rueda PVC Giratoria 1.5" C/Espiga 3/8"', lastCost: 1.19 },
+        { sku: '05-023-247', name: 'Rueda PVC Giratoria 2" C/Espiga 3/8"', lastCost: 1.37 },
+        { sku: '05-023-248', name: 'Rueda PVC Fija 1.5" C/Espiga 3/8" EXXE', lastCost: 1.03 },
+        { sku: '05-023-250', name: 'Rueda PVC Giratoria C/Freno 1.5" C/Espi', lastCost: 1.43 },
+        { sku: '05-023-251', name: 'Rueda PVC Giratoria C/Freno 2" C/Espig', lastCost: 1.88 },
+        // Factura 85
+        { sku: '05-023-069', name: 'Rueda Neumatica 14" Eje 3/4" P/Carret', lastCost: 16.38 },
+        { sku: '05-023-070', name: 'Rueda P/Porton 50MM*15MM EXXEL', lastCost: 2.99 },
+        { sku: '05-023-071', name: 'Rueda P/Porton 70MM*18MM EXXEL', lastCost: 5.14 },
+        { sku: 'PN230321', name: 'Rueda Giratoria 5" EXXEL', lastCost: 2.18 },
+        { sku: 'PN230324', name: 'Rueda Fija 2.5" EXXEL', lastCost: 2.34 },
+        { sku: 'PN230478', name: 'Roldana Tipo U c/Base 40mm EXXEL', lastCost: 6.59 },
+        { sku: '7826075X', name: 'Rueda PVC 3" Fija EXXEL', lastCost: 4.18 },
+        { sku: '8126075X', name: 'Rueda PVC 3" Giratoria EXXEL', lastCost: 4.06 },
+        { sku: '1918075F', name: 'Rueda Goma Negra 3" Fija EXXEL', lastCost: 3.88 },
+        { sku: '3318075B', name: 'Rueda Goma Elastica 3" Giratoria EXXEL', lastCost: 3.99 },
+    ]
+  }
+];
+
+const initialProducts: Product[] = [
+  // --- FACTURA 90329086 ---
+  { id: '1', sku: '05-023-127', name: 'Rueda Goma Elastica 3" Gira C/Freno EXX', category: 'Ruedas', stock: 4, minStock: 2, cost: 4.78, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '2', sku: '05-023-171', name: 'Rueda PU + Hierro 3" Giratoria EXXEL', category: 'Ruedas', stock: 4, minStock: 2, cost: 5.97, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '3', sku: '05-023-187', name: 'Rueda PP Roja 4" Giratoria EXXEL', category: 'Ruedas', stock: 4, minStock: 2, cost: 3.99, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '4', sku: '05-023-189', name: 'Rueda PP Roja 3" Fija EXXEL', category: 'Ruedas', stock: 4, minStock: 2, cost: 2.51, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '5', sku: '05-023-211', name: 'Rueda Hierro 3" Giratoria EXXEL', category: 'Ruedas', stock: 4, minStock: 2, cost: 4.31, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '6', sku: '05-023-213', name: 'Rueda Hierro 3" Fija EXXEL', category: 'Ruedas', stock: 2, minStock: 1, cost: 6.36, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '7', sku: '05-023-246', name: 'Rueda PVC Giratoria 1.5" C/Espiga 3/8"', category: 'Ruedas', stock: 6, minStock: 3, cost: 1.19, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '8', sku: '05-023-247', name: 'Rueda PVC Giratoria 2" C/Espiga 3/8"', category: 'Ruedas', stock: 6, minStock: 3, cost: 1.37, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '9', sku: '05-023-248', name: 'Rueda PVC Fija 1.5" C/Espiga 3/8" EXXE', category: 'Ruedas', stock: 6, minStock: 3, cost: 1.03, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '10', sku: '05-023-250', name: 'Rueda PVC Giratoria C/Freno 1.5" C/Espi', category: 'Ruedas', stock: 6, minStock: 3, cost: 1.43, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '11', sku: '05-023-251', name: 'Rueda PVC Giratoria C/Freno 2" C/Espig', category: 'Ruedas', stock: 4, minStock: 2, cost: 1.88, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+
+  // --- FACTURA 90329085 ---
+  { id: '12', sku: '05-023-069', name: 'Rueda Neumatica 14" Eje 3/4" P/Carret', category: 'Ruedas', stock: 1, minStock: 1, cost: 16.38, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '13', sku: '05-023-070', name: 'Rueda P/Porton 50MM*15MM EXXEL', category: 'Ruedas', stock: 4, minStock: 2, cost: 2.99, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '14', sku: '05-023-071', name: 'Rueda P/Porton 70MM*18MM EXXEL', category: 'Ruedas', stock: 4, minStock: 2, cost: 5.14, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '15', sku: 'PN230321', name: 'Rueda Giratoria 5" EXXEL', category: 'Ruedas', stock: 2, minStock: 1, cost: 2.18, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '16', sku: 'PN230324', name: 'Rueda Fija 2.5" EXXEL', category: 'Ruedas', stock: 4, minStock: 1, cost: 2.34, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '17', sku: 'PN230478', name: 'Roldana Tipo U c/Base 40mm EXXEL', category: 'Ruedas', stock: 4, minStock: 2, cost: 6.59, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '18', sku: '7826075X', name: 'Rueda PVC 3" Fija EXXEL', category: 'Ruedas', stock: 4, minStock: 2, cost: 4.18, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '19', sku: '8126075X', name: 'Rueda PVC 3" Giratoria EXXEL', category: 'Ruedas', stock: 4, minStock: 2, cost: 4.06, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '20', sku: '1918075F', name: 'Rueda Goma Negra 3" Fija EXXEL', category: 'Ruedas', stock: 4, minStock: 2, cost: 3.88, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+  { id: '21', sku: '3318075B', name: 'Rueda Goma Elastica 3" Giratoria EXXEL', category: 'Ruedas', stock: 4, minStock: 2, cost: 3.99, freight: 0, costType: 'BCV', supplier: 'Inversiones La Fuente, C.A.' },
+];
+
+const initialInvoices: Invoice[] = [
+    {
+        id: 'inv-90329086',
+        number: '90329086',
+        supplier: 'Inversiones La Fuente, C.A.',
+        dateIssue: '2025-11-24',
+        dateDue: '2026-01-26',
+        status: 'PENDING',
+        costType: 'BCV',
+        subtotalUSD: 136.60,
+        freightTotalUSD: 0,
+        totalUSD: 158.46,
+        paidAmountUSD: 0,
+        payments: [],
+        items: [
+            { id: '1', sku: '05-023-127', name: 'Rueda Goma Elastica 3" Gira C/Freno EXX', quantity: 4, costUnitUSD: 4.78 },
+            { id: '2', sku: '05-023-171', name: 'Rueda PU + Hierro 3" Giratoria EXXEL', quantity: 4, costUnitUSD: 5.97 },
+            { id: '3', sku: '05-023-187', name: 'Rueda PP Roja 4" Giratoria EXXEL', quantity: 4, costUnitUSD: 3.99 },
+            { id: '4', sku: '05-023-189', name: 'Rueda PP Roja 3" Fija EXXEL', quantity: 4, costUnitUSD: 2.51 },
+            { id: '5', sku: '05-023-211', name: 'Rueda Hierro 3" Giratoria EXXEL', quantity: 4, costUnitUSD: 4.31 },
+            { id: '6', sku: '05-023-213', name: 'Rueda Hierro 3" Fija EXXEL', quantity: 2, costUnitUSD: 6.36 },
+            { id: '7', sku: '05-023-246', name: 'Rueda PVC Giratoria 1.5" C/Espiga 3/8"', quantity: 6, costUnitUSD: 1.19 },
+            { id: '8', sku: '05-023-247', name: 'Rueda PVC Giratoria 2" C/Espiga 3/8"', quantity: 6, costUnitUSD: 1.37 },
+            { id: '9', sku: '05-023-248', name: 'Rueda PVC Fija 1.5" C/Espiga 3/8" EXXE', quantity: 6, costUnitUSD: 1.03 },
+            { id: '10', sku: '05-023-250', name: 'Rueda PVC Giratoria C/Freno 1.5" C/Espi', quantity: 6, costUnitUSD: 1.43 },
+            { id: '11', sku: '05-023-251', name: 'Rueda PVC Giratoria C/Freno 2" C/Espig', quantity: 4, costUnitUSD: 1.88 },
+        ]
+    },
+    {
+        id: 'inv-90329085',
+        number: '90329085',
+        supplier: 'Inversiones La Fuente, C.A.',
+        dateIssue: '2025-11-24',
+        dateDue: '2026-01-26',
+        status: 'PENDING',
+        costType: 'BCV',
+        subtotalUSD: 135.28,
+        freightTotalUSD: 0,
+        totalUSD: 156.92,
+        paidAmountUSD: 0,
+        payments: [],
+        items: [
+            { id: '12', sku: '05-023-069', name: 'Rueda Neumatica 14" Eje 3/4" P/Carret', quantity: 1, costUnitUSD: 16.38 },
+            { id: '13', sku: '05-023-070', name: 'Rueda P/Porton 50MM*15MM EXXEL', quantity: 4, costUnitUSD: 2.99 },
+            { id: '14', sku: '05-023-071', name: 'Rueda P/Porton 70MM*18MM EXXEL', quantity: 4, costUnitUSD: 5.14 },
+            { id: '15', sku: 'PN230321', name: 'Rueda Giratoria 5" EXXEL', quantity: 2, costUnitUSD: 2.18 },
+            { id: '16', sku: 'PN230324', name: 'Rueda Fija 2.5" EXXEL', quantity: 4, costUnitUSD: 2.34 },
+            { id: '17', sku: 'PN230478', name: 'Roldana Tipo U c/Base 40mm EXXEL', quantity: 4, costUnitUSD: 6.59 },
+            { id: '18', sku: '7826075X', name: 'Rueda PVC 3" Fija EXXEL', quantity: 4, costUnitUSD: 4.18 },
+            { id: '19', sku: '8126075X', name: 'Rueda PVC 3" Giratoria EXXEL', quantity: 4, costUnitUSD: 4.06 },
+            { id: '20', sku: '1918075F', name: 'Rueda Goma Negra 3" Fija EXXEL', quantity: 4, costUnitUSD: 3.88 },
+            { id: '21', sku: '3318075B', name: 'Rueda Goma Elastica 3" Giratoria EXXEL', quantity: 4, costUnitUSD: 3.99 },
+        ]
+    }
+];
