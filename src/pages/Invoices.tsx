@@ -3,7 +3,7 @@ import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import {
     FileText, DollarSign, AlertCircle, CheckCircle,
-    Clock, TrendingDown, Eye, Users, List,
+    Clock, TrendingDown, Users, List,
     Save, X, Trash2, Edit, History, Truck, Building2, Briefcase, BarChart3
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';

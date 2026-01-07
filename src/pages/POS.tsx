@@ -19,8 +19,6 @@ export const POS = () => {
     );
 
     // Cálculos
-    const subtotal = cart.reduce((acc, item) => acc + (item.priceBaseUSD * item.quantity), 0);
-    const tax = cart.reduce((acc, item) => acc + (item.priceTaxUSD * item.quantity), 0);
     const totalUSD = cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0);
     const totalBs = totalUSD * settings.tasaBCV;
 

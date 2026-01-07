@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Scrollbar personalizado (Opcional, se ve bien) */
+/* Scrollbar Personalizado (Opcional, pero se ve bien) */
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -15,4 +15,41 @@
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background-color: #cbd5e1;
     border-radius: 20px;
+}
+
+/* === ESTILOS PARA IMPRESIÓN TÉRMICA === */
+@media print {
+
+    /* Ocultar TODO lo que no sea el ticket */
+    body * {
+        visibility: hidden;
+    }
+
+    /* Mostrar SOLO el área de impresión generada */
+    #print-area,
+    #print-area * {
+        visibility: visible;
+    }
+
+    #print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Eliminar encabezados y pies de página automáticos del navegador */
+    @page {
+        size: auto;
+        margin: 0mm;
+    }
+
+    /* Forzar fuente monoespaciada para alineación perfecta de números */
+    body {
+        background-color: white;
+        color: black;
+        font-family: 'Courier New', Courier, monospace;
+    }
 }

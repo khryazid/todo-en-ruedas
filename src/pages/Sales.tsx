@@ -3,7 +3,7 @@ import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import { printInvoice, printSalesList } from '../utils/ticketGenerator';
 import {
-    FileText, Calendar, Package, Edit, Trash2,
+    Edit, Trash2,
     Search, Ban, Printer, Eye, Filter, X, Save
 } from 'lucide-react';
 import type { Sale } from '../types';
