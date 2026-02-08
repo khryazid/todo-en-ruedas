@@ -1,413 +1,306 @@
 /**
  * @file Dashboard.tsx
- * @description Panel de Control Principal.
- * Muestra KPIs críticos: Ventas del día, Deudas por pagar, Valor del Inventario y Alertas de Stock.
+ * @description Centro de Comando Completo.
+ * Incluye: KPIs, Proyección Financiera, ALERTAS DE STOCK y LISTA DE TOP CLIENTES (Actualizado).
  */
 
 import { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
+import { Link } from 'react-router-dom';
 import {
-  TrendingUp, Wallet, AlertTriangle, Clock,
-  BarChart3, DollarSign, Package, Percent,
-  Calendar, Filter, ShoppingBag, CreditCard, Users, ArrowRight, Snowflake, Flame
+  TrendingUp, TrendingDown, DollarSign, Package,
+  AlertTriangle, Wallet, Users, BarChart3, ArrowUpRight, ArrowDownRight, AlertOctagon
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import type { Sale } from '../types';
-
-type TimeRange = 'today' | 'week' | 'month' | 'custom';
 
 export const Dashboard = () => {
-  const { settings, products, invoices, sales } = useStore();
-  const navigate = useNavigate();
+  const { sales, products, invoices, clients, settings } = useStore();
 
-  // --- ESTADOS LOCALES ---
-  const [timeRange, setTimeRange] = useState<TimeRange>('today');
+  // --- 1. FILTROS DE TIEMPO ---
+  const [filterType, setFilterType] = useState<'today' | 'week' | 'month' | 'custom'>('today');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
 
-  // --- 1. CÁLCULOS DE NEGOCIO (KPIs) ---
-
-  // A. Ventas de Hoy (Caja Rápida)
-  const todayString = new Date().toLocaleDateString('es-ES');
-  const todaysSalesTotal = sales
-    .filter(s => new Date(s.date).toLocaleDateString('es-ES') === todayString && s.status !== 'CANCELLED')
-    .reduce((acc, s) => acc + s.totalUSD, 0);
-
-  // B. Valoración de Inventario (Costo vs Venta Potencial)
-  let inventoryCostUSD = 0;
-  let inventorySalePotentialUSD = 0;
-
-  products.forEach(product => {
-    const prices = calculatePrices(product, settings);
-    // Costo total invertido (Stock * Costo Unitario)
-    inventoryCostUSD += (product.cost + (product.freight || 0)) * product.stock;
-    // Venta total potencial (Stock * PVP)
-    inventorySalePotentialUSD += prices.finalPriceUSD * product.stock;
-  });
-
-  const potentialProfit = inventorySalePotentialUSD - inventoryCostUSD;
-  // Margen ponderado global del inventario actual
-  const marginPercentage = inventoryCostUSD > 0 ? (potentialProfit / inventorySalePotentialUSD) * 100 : 0;
-
-  // C. Cuentas por Pagar (Salud Financiera)
-  const totalDebt = invoices.reduce((acc, inv) => acc + (inv.totalUSD - inv.paidAmountUSD), 0);
-  const todayDate = new Date();
-
-  // Facturas que vencen este mes o ya están vencidas
-  const dueInvoices = invoices.filter(inv => {
-    if (inv.status === 'PAID') return false;
-    const dueDate = new Date(inv.dateDue);
-    // Lógica: Vencidas (Fecha < Hoy) O Vencen este mes
-    return (dueDate < todayDate) || (dueDate.getMonth() === todayDate.getMonth() && dueDate.getFullYear() === todayDate.getFullYear());
-  }).sort((a, b) => new Date(a.dateDue).getTime() - new Date(b.dateDue).getTime());
-
-  const totalDueThisMonth = dueInvoices.reduce((acc, inv) => acc + (inv.totalUSD - inv.paidAmountUSD), 0);
-
-  // D. Alertas de Stock
-  const lowStockProducts = products.filter(p => p.stock <= p.minStock);
-
-  // E. Indicadores Económicos (Brecha Cambiaria)
-  const brecha = settings.tasaBCV > 0 ? ((settings.tasaTH - settings.tasaBCV) / settings.tasaBCV) * 100 : 0;
-  const brechaColor = brecha > 20 ? 'text-red-600 bg-red-50' : 'text-blue-600 bg-blue-50';
-
-  // --- 2. ANALÍTICA AVANZADA (MEMOIZED) ---
-  const analyticsData = useMemo(() => {
-    const activeSales = sales.filter(s => s.status !== 'CANCELLED');
+  // --- 2. LÓGICA DE FECHAS ---
+  const dateRange = useMemo(() => {
     const now = new Date();
-    let filteredSales: Sale[] = [];
-    let chartData: { label: string, value: number, dateFull: string }[] = [];
-    let rangeLabel = "";
+    const start = new Date();
+    const end = new Date();
 
-    // Lógica de Filtrado Temporal
-    if (timeRange === 'today') {
-      rangeLabel = "Hoy";
-      filteredSales = activeSales.filter(s => new Date(s.date).toLocaleDateString('es-ES') === now.toLocaleDateString('es-ES'));
-    } else if (timeRange === 'week') {
-      rangeLabel = "Última Semana";
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(now.getDate() - 7);
-      filteredSales = activeSales.filter(s => new Date(s.date) >= sevenDaysAgo);
-
-      // Agrupar por día para el gráfico
-      const map = new Map<string, number>();
-      filteredSales.forEach(s => {
-        const d = new Date(s.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
-        map.set(d, (map.get(d) || 0) + s.totalUSD);
-      });
-      chartData = Array.from(map.entries()).map(([label, value]) => ({ label, value, dateFull: label }));
-    } else if (timeRange === 'month') {
-      rangeLabel = "Este Mes";
-      filteredSales = activeSales.filter(s => {
-        const d = new Date(s.date);
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      });
-      const map = new Map<string, number>();
-      filteredSales.forEach(s => {
-        const d = new Date(s.date).getDate().toString();
-        map.set(d, (map.get(d) || 0) + s.totalUSD);
-      });
-      chartData = Array.from(map.entries()).map(([label, value]) => ({ label, value, dateFull: `Día ${label}` }));
-    } else if (timeRange === 'custom') {
-      rangeLabel = "Período Personalizado";
-      const start = customStart ? new Date(customStart) : new Date(0);
-      const end = customEnd ? new Date(customEnd) : new Date();
-      end.setHours(23, 59, 59);
-      filteredSales = activeSales.filter(s => { const d = new Date(s.date); return d >= start && d <= end; });
+    if (filterType === 'today') return { start: now, end: now };
+    if (filterType === 'week') {
+      const day = now.getDay() || 7;
+      if (day !== 1) start.setHours(-24 * (day - 1));
+      return { start, end };
     }
+    if (filterType === 'month') {
+      start.setDate(1);
+      return { start, end };
+    }
+    if (filterType === 'custom') {
+      return {
+        start: customStart ? new Date(customStart) : new Date(0),
+        end: customEnd ? new Date(customEnd) : new Date()
+      };
+    }
+    return { start: now, end: now };
+  }, [filterType, customStart, customEnd]);
 
-    // Totales del periodo
-    const totalRevenue = filteredSales.reduce((a, s) => a + s.totalUSD, 0);
-    const ticketCount = filteredSales.length;
-    const averageTicket = ticketCount > 0 ? totalRevenue / ticketCount : 0;
+  const isDateInScope = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const dStr = d.toISOString().split('T')[0];
+    const startStr = dateRange.start.toISOString().split('T')[0];
+    const endStr = dateRange.end.toISOString().split('T')[0];
+    return dStr >= startStr && dStr <= endStr;
+  };
 
-    // Top Productos
-    const productSalesCount: Record<string, number> = {};
+  // --- 3. DATOS FILTRADOS ---
+  const filteredSales = sales.filter(s => s.status !== 'CANCELLED' && isDateInScope(s.date));
+  const totalSalesPeriodUSD = filteredSales.reduce((acc, s) => acc + s.totalUSD, 0);
+
+  // --- 4. KPIs GLOBALES ---
+  const totalReceivable = sales
+    .filter(s => (s.status === 'PENDING' || s.status === 'PARTIAL') && s.status !== 'CANCELLED')
+    .reduce((acc, s) => acc + (s.totalUSD - s.paidAmountUSD), 0);
+
+  const totalPayable = invoices
+    .filter(i => (i.status === 'PENDING' || i.status === 'PARTIAL'))
+    .reduce((acc, i) => acc + (i.totalUSD - i.paidAmountUSD), 0);
+
+  // --- 5. ALERTAS DE STOCK (CRÍTICO) ---
+  const outOfStock = products.filter(p => p.stock === 0);
+  const lowStock = products.filter(p => p.stock > 0 && p.stock <= p.minStock);
+
+  // --- 6. PROYECCIÓN DE INVENTARIO ---
+  const inventoryStats = useMemo(() => {
+    let totalInvested = 0;
+    let totalRevenuePotential = 0;
+    products.forEach(p => {
+      const prices = calculatePrices(p, settings);
+      totalInvested += p.stock * (p.cost + (p.freight || 0));
+      totalRevenuePotential += p.stock * prices.finalPriceUSD;
+    });
+    return { invested: totalInvested, revenue: totalRevenuePotential, profit: totalRevenuePotential - totalInvested };
+  }, [products, settings]);
+
+  // --- 7. ANÁLISIS DE PRODUCTOS ---
+  const productPerformance = useMemo(() => {
+    const salesMap: Record<string, number> = {};
     filteredSales.forEach(sale => {
       sale.items.forEach(item => {
-        const key = item.sku || item.name;
-        productSalesCount[key] = (productSalesCount[key] || 0) + item.quantity;
+        salesMap[item.sku] = (salesMap[item.sku] || 0) + item.quantity;
       });
     });
+    const ranked = products.map(p => ({ ...p, soldQuantity: salesMap[p.sku] || 0 }));
 
-    const topProducts = Object.entries(productSalesCount)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([key, qty]) => {
-        const prod = products.find(p => p.sku === key || p.name === key);
-        return { name: prod ? prod.name : key, qty, stock: prod ? prod.stock : 0 };
-      });
+    return {
+      bestSellers: [...ranked].sort((a, b) => b.soldQuantity - a.soldQuantity).slice(0, 5),
+      worstSellers: [...ranked].filter(p => p.stock > 0).sort((a, b) => a.soldQuantity - b.soldQuantity).slice(0, 5)
+    };
+  }, [filteredSales, products]);
 
-    // Productos Fríos (Sin ventas en el periodo, pero con stock alto)
-    const coldProducts = products
-      .filter(p => !productSalesCount[p.sku] && !productSalesCount[p.name] && p.stock > 0)
-      .sort((a, b) => b.stock - a.stock) // Ordenar por mayor stock estancado
-      .slice(0, 5);
+  // --- 8. TOP CLIENTES (LISTA DINÁMICA) ---
+  const topClientsList = useMemo(() => {
+    const clientMap: Record<string, number> = {};
 
-    // Métodos de Pago
-    const methodMap = new Map<string, number>();
     filteredSales.forEach(sale => {
-      const method = sale.paymentMethod || 'Efectivo';
-      methodMap.set(method, (methodMap.get(method) || 0) + sale.totalUSD);
+      // Si tiene clientId lo sumamos, si no lo ignoramos o lo ponemos como "Anónimo"
+      if (sale.clientId) {
+        clientMap[sale.clientId] = (clientMap[sale.clientId] || 0) + sale.totalUSD;
+      }
     });
-    const paymentMethodsStats = Array.from(methodMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([method, amount]) => ({ method, amount }));
 
-    const maxChartValue = Math.max(...chartData.map(d => d.value), 1);
+    // Convertir a array, ordenar y tomar Top 5
+    return Object.entries(clientMap)
+      .sort(([, amountA], [, amountB]) => amountB - amountA)
+      .slice(0, 5)
+      .map(([id, amount]) => ({
+        client: clients.find(c => c.id === id),
+        amount
+      }));
+  }, [filteredSales, clients]);
 
-    return { totalRevenue, ticketCount, averageTicket, chartData, maxChartValue, topProducts, coldProducts, paymentMethodsStats, rangeLabel };
-  }, [sales, timeRange, customStart, customEnd, products]);
-
-  // --- RENDERIZADO ---
   return (
-    <div className="p-4 md:p-8 space-y-6 md:space-y-8 bg-gray-50 min-h-screen w-full animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen animate-in fade-in duration-300">
 
-      {/* 1. ENCABEZADO Y TASAS */}
-      <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+      {/* HEADER & CONTROLES */}
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Centro de Control</h2>
-          <p className="text-gray-500 font-medium">Resumen operativo de <span className="text-red-600 font-bold">Todo en Ruedas</span>.</p>
-        </div>
-
-        {/* Widget de Tasas */}
-        <div className="flex items-center bg-white p-2 rounded-xl border border-gray-200 shadow-sm gap-4 divide-x divide-gray-100 w-full md:w-auto justify-between md:justify-start">
-          <div className="px-4 text-center">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Tasa BCV</p>
-            <p className="text-lg font-black text-gray-800">Bs. {settings.tasaBCV.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+          <h2 className="text-xl font-black text-gray-800 tracking-tight">Tablero de Control</h2>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs font-bold text-gray-400 uppercase">Tasa BCV:</span><span className="font-mono font-bold text-gray-800">Bs. {settings.tasaBCV}</span>
+            {settings.showMonitorRate && <><span className="text-gray-300">|</span><span className="text-xs font-bold text-gray-400 uppercase">Monitor:</span><span className="font-mono font-bold text-orange-500">Bs. {settings.tasaTH}</span></>}
           </div>
-          {settings.showMonitorRate && (
-            <>
-              <div className="px-4 text-center">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Monitor</p>
-                <p className="text-lg font-bold text-gray-600">Bs. {settings.tasaTH.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
-              </div>
-              <div className={`px-4 text-center rounded-lg py-1 ${brechaColor}`}>
-                <p className="text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1"><Percent size={10} /> Brecha</p>
-                <p className="text-lg font-bold">{brecha.toFixed(2)}%</p>
-              </div>
-            </>
+        </div>
+        <div className="flex flex-col md:flex-row gap-2 w-full xl:w-auto">
+          <div className="flex bg-gray-100 p-1 rounded-xl">
+            {['today', 'week', 'month', 'custom'].map((t) => (
+              <button key={t} onClick={() => setFilterType(t as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition ${filterType === t ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
+                {t === 'today' ? 'Hoy' : t === 'week' ? 'Semana' : t === 'month' ? 'Mes' : 'Rango'}
+              </button>
+            ))}
+          </div>
+          {filterType === 'custom' && (
+            <div className="flex gap-2 animate-in slide-in-from-right fade-in">
+              <input type="date" className="border rounded-lg px-2 text-xs bg-white font-bold text-gray-600" value={customStart} onChange={e => setCustomStart(e.target.value)} />
+              <input type="date" className="border rounded-lg px-2 text-xs bg-white font-bold text-gray-600" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+            </div>
           )}
         </div>
       </div>
 
-      {/* 2. KPI CARDS (TARJETAS PRINCIPALES) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      {/* --- FILA 1: KPIs FINANCIEROS --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-gray-900 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10"><DollarSign size={80} /></div>
+          <p className="text-xs text-gray-400 uppercase font-bold mb-1">Ventas ({filterType === 'today' ? 'Hoy' : filterType})</p>
+          <h3 className="text-3xl font-black">{formatCurrency(totalSalesPeriodUSD, 'USD')}</h3>
+          <p className="text-sm text-gray-400 mt-1">{filteredSales.length} operaciones</p>
+        </div>
+        <Link to="/accounts-receivable" className="bg-white p-6 rounded-2xl border border-orange-100 shadow-sm hover:shadow-md transition group relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10 text-orange-500 group-hover:scale-110 transition"><Wallet size={80} /></div>
+          <p className="text-xs text-orange-500 uppercase font-bold mb-1 flex items-center gap-1"><AlertTriangle size={12} /> Por Cobrar</p>
+          <h3 className="text-3xl font-black text-gray-800">{formatCurrency(totalReceivable, 'USD')}</h3>
+          <p className="text-xs text-gray-400 mt-1">Dinero pendiente</p>
+        </Link>
+        <Link to="/invoices" className="bg-white p-6 rounded-2xl border border-red-100 shadow-sm hover:shadow-md transition group relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10 text-red-500 group-hover:scale-110 transition"><TrendingDown size={80} /></div>
+          <p className="text-xs text-red-500 uppercase font-bold mb-1">Por Pagar</p>
+          <h3 className="text-3xl font-black text-gray-800">{formatCurrency(totalPayable, 'USD')}</h3>
+          <p className="text-xs text-gray-400 mt-1">Deuda a Proveedores</p>
+        </Link>
 
-        {/* Card: Caja Hoy */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group hover:border-red-200 transition-colors">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Caja Hoy</p>
-              <h3 className="text-2xl font-black text-gray-900 mt-1">{formatCurrency(todaysSalesTotal, 'USD')}</h3>
-            </div>
-            <div className="p-3 bg-red-50 text-red-600 rounded-xl group-hover:bg-red-600 group-hover:text-white transition-colors">
-              <DollarSign size={24} />
+        {/* Top Cliente (Tarjeta Resumen Compacta) */}
+        <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 flex flex-col justify-between">
+          <div>
+            <p className="text-xs text-blue-500 uppercase font-bold mb-1">Líder del Periodo</p>
+            <h3 className="text-lg font-black text-blue-900 truncate">
+              {topClientsList[0]?.client?.name || 'N/A'}
+            </h3>
+          </div>
+          <p className="text-2xl font-bold text-blue-600 self-end">
+            {topClientsList[0] ? formatCurrency(topClientsList[0].amount, 'USD') : '-'}
+          </p>
+        </div>
+      </div>
+
+      {/* --- FILA 2: PROYECCIÓN INVENTARIO (Azul) --- */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="absolute -right-10 -top-10 opacity-10"><Package size={200} /></div>
+        <div className="relative z-10 flex flex-col md:flex-row justify-between gap-8">
+          <div>
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><BarChart3 /> Proyección de Inventario</h3>
+            <div className="flex gap-8">
+              <div><p className="text-blue-200 text-xs uppercase font-bold mb-1">Costo Invertido</p><p className="text-2xl font-black">{formatCurrency(inventoryStats.invested, 'USD')}</p></div>
+              <div><p className="text-green-300 text-xs uppercase font-bold mb-1">Ganancia Estimada</p><p className="text-2xl font-black text-green-300">+{formatCurrency(inventoryStats.profit, 'USD')}</p></div>
             </div>
           </div>
-        </div>
-
-        {/* Card: Deuda Global */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 group hover:border-orange-200 transition-colors">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Deuda Global</p>
-              <h3 className="text-2xl font-black text-gray-800 mt-1">{formatCurrency(totalDebt, 'USD')}</h3>
-              <Link to="/invoices" className="text-xs text-orange-500 font-bold mt-2 block hover:underline">Ver facturas &rarr;</Link>
-            </div>
-            <div className="p-3 bg-orange-50 text-orange-600 rounded-xl group-hover:bg-orange-500 group-hover:text-white transition-colors">
-              <Wallet size={24} />
-            </div>
-          </div>
-        </div>
-
-        {/* Card: Inventario (Costo) */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 group hover:border-blue-200 transition-colors">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Inventario (Costo)</p>
-              <h3 className="text-2xl font-black text-gray-900 mt-1">{formatCurrency(inventoryCostUSD, 'USD')}</h3>
-              <Link to="/inventory" className="text-xs text-blue-500 font-bold mt-2 block hover:underline">Ver inventario &rarr;</Link>
-            </div>
-            <div className="p-3 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
-              <Package size={24} />
-            </div>
-          </div>
-        </div>
-
-        {/* Card: Ganancia Estimada */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 group hover:border-green-200 transition-colors">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Ganancia Est.</p>
-              <h3 className="text-2xl font-black text-green-600 mt-1">{formatCurrency(potentialProfit, 'USD')}</h3>
-              <p className="text-xs text-gray-400 font-bold">{marginPercentage.toFixed(0)}% Margen Promedio</p>
-            </div>
-            <div className="p-3 bg-green-50 text-green-600 rounded-xl group-hover:bg-green-600 group-hover:text-white transition-colors">
-              <TrendingUp size={24} />
-            </div>
+          <div className="bg-white/10 rounded-2xl p-4 border border-white/10 min-w-[200px] text-center">
+            <p className="text-blue-100 text-xs uppercase font-bold mb-1">Total Venta Potencial</p>
+            <p className="text-3xl font-black">{formatCurrency(inventoryStats.revenue, 'USD')}</p>
           </div>
         </div>
       </div>
 
-      {/* 3. SECCIONES DE DETALLE (Alertas y Analítica) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* --- FILA 3: ALERTAS, PRODUCTOS Y CLIENTES --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
-        {/* COLUMNA IZQUIERDA: ALERTAS (2/3 del ancho en pantallas grandes) */}
-        <div className="lg:col-span-2 space-y-8">
-
-          {/* Analítica de Ventas */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 border-b border-gray-100 pb-4">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2 text-lg">
-                <BarChart3 size={24} className="text-red-600" /> Analítica: <span className="text-red-600 underline">{analyticsData.rangeLabel}</span>
-              </h3>
-
-              {/* Filtros de Tiempo */}
-              <div className="flex bg-gray-100 p-1 rounded-xl">
-                <button onClick={() => setTimeRange('today')} className={`px-4 py-2 text-xs font-bold rounded-lg transition ${timeRange === 'today' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:text-gray-700'}`}>Hoy</button>
-                <button onClick={() => setTimeRange('week')} className={`px-4 py-2 text-xs font-bold rounded-lg transition ${timeRange === 'week' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:text-gray-700'}`}>Semana</button>
-                <button onClick={() => setTimeRange('month')} className={`px-4 py-2 text-xs font-bold rounded-lg transition ${timeRange === 'month' ? 'bg-white shadow text-red-600' : 'text-gray-500 hover:text-gray-700'}`}>Mes</button>
-              </div>
-            </div>
-
-            {/* Contenido Dinámico */}
-            {timeRange === 'today' ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <p className="text-xs text-gray-500 font-bold uppercase">Tickets</p>
-                  <p className="text-2xl font-black text-gray-800">{analyticsData.ticketCount}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <p className="text-xs text-gray-500 font-bold uppercase">Ticket Prom.</p>
-                  <p className="text-2xl font-black text-gray-800">{formatCurrency(analyticsData.averageTicket, 'USD')}</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                  <p className="text-xs text-gray-500 font-bold uppercase">Método Top</p>
-                  <p className="text-lg font-bold text-gray-800 truncate">{analyticsData.paymentMethodsStats[0]?.method || '-'}</p>
-                </div>
-              </div>
+        {/* COLUMNA 1: ALERTAS DE STOCK */}
+        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full ring-2 ring-red-50">
+          <div className="p-4 border-b border-red-50 bg-red-50/30 flex items-center justify-between">
+            <h4 className="font-bold text-red-800 text-sm flex items-center gap-2"><AlertOctagon size={16} /> Atención Inmediata</h4>
+            <Link to="/inventory" className="text-[10px] font-bold text-red-600 hover:underline">Gestionar</Link>
+          </div>
+          <div className="flex-1 p-0 overflow-y-auto max-h-[300px] custom-scrollbar">
+            {outOfStock.length === 0 && lowStock.length === 0 ? (
+              <p className="text-center text-gray-400 text-xs py-10">¡Todo en orden! Inventario saludable.</p>
             ) : (
-              // Gráfico de Barras Simple
-              <div className="h-48 flex items-end gap-2 border-b border-gray-100 pb-2">
-                {analyticsData.chartData.map((d, i) => (
-                  <div key={i} className="flex-1 flex flex-col justify-end h-full group relative">
-                    <div
-                      className="w-full bg-red-400 rounded-t-sm hover:bg-red-600 transition-all"
-                      style={{ height: `${(d.value / analyticsData.maxChartValue) * 100}%`, minHeight: '4px' }}
-                    ></div>
-                    <p className="text-center text-[10px] text-gray-400 mt-1 truncate">{d.label}</p>
+              <>
+                {outOfStock.map(p => (
+                  <div key={p.id} className="flex justify-between items-center p-3 border-b border-gray-50 bg-red-50/10">
+                    <div className="min-w-0 pr-2"><p className="text-xs font-bold text-gray-700 truncate">{p.name}</p><p className="text-[10px] text-red-500 font-bold">AGOTADO</p></div><span className="text-xs font-mono text-gray-400">{p.sku}</span>
                   </div>
                 ))}
-              </div>
+                {lowStock.map(p => (
+                  <div key={p.id} className="flex justify-between items-center p-3 border-b border-gray-50 hover:bg-gray-50">
+                    <div className="min-w-0 pr-2"><p className="text-xs font-bold text-gray-700 truncate">{p.name}</p><p className="text-[10px] text-orange-500 font-bold">Quedan: {p.stock}</p></div><div className="text-right"><span className="block text-[10px] text-gray-400">Min: {p.minStock}</span></div>
+                  </div>
+                ))}
+              </>
             )}
           </div>
-
-          {/* Análisis de Inventario */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Top Ventas */}
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 mb-4 text-orange-600 font-bold uppercase text-xs">
-                <Flame size={16} /> Más Vendidos
-              </div>
-              <ul className="space-y-2">
-                {analyticsData.topProducts.map((p, i) => (
-                  <li key={i} className="flex justify-between items-center text-sm p-2 hover:bg-gray-50 rounded-lg transition">
-                    <span className="text-gray-700 truncate font-medium">{p.name}</span>
-                    <span className="bg-orange-100 text-orange-800 text-xs font-bold px-2 py-1 rounded-md">{p.qty}</span>
-                  </li>
-                ))}
-                {analyticsData.topProducts.length === 0 && <p className="text-gray-400 text-xs italic text-center py-4">Sin datos recientes.</p>}
-              </ul>
-            </div>
-
-            {/* Huesos (Fríos) */}
-            <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-              <div className="flex items-center gap-2 mb-4 text-blue-600 font-bold uppercase text-xs">
-                <Snowflake size={16} /> Productos Fríos
-              </div>
-              <ul className="space-y-2">
-                {analyticsData.coldProducts.map((p, i) => (
-                  <li key={i} className="flex justify-between items-center text-sm p-2 hover:bg-gray-50 rounded-lg transition">
-                    <span className="text-gray-700 truncate font-medium">{p.name}</span>
-                    <span className="text-gray-400 text-xs">{p.stock} un.</span>
-                  </li>
-                ))}
-                {analyticsData.coldProducts.length === 0 && <p className="text-gray-400 text-xs italic text-center py-4">Inventario sano.</p>}
-              </ul>
-            </div>
-          </div>
-
         </div>
 
-        {/* COLUMNA DERECHA: PENDIENTES */}
-        <div className="space-y-6">
-
-          {/* Facturas por Pagar (Urgentes) */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2"><Clock size={20} className="text-red-500" /> Compromisos</h3>
-              <span className="text-xs font-bold bg-red-100 text-red-700 px-2 py-1 rounded-full">Total: {formatCurrency(totalDueThisMonth, 'USD')}</span>
-            </div>
-
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-3 max-h-[400px]">
-              {dueInvoices.length === 0 ? (
-                <div className="text-center py-10 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  <p className="text-gray-400 text-sm">¡Todo al día! 🎉</p>
-                </div>
-              ) : (
-                dueInvoices.map(inv => {
-                  const invDate = new Date(inv.dateDue);
-                  const isOverdue = invDate < todayDate;
-                  return (
-                    <div
-                      key={inv.id}
-                      onClick={() => navigate('/invoices', { state: { openInvoiceId: inv.id } })}
-                      className={`p-3 border rounded-xl cursor-pointer transition group ${isOverdue ? 'border-red-200 bg-red-50 hover:bg-red-100' : 'border-gray-100 hover:bg-gray-50'}`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="font-bold text-gray-800 text-xs group-hover:text-red-700">{inv.supplier}</p>
-                          <p className={`text-[10px] font-bold flex items-center gap-1 mt-1 ${isOverdue ? 'text-red-600' : 'text-orange-500'}`}>
-                            {isOverdue ? <AlertTriangle size={10} /> : <Calendar size={10} />}
-                            {isOverdue ? 'VENCIDA: ' : 'Vence: '} {invDate.toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-black text-gray-900 text-sm">{formatCurrency(inv.totalUSD - inv.paidAmountUSD, 'USD')}</p>
-                          <p className="text-[9px] text-gray-400 font-mono">#{inv.number}</p>
-                        </div>
-                      </div>
+        {/* COLUMNA 2: TOP CLIENTES (MODIFICADO: AHORA ES LISTA) */}
+        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
+          <div className="p-4 border-b border-gray-50 flex items-center gap-2">
+            <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg"><Users size={16} /></div>
+            <h4 className="font-bold text-gray-800 text-sm">Mejores Clientes</h4>
+          </div>
+          <div className="flex-1 p-2">
+            {topClientsList.length === 0 ? (
+              <p className="text-center text-gray-400 text-xs py-8">Sin ventas a registrados.</p>
+            ) : (
+              topClientsList.map((item, i) => (
+                <div key={i} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg transition">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="bg-blue-50 text-blue-600 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black">{i + 1}</div>
+                    <div>
+                      <p className="text-xs font-bold text-gray-700 truncate w-24">{item.client?.name || 'Desc.'}</p>
+                      <p className="text-[9px] text-gray-400">{item.client?.rif || 'N/A'}</p>
                     </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Stock Bajo */}
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2"><AlertTriangle size={20} className="text-orange-500" /> Reponer Stock</h3>
-              <span className="text-xs px-2 py-1 bg-orange-100 text-orange-600 rounded-full font-bold">{lowStockProducts.length}</span>
-            </div>
-            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-              {lowStockProducts.map(p => (
-                <div key={p.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <div className={`w-1.5 h-8 rounded-full ${p.stock === 0 ? 'bg-red-500' : 'bg-orange-400'}`}></div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-gray-700 truncate">{p.name}</p>
-                    <p className="text-[10px] text-gray-400">Min: {p.minStock}</p>
                   </div>
-                  <div className="text-right">
-                    <span className={`text-sm font-bold ${p.stock === 0 ? 'text-red-600' : 'text-orange-600'}`}>{p.stock}</span>
-                  </div>
+                  <span className="text-xs font-bold text-gray-800">{formatCurrency(item.amount, 'USD')}</span>
                 </div>
-              ))}
-              {lowStockProducts.length === 0 && <p className="text-center text-gray-400 text-xs py-4">Inventario óptimo.</p>}
-            </div>
+              ))
+            )}
           </div>
+        </div>
 
+        {/* COLUMNA 3: MÁS VENDIDOS */}
+        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
+          <div className="p-4 border-b border-gray-50 flex items-center gap-2">
+            <div className="p-1.5 bg-green-100 text-green-700 rounded-lg"><ArrowUpRight size={16} /></div>
+            <h4 className="font-bold text-gray-800 text-sm">Más Vendidos</h4>
+          </div>
+          <div className="flex-1 p-2">
+            {productPerformance.bestSellers.filter(p => p.soldQuantity > 0).length === 0 ? (
+              <p className="text-center text-gray-400 text-xs py-8">Sin datos.</p>
+            ) : (
+              productPerformance.bestSellers.filter(p => p.soldQuantity > 0).map((p, i) => (
+                <div key={p.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg transition">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-black text-gray-300 w-3">#{i + 1}</span>
+                    <div><p className="text-xs font-bold text-gray-700 truncate w-24">{p.name}</p><p className="text-[9px] text-gray-400">{p.soldQuantity} un.</p></div>
+                  </div>
+                  <span className="text-xs font-bold text-green-600">{formatCurrency(p.soldQuantity * calculatePrices(p, settings).finalPriceUSD, 'USD')}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* COLUMNA 4: HUESOS */}
+        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
+          <div className="p-4 border-b border-gray-50 flex items-center gap-2">
+            <div className="p-1.5 bg-gray-100 text-gray-700 rounded-lg"><ArrowDownRight size={16} /></div>
+            <h4 className="font-bold text-gray-800 text-sm">Menos Vendidos</h4>
+          </div>
+          <div className="flex-1 p-2">
+            {productPerformance.worstSellers.length === 0 ? (
+              <p className="text-center text-gray-400 text-xs py-8">Todo se mueve.</p>
+            ) : (
+              productPerformance.worstSellers.map((p) => (
+                <div key={p.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg transition">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-gray-700 truncate w-24">{p.name}</p>
+                    <p className="text-[9px] bg-red-50 text-red-600 px-1 rounded inline-block">Stock: {p.stock}</p>
+                  </div>
+                  <Link to="/inventory" className="text-[9px] font-bold text-blue-600 hover:underline">Ver</Link>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
       </div>
