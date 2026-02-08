@@ -72,7 +72,7 @@ src/
 │   └── ticketGenerator.ts # Generación de HTML para impresión
 ├── App.tsx           # Configuración de Rutas
 └── main.tsx          # Punto de entrada
-
+```
 ## 🚀 Instalación y Despliegue
 
 Sigue estos pasos para correr el proyecto en tu computadora:
