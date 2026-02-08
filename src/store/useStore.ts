@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import type { Product, CartItem, Sale, Invoice, Payment, AppSettings, Supplier, PaymentMethod, Client, SaleStatus } from '../types';
+// La clave aquí es "import type" para evitar el error de verbatimModuleSyntax
+import type {
+  Product, CartItem, Sale, Invoice, Payment, AppSettings,
+  Supplier, PaymentMethod, Client, SaleStatus, PaymentStatus
+} from '../types';
 
 interface StoreState {
   settings: AppSettings;
@@ -27,12 +31,10 @@ interface StoreState {
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
 
-  // MODIFICADO: Ahora acepta initialPayment
   completeSale: (paymentMethod: string, clientId?: string, initialPayment?: number) => void;
 
   annulSale: (saleId: string) => void;
 
-  // NUEVO: Para cobrar cuentas por cobrar
   registerSalePayment: (saleId: string, payment: Payment) => void;
 
   addInvoice: (invoice: Invoice) => boolean;
@@ -70,7 +72,7 @@ export const useStore = create<StoreState>()(
         { id: '2', name: 'Pago Móvil', currency: 'BS' },
         { id: '3', name: 'Zelle', currency: 'USD' },
         { id: '4', name: 'Punto de Venta', currency: 'BS' },
-        { id: '5', name: 'Crédito / Fiado', currency: 'USD' } // Opcional, por si se usa directo
+        { id: '5', name: 'Crédito / Fiado', currency: 'USD' }
       ],
 
       updateSettings: (newSettings) => set({ settings: newSettings }),
@@ -120,14 +122,13 @@ export const useStore = create<StoreState>()(
       })),
       clearCart: () => set({ cart: [] }),
 
-      // --- LÓGICA DE VENTA ACTUALIZADA (Soporte Crédito) ---
+      // --- VENTAS ---
       completeSale: (paymentMethod, clientId, initialPayment) => {
         const { cart, settings, products } = get();
         const totalUSD = cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0);
         const totalVED = totalUSD * settings.tasaBCV;
 
-        // Validar cuánto se pagó realmente
-        // Si no se especifica initialPayment, asumimos que pagó TODO (Contado)
+        // Si no hay initialPayment definido, es una venta de Contado (paga todo)
         const paidAmount = initialPayment !== undefined ? initialPayment : totalUSD;
 
         let status: SaleStatus = 'COMPLETED';
@@ -150,7 +151,7 @@ export const useStore = create<StoreState>()(
             amountUSD: paidAmount,
             method: paymentMethod,
             note: 'Pago Inicial / Contado'
-          }] : [], // Si no pagó nada, lista vacía
+          }] : [],
           items: cart.map(item => ({
             sku: item.sku,
             name: item.name,
@@ -195,7 +196,6 @@ export const useStore = create<StoreState>()(
         }));
       },
 
-      // --- NUEVO: Registrar abono a cuenta por cobrar ---
       registerSalePayment: (saleId, payment) => set(state => {
         const sale = state.sales.find(s => s.id === saleId);
         if (!sale) return {};
@@ -218,12 +218,13 @@ export const useStore = create<StoreState>()(
         };
       }),
 
-      // --- Facturas de Proveedores ---
+      // --- COMPRAS (FACTURAS PROVEEDORES) ---
       addInvoice: (invoice) => {
         set((state) => {
           const updatedProducts = [...state.products];
           const updatedSuppliers = [...state.suppliers];
           let supplierIndex = updatedSuppliers.findIndex(s => s.name.toLowerCase() === invoice.supplier.toLowerCase());
+
           if (supplierIndex === -1) {
             updatedSuppliers.push({ id: Date.now().toString(), name: invoice.supplier, catalog: [] });
             supplierIndex = updatedSuppliers.length - 1;
@@ -254,10 +255,15 @@ export const useStore = create<StoreState>()(
                 freight: 0
               });
             }
+
+            // Actualizar catálogo proveedor
             const catalog = updatedSuppliers[supplierIndex].catalog;
             const catalogItemIndex = catalog.findIndex(c => c.sku === item.sku);
-            if (catalogItemIndex >= 0) catalog[catalogItemIndex].lastCost = item.costUnitUSD;
-            else catalog.push({ sku: item.sku, name: item.name, lastCost: item.costUnitUSD });
+            if (catalogItemIndex >= 0) {
+              catalog[catalogItemIndex].lastCost = item.costUnitUSD;
+            } else {
+              catalog.push({ sku: item.sku, name: item.name, lastCost: item.costUnitUSD });
+            }
           });
 
           return {
@@ -276,17 +282,30 @@ export const useStore = create<StoreState>()(
       registerPayment: (invoiceId, payment) => set(state => {
         const invoice = state.invoices.find(i => i.id === invoiceId);
         if (!invoice) return {};
+
         const newPaidAmount = invoice.paidAmountUSD + payment.amountUSD;
-        let newStatus: any = invoice.status; // Usamos any temporal por compatibilidad de tipos PaymentStatus
+        // CORRECCIÓN: Usamos PaymentStatus explícito en lugar de any
+        let newStatus: PaymentStatus = invoice.status;
+
         if (newPaidAmount >= invoice.totalUSD - 0.01) newStatus = 'PAID';
         else if (newPaidAmount > 0) newStatus = 'PARTIAL';
-        const updatedInvoice = { ...invoice, paidAmountUSD: newPaidAmount, status: newStatus, payments: [...invoice.payments, payment] };
-        return { invoices: state.invoices.map(i => i.id === invoiceId ? updatedInvoice : i) };
+
+        const updatedInvoice = {
+          ...invoice,
+          paidAmountUSD: newPaidAmount,
+          status: newStatus,
+          payments: [...invoice.payments, payment]
+        };
+
+        return {
+          invoices: state.invoices.map(i => i.id === invoiceId ? updatedInvoice : i)
+        };
       }),
 
       addPaymentMethod: (name, currency) => set(state => ({
         paymentMethods: [...state.paymentMethods, { id: Date.now().toString(), name, currency }]
       })),
+
       deletePaymentMethod: (id) => set(state => ({
         paymentMethods: state.paymentMethods.filter(pm => pm.id !== id)
       }))
