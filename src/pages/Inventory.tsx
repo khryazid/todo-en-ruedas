@@ -9,7 +9,7 @@ import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
 import {
   Search, Plus, Package, Edit, Trash2, FileText, X, CheckCircle,
-  Truck, History, RefreshCw, AlertTriangle, AlertOctagon, Save
+  Truck, History, AlertTriangle, AlertOctagon, Save
 } from 'lucide-react';
 import type { Product, Invoice, IncomingItem, CostType, PaymentStatus } from '../types';
 
@@ -48,10 +48,10 @@ export const Inventory = () => {
   };
   const [productForm, setProductForm] = useState<Product>(initialProductState);
 
-  // --- FILTRADO ---
+  // --- FILTRADO BLINDADO ---
   const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.sku.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // --- LÓGICA DE FACTURACIÓN ---
@@ -75,8 +75,8 @@ export const Inventory = () => {
     let finalStatus: PaymentStatus = 'PENDING';
     const finalPaidAmount = invoiceHeader.initialPayment;
 
+    // Si la selección es CONTADO, forzamos estado PAID y fechas iguales
     if (invoiceHeader.status === 'PAID') {
-      // Si marcó contado, se asume pagado total
       finalStatus = 'PAID';
     } else if (finalPaidAmount >= (total - 0.01)) {
       finalStatus = 'PAID';
@@ -89,7 +89,7 @@ export const Inventory = () => {
       number: invoiceHeader.number,
       supplier: invoiceHeader.supplier,
       dateIssue: invoiceHeader.dateIssue,
-      dateDue: invoiceHeader.dateDue,
+      dateDue: invoiceHeader.status === 'PAID' ? invoiceHeader.dateIssue : invoiceHeader.dateDue, // Si es contado, vence el mismo día
       status: finalStatus,
       costType: invoiceHeader.costType,
       items: invoiceItems,
@@ -97,12 +97,12 @@ export const Inventory = () => {
       freightTotalUSD: invoiceHeader.freight,
       totalUSD: total,
       paidAmountUSD: invoiceHeader.status === 'PAID' ? total : finalPaidAmount,
-      payments: finalPaidAmount > 0 ? [{
+      payments: (invoiceHeader.status === 'PAID' || finalPaidAmount > 0) ? [{
         id: Date.now().toString(),
         date: invoiceHeader.dateIssue,
-        amountUSD: finalPaidAmount,
+        amountUSD: invoiceHeader.status === 'PAID' ? total : finalPaidAmount,
         method: 'Inicial',
-        note: 'Abono carga inicial'
+        note: invoiceHeader.status === 'PAID' ? 'Pago de Contado' : 'Abono carga inicial'
       }] : []
     };
 
@@ -125,7 +125,6 @@ export const Inventory = () => {
       costUnitUSD: tempItem.cost,
       minStock: tempItem.minStock
     }]);
-    // Resetear solo campos variables, mantener SKU/Nombre si quiere cargar variantes? No, mejor limpiar todo.
     setTempItem({ sku: '', name: '', quantity: 1, cost: 0, minStock: 5 });
   };
 
@@ -149,7 +148,6 @@ export const Inventory = () => {
     if (window.confirm('¿Borrar producto del sistema? Esta acción no se puede deshacer.')) deleteProduct(id);
   };
 
-  // Autocompletar datos si el SKU ya existe en sistema
   const handleSkuBlur = () => {
     const existing = products.find(p => p.sku === tempItem.sku);
     if (existing) {
@@ -253,7 +251,7 @@ export const Inventory = () => {
         </div>
       </div>
 
-      {/* --- MODAL 1: EDICIÓN RÁPIDA --- */}
+      {/* --- MODAL 1: EDICIÓN RÁPIDA DE PRODUCTO --- */}
       {isProductModalOpen && editingProduct && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
@@ -303,7 +301,7 @@ export const Inventory = () => {
         </div>
       )}
 
-      {/* --- MODAL 2: CARGA FACTURA (COMPLEJA) --- */}
+      {/* --- MODAL 2: CARGA FACTURA (COMPRA) --- */}
       {isInvoiceModalOpen && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 md:p-4 backdrop-blur-sm animate-in zoom-in-95">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden">
@@ -326,9 +324,13 @@ export const Inventory = () => {
                   <div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-500 uppercase">Proveedor</label><input list="supplier-list-invoice" className="w-full border rounded-lg p-2 mt-1 bg-white font-bold" placeholder="Selecciona o Escribe..." value={invoiceHeader.supplier} onChange={e => setInvoiceHeader({ ...invoiceHeader, supplier: e.target.value })} /><datalist id="supplier-list-invoice">{suppliers.map(s => <option key={s.id} value={s.name} />)}</datalist></div>
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">Tasa de Costo</label><select className="w-full border rounded-lg p-2 mt-1 bg-white font-bold text-gray-700" value={invoiceHeader.costType} onChange={e => setInvoiceHeader({ ...invoiceHeader, costType: e.target.value as CostType })}><option value="BCV">Tasa BCV</option><option value="TH">Tasa Monitor</option></select></div>
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-blue-100">
-                  <div><label className="text-[10px] font-bold text-gray-500 uppercase">Fecha Emisión</label><input type="date" className="w-full border rounded-lg p-2 mt-1 bg-white" value={invoiceHeader.dateIssue} onChange={e => setInvoiceHeader({ ...invoiceHeader, dateIssue: e.target.value })} /></div>
-                  <div><label className="text-[10px] font-bold text-red-500 uppercase">Vencimiento</label><input type="date" className="w-full border rounded-lg p-2 mt-1 bg-white border-red-200" value={invoiceHeader.dateDue} onChange={e => setInvoiceHeader({ ...invoiceHeader, dateDue: e.target.value })} /></div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Fecha Emisión</label>
+                    <input type="date" className="w-full border rounded-lg p-2 mt-1 bg-white" value={invoiceHeader.dateIssue} onChange={e => setInvoiceHeader({ ...invoiceHeader, dateIssue: e.target.value })} />
+                  </div>
+
                   <div>
                     <label className="text-[10px] font-bold text-gray-500 uppercase">Condición</label>
                     <div className="flex bg-white rounded-lg border overflow-hidden mt-1 shadow-sm">
@@ -336,11 +338,19 @@ export const Inventory = () => {
                       <button onClick={() => setInvoiceHeader({ ...invoiceHeader, status: 'PENDING' })} className={`flex-1 py-2 text-xs font-bold transition ${invoiceHeader.status === 'PENDING' ? 'bg-red-100 text-red-700' : 'text-gray-400 hover:bg-gray-50'}`}>CRÉDITO</button>
                     </div>
                   </div>
+
+                  {/* VENCIMIENTO Y ABONO: Solo visibles si es CRÉDITO (PENDING) */}
                   {invoiceHeader.status === 'PENDING' && (
-                    <div className="animate-in fade-in">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase">Abono Inicial ($)</label>
-                      <input type="number" className="w-full border rounded-lg p-2 mt-1 bg-white font-bold text-green-700" value={invoiceHeader.initialPayment || ''} onChange={e => setInvoiceHeader({ ...invoiceHeader, initialPayment: parseFloat(e.target.value) || 0 })} placeholder="0.00" />
-                    </div>
+                    <>
+                      <div className="animate-in fade-in">
+                        <label className="text-[10px] font-bold text-red-500 uppercase">Vencimiento</label>
+                        <input type="date" className="w-full border rounded-lg p-2 mt-1 bg-white border-red-200" value={invoiceHeader.dateDue} onChange={e => setInvoiceHeader({ ...invoiceHeader, dateDue: e.target.value })} />
+                      </div>
+                      <div className="animate-in fade-in">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase">Abono Inicial ($)</label>
+                        <input type="number" className="w-full border rounded-lg p-2 mt-1 bg-white font-bold text-green-700" value={invoiceHeader.initialPayment || ''} onChange={e => setInvoiceHeader({ ...invoiceHeader, initialPayment: parseFloat(e.target.value) || 0 })} placeholder="0.00" />
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
