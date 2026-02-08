@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Scrollbar Personalizado (Opcional, pero se ve bien) */
+/* --- 1. PERSONALIZACIÓN DEL SCROLLBAR --- */
+/* Un toque sutil para que se vea profesional en listas largas */
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -14,18 +15,24 @@
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background-color: #cbd5e1;
+    /* Gris suave */
     border-radius: 20px;
 }
 
-/* === ESTILOS PARA IMPRESIÓN TÉRMICA === */
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+    /* Gris un poco más oscuro al pasar el mouse */
+}
+
+/* --- 2. LÓGICA DE IMPRESIÓN (CRÍTICO PARA TICKETS) --- */
 @media print {
 
-    /* Ocultar TODO lo que no sea el ticket */
+    /* Ocultar TODO el contenido de la app por defecto */
     body * {
         visibility: hidden;
     }
 
-    /* Mostrar SOLO el área de impresión generada */
+    /* Mostrar SOLO el área de impresión (generada por ticketGenerator.ts) */
     #print-area,
     #print-area * {
         visibility: visible;
@@ -40,16 +47,9 @@
         padding: 0;
     }
 
-    /* Eliminar encabezados y pies de página automáticos del navegador */
+    /* Eliminar encabezados/pies de página automáticos del navegador */
     @page {
         size: auto;
         margin: 0mm;
-    }
-
-    /* Forzar fuente monoespaciada para alineación perfecta de números */
-    body {
-        background-color: white;
-        color: black;
-        font-family: 'Courier New', Courier, monospace;
     }
 }
