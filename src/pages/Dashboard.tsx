@@ -1,7 +1,7 @@
 /**
  * @file Dashboard.tsx
  * @description Centro de Comando Completo.
- * Incluye: KPIs, Proyección Financiera, ALERTAS DE STOCK y LISTA DE TOP CLIENTES (Actualizado).
+ * Corrección: Eliminadas comparaciones de tipo redundantes en TypeScript.
  */
 
 import { useState, useMemo } from 'react';
@@ -58,9 +58,10 @@ export const Dashboard = () => {
   const filteredSales = sales.filter(s => s.status !== 'CANCELLED' && isDateInScope(s.date));
   const totalSalesPeriodUSD = filteredSales.reduce((acc, s) => acc + s.totalUSD, 0);
 
-  // --- 4. KPIs GLOBALES ---
+  // --- 4. KPIs GLOBALES (CORREGIDO) ---
+  // Se eliminó la verificación de !== 'CANCELLED' porque PENDING y PARTIAL ya lo excluyen.
   const totalReceivable = sales
-    .filter(s => (s.status === 'PENDING' || s.status === 'PARTIAL') && s.status !== 'CANCELLED')
+    .filter(s => (s.status === 'PENDING' || s.status === 'PARTIAL'))
     .reduce((acc, s) => acc + (s.totalUSD - s.paidAmountUSD), 0);
 
   const totalPayable = invoices
@@ -104,13 +105,11 @@ export const Dashboard = () => {
     const clientMap: Record<string, number> = {};
 
     filteredSales.forEach(sale => {
-      // Si tiene clientId lo sumamos, si no lo ignoramos o lo ponemos como "Anónimo"
       if (sale.clientId) {
         clientMap[sale.clientId] = (clientMap[sale.clientId] || 0) + sale.totalUSD;
       }
     });
 
-    // Convertir a array, ordenar y tomar Top 5
     return Object.entries(clientMap)
       .sort(([, amountA], [, amountB]) => amountB - amountA)
       .slice(0, 5)

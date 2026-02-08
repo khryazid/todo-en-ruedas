@@ -1,15 +1,14 @@
 /**
  * @file AccountsReceivable.tsx
  * @description Gestión de Cuentas por Cobrar (Fiados).
- * Permite visualizar deudas de clientes y registrar abonos.
+ * Corrección: Eliminada comparación redundante de tipos.
  */
 
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import {
-    Users, Search, DollarSign, Calendar, CheckCircle,
-    TrendingUp, Wallet, X, AlertCircle, History
+    Users, Search, TrendingUp, Wallet, X, CheckCircle
 } from 'lucide-react';
 import type { Payment } from '../types';
 
@@ -26,9 +25,10 @@ export const AccountsReceivable = () => {
     const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0]?.name || 'Efectivo');
     const [paymentNote, setPaymentNote] = useState('');
 
-    // 1. FILTRAR VENTAS CON DEUDA (PENDING o PARTIAL)
+    // --- CORRECCIÓN AQUÍ: Quitamos "&& s.status !== 'CANCELLED'" ---
+    // Al filtrar por PENDING o PARTIAL, implícitamente ya excluimos CANCELLED.
     const pendingSales = sales.filter(s =>
-        (s.status === 'PENDING' || s.status === 'PARTIAL') && s.status !== 'CANCELLED'
+        (s.status === 'PENDING' || s.status === 'PARTIAL')
     ).filter(s => {
         const client = clients.find(c => c.id === s.clientId);
         const name = client?.name.toLowerCase() || 'anónimo';
