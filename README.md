@@ -73,32 +73,74 @@ src/
 ├── App.tsx           # Configuración de Rutas
 └── main.tsx          # Punto de entrada
 
-Instalación y Despliegue
-Requisitos Previos
-Node.js (v16 o superior)
+## 🚀 Instalación y Despliegue
 
-npm o yarn
+Sigue estos pasos para correr el proyecto en tu computadora:
 
-Pasos para Ejecutar
-Clonar el repositorio:
+### Requisitos Previos
+* **Node.js** (Versión 16 o superior)
+* **npm** (viene con Node.js) o **yarn**
 
-Bash
-git clone [https://github.com/tu-usuario/todo-en-ruedas.git](https://github.com/tu-usuario/todo-en-ruedas.git)
-Instalar dependencias:
+### Pasos para Ejecutar Localmente
 
-Bash
-npm install
-Iniciar en modo desarrollo:
+1.  **Clonar el repositorio:**
+    ```bash
+    git clone [https://github.com/tu-usuario/todo-en-ruedas.git](https://github.com/tu-usuario/todo-en-ruedas.git)
+    cd todo-en-ruedas
+    ```
 
-Bash
-npm run dev
-Compilar para producción:
+2.  **Instalar dependencias:**
+    Descarga las librerías necesarias (React, Vite, Tailwind, etc.).
+    ```bash
+    npm install
+    ```
 
-Bash
-npm run build
-💾 Copias de Seguridad (Backup)
-Dado que el sistema es "Local-First" (los datos residen en el dispositivo del usuario), se implementó un sistema de respaldo manual en la sección Configuración:
+3.  **Iniciar en modo desarrollo:**
+    Esto abrirá la app en `http://localhost:5173` para que puedas programar y ver cambios en vivo.
+    ```bash
+    npm run dev
+    ```
 
-Exportar: Genera un archivo .json con toda la base de datos (Ventas, Productos, Configuración).
+4.  **Compilar para Producción:**
+    Cuando quieras subir la app a un hosting (como Vercel o Netlify), ejecuta:
+    ```bash
+    npm run build
+    ```
+    Esto creará una carpeta `/dist` optimizada y ligera.
 
-Importar: Permite restaurar el sistema en otro dispositivo o tras borrar el caché del navegador.
+---
+
+## 💾 Copias de Seguridad (Backup)
+
+⚠️ **IMPORTANTE:** Esta aplicación es **"Local-First"**.
+Esto significa que los datos (ventas, inventario, configuración) se guardan en el **Navegador (LocalStorage)** de la computadora donde se usa. **NO** hay una base de datos en la nube (por ahora).
+
+**Protocolo de Seguridad:**
+1.  Ve a la sección **Configuración** (`/settings`).
+2.  Haz clic en **"Descargar Respaldo"**.
+3.  Guarda el archivo `.json` en un pendrive o en la nube (Google Drive/Dropbox) diariamente.
+4.  Si cambias de computadora o se borra el caché, usa **"Restaurar Copia"** con ese archivo.
+
+---
+
+## 📄 Licencia y Derechos
+
+Este proyecto es software propietario desarrollado exclusivamente para **Todo en Ruedas C.A.**
+
+* **Desarrollador:** Khristian Ali
+* **Año:** 2025
+* **Uso:** Prohibida su distribución o venta sin autorización.
+
+---
+
+### 🐜 Solución de Problemas (Troubleshooting)
+
+**Error: "Pantalla Blanca" al imprimir en celular**
+* **Solución:** Asegúrate de tener habilitadas las "Ventanas Emergentes" (Pop-ups) en el navegador de tu móvil. El sistema usa una pestaña nueva temporal para garantizar que el ticket se renderice correctamente antes de imprimir.
+
+**Error: `npm run build` falla por variables no usadas**
+* **Solución:** Revisa tu archivo `tsconfig.json` y asegúrate de tener estas reglas en `compilerOptions`:
+    ```json
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+    ```
