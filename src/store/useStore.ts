@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-// La clave aquí es "import type" para evitar el error de verbatimModuleSyntax
 import type {
   Product, CartItem, Sale, Invoice, Payment, AppSettings,
   Supplier, PaymentMethod, Client, SaleStatus, PaymentStatus
@@ -43,6 +42,9 @@ interface StoreState {
 
   addPaymentMethod: (name: string, currency: 'USD' | 'BS') => void;
   deletePaymentMethod: (id: string) => void;
+
+  // NUEVO: Acción para cerrar caja
+  performDailyClose: () => void;
 }
 
 export const useStore = create<StoreState>()(
@@ -57,6 +59,7 @@ export const useStore = create<StoreState>()(
         tasaTH: 70.00,
         showMonitorRate: true,
         lastUpdated: new Date().toISOString(),
+        lastCloseDate: new Date(0).toISOString(), // FECHA INICIAL (AÑO 1970)
         defaultMargin: 30,
         defaultVAT: 16,
         printerCurrency: 'BS'
@@ -128,7 +131,6 @@ export const useStore = create<StoreState>()(
         const totalUSD = cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0);
         const totalVED = totalUSD * settings.tasaBCV;
 
-        // Si no hay initialPayment definido, es una venta de Contado (paga todo)
         const paidAmount = initialPayment !== undefined ? initialPayment : totalUSD;
 
         let status: SaleStatus = 'COMPLETED';
@@ -218,7 +220,7 @@ export const useStore = create<StoreState>()(
         };
       }),
 
-      // --- COMPRAS (FACTURAS PROVEEDORES) ---
+      // --- COMPRAS ---
       addInvoice: (invoice) => {
         set((state) => {
           const updatedProducts = [...state.products];
@@ -255,8 +257,6 @@ export const useStore = create<StoreState>()(
                 freight: 0
               });
             }
-
-            // Actualizar catálogo proveedor
             const catalog = updatedSuppliers[supplierIndex].catalog;
             const catalogItemIndex = catalog.findIndex(c => c.sku === item.sku);
             if (catalogItemIndex >= 0) {
@@ -284,7 +284,6 @@ export const useStore = create<StoreState>()(
         if (!invoice) return {};
 
         const newPaidAmount = invoice.paidAmountUSD + payment.amountUSD;
-        // CORRECCIÓN: Usamos PaymentStatus explícito en lugar de any
         let newStatus: PaymentStatus = invoice.status;
 
         if (newPaidAmount >= invoice.totalUSD - 0.01) newStatus = 'PAID';
@@ -308,6 +307,14 @@ export const useStore = create<StoreState>()(
 
       deletePaymentMethod: (id) => set(state => ({
         paymentMethods: state.paymentMethods.filter(pm => pm.id !== id)
+      })),
+
+      // NUEVO: Función que ejecuta el corte Z
+      performDailyClose: () => set(state => ({
+        settings: {
+          ...state.settings,
+          lastCloseDate: new Date().toISOString()
+        }
       }))
     }),
     {

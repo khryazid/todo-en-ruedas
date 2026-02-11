@@ -1,7 +1,7 @@
 /**
  * @file index.ts
  * @description Definiciones de Tipos Globales.
- * Incluye todos los modelos de datos y la interfaz AppSettings que faltaba.
+ * Incluye todos los modelos de datos y la configuración con FECHA DE CIERRE.
  */
 
 // --- TIPOS BÁSICOS ---
@@ -115,7 +115,7 @@ export interface PaymentMethod {
   currency: PaymentCurrency;
 }
 
-// --- ESTA ES LA INTERFAZ QUE FALTABA ---
+// --- INTERFAZ ACTUALIZADA ---
 export interface AppSettings {
   companyName: string;
   rif: string;
@@ -128,4 +128,5 @@ export interface AppSettings {
   defaultMargin: number;
   defaultVAT: number;
   printerCurrency: CurrencyView;
+  lastCloseDate?: string; // <--- CAMPO NUEVO PARA EL CIERRE Z
 }

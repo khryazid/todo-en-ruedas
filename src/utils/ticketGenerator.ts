@@ -1,86 +1,105 @@
 /**
  * @file ticketGenerator.ts
  * @description Motor de generación de tickets y reportes.
- * Maneja la impresión térmica y la generación de mensajes para WhatsApp.
+ * OPTIMIZADO PARA MÓVIL: Usa reemplazo del cuerpo del documento en lugar de pop-ups.
  */
 
-// CORRECCIÓN AQUÍ: Agregamos 'type' para satisfacer verbatimModuleSyntax
 import type { Sale, AppSettings, PaymentMethod } from '../types';
-import { useStore } from '../store/useStore'; // useStore es una función (valor), así que se queda igual
+import { useStore } from '../store/useStore';
 
-// Helper para formatear moneda
-const format = (amount: number, currency: 'USD' | 'BS') => {
-  return currency === 'USD'
-    ? `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : `Bs. ${amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
-
-// --- 1. GENERADOR DE HTML PARA IMPRESIÓN ---
-const generateHTML = (title: string, content: string) => {
-  return `
-    <html>
-        <head>
-            <title>${title}</title>
-            <style>
-                body { font-family: 'Courier New', monospace; font-size: 12px; margin: 0; padding: 0; color: #000; }
-                .container { width: 100%; max-width: 300px; margin: 0 auto; }
-                .header { text-align: center; margin-bottom: 10px; border-bottom: 1px dashed #000; padding-bottom: 5px; }
-                .title { font-size: 16px; font-weight: bold; margin: 5px 0; }
-                .subtitle { font-size: 10px; text-transform: uppercase; }
-                .divider { border-top: 1px dashed #000; margin: 5px 0; }
-                .item { display: flex; justify-content: space-between; margin-bottom: 2px; }
-                .item-name { font-weight: bold; }
-                .totals { margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; }
-                .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; }
-                .footer { text-align: center; margin-top: 20px; font-size: 10px; }
-                .bold { font-weight: bold; }
-                @media print {
-                    @page { margin: 0; size: auto; }
-                    body { margin: 5mm; }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                ${content}
-            </div>
-            <script>
-                window.onload = function() { window.print(); window.close(); }
-            </script>
-        </body>
-    </html>
+// --- 1. FUNCIÓN MAESTRA DE IMPRESIÓN (MÓVIL FRIENDLY) ---
+// Esta función reemplaza la pantalla actual, imprime y recarga.
+const printMobileFriendly = (content: string) => {
+    // 1. Guardar estilos base para impresión térmica
+    const style = `
+        <style>
+            body { 
+                font-family: 'Courier New', monospace; 
+                font-size: 12px; 
+                margin: 0; 
+                padding: 10px; 
+                color: #000; 
+                background: #fff; 
+                width: 100%;
+            }
+            .header { text-align: center; margin-bottom: 10px; border-bottom: 1px dashed #000; padding-bottom: 5px; }
+            .title { font-size: 16px; font-weight: bold; margin: 5px 0; }
+            .subtitle { font-size: 10px; text-transform: uppercase; }
+            .divider { border-top: 1px dashed #000; margin: 5px 0; }
+            .item { display: flex; justify-content: space-between; margin-bottom: 2px; }
+            .totals { margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; }
+            .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; }
+            .footer { text-align: center; margin-top: 20px; font-size: 10px; }
+            .bold { font-weight: bold; }
+            
+            /* Ocultar elementos de la interfaz si quedara algo */
+            @media print {
+                @page { margin: 0; size: auto; }
+                body { margin: 0; }
+                .no-print { display: none; }
+            }
+        </style>
     `;
+
+    // 2. Construir el HTML final
+    const fullHTML = `
+        <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                ${style}
+            </head>
+            <body>
+                ${content}
+                <script>
+                    // Esperar un momento para asegurar que el renderizado esté listo
+                    setTimeout(() => {
+                        window.print();
+                        // En móviles, es mejor recargar después de imprimir para recuperar los eventos de React
+                        // Un pequeño delay para que no corte el diálogo de impresión
+                        setTimeout(() => {
+                           window.location.reload();
+                        }, 500);
+                    }, 500);
+                </script>
+            </body>
+        </html>
+    `;
+
+    // 3. Reemplazar el documento actual (La técnica "Body Swap")
+    document.open();
+    document.write(fullHTML);
+    document.close();
 };
+
 
 // --- 2. IMPRIMIR FACTURA DE VENTA (TICKET) ---
 export const printInvoice = (sale: Sale) => {
-  const { settings, clients } = useStore.getState();
-  const client = clients.find(c => c.id === sale.clientId);
+    const { settings, clients } = useStore.getState();
+    const client = clients.find(c => c.id === sale.clientId);
 
-  const date = new Date(sale.date).toLocaleString('es-VE');
-  const currency = settings.printerCurrency || 'BS'; // Moneda preferida para imprimir
+    const date = new Date(sale.date).toLocaleString('es-VE');
+    const currency = settings.printerCurrency || 'BS';
 
-  // Convertir montos si la impresión es en Bs
-  const rate = settings.tasaBCV;
-  const convert = (usd: number) => currency === 'BS' ? usd * rate : usd;
-  const symbol = currency === 'BS' ? 'Bs.' : '$';
+    const rate = settings.tasaBCV;
+    const convert = (usd: number) => currency === 'BS' ? usd * rate : usd;
+    const symbol = currency === 'BS' ? 'Bs.' : '$';
 
-  let itemsHTML = '';
-  sale.items.forEach(item => {
-    const price = convert(item.priceFinalUSD);
-    const subtotal = price * item.quantity;
-    itemsHTML += `
+    let itemsHTML = '';
+    sale.items.forEach(item => {
+        const price = convert(item.priceFinalUSD);
+        const subtotal = price * item.quantity;
+        itemsHTML += `
             <div style="margin-bottom: 4px;">
-                <div class="item-name">${item.name}</div>
+                <div style="font-weight:bold;">${item.name}</div>
                 <div class="item">
                     <span>${item.quantity} x ${symbol}${price.toFixed(2)}</span>
                     <span>${symbol}${subtotal.toFixed(2)}</span>
                 </div>
             </div>
         `;
-  });
+    });
 
-  const content = `
+    const content = `
         <div class="header">
             <div class="title">${settings.companyName}</div>
             <div class="subtitle">${settings.rifType}-${settings.rif}</div>
@@ -113,37 +132,36 @@ export const printInvoice = (sale: Sale) => {
         </div>
     `;
 
-  const w = window.open('', '_blank', 'width=400,height=600');
-  if (w) w.document.write(generateHTML('Recibo de Venta', content));
+    printMobileFriendly(content);
 };
 
 // --- 3. IMPRIMIR REPORTE X / Z (CIERRE) ---
 interface CloseReportProps {
-  type: 'X' | 'Z';
-  date: string;
-  totalUSD: number;
-  totalBs: number;
-  itemsCount: number;
-  breakdown: Record<string, number>;
-  reportNumber: string;
-  paymentMethods: PaymentMethod[];
+    type: 'X' | 'Z';
+    date: string;
+    totalUSD: number;
+    totalBs: number;
+    itemsCount: number;
+    breakdown: Record<string, number>;
+    reportNumber: string;
+    paymentMethods: PaymentMethod[];
 }
 
 export const printTicket = (data: CloseReportProps) => {
-  const { settings } = useStore.getState();
-  const typeLabel = data.type === 'X' ? 'CORTE PARCIAL (X)' : 'CIERRE DIARIO (Z)';
+    const { settings } = useStore.getState();
+    const typeLabel = data.type === 'X' ? 'CORTE PARCIAL (X)' : 'CIERRE DIARIO (Z)';
 
-  let breakdownHTML = '';
-  Object.entries(data.breakdown).forEach(([method, amount]) => {
-    breakdownHTML += `
+    let breakdownHTML = '';
+    Object.entries(data.breakdown).forEach(([method, amount]) => {
+        breakdownHTML += `
             <div class="item">
                 <span>${method}</span>
                 <span>$${amount.toFixed(2)}</span>
             </div>
         `;
-  });
+    });
 
-  const content = `
+    const content = `
         <div class="header">
             <div class="title">${settings.companyName}</div>
             <div class="subtitle">${typeLabel}</div>
@@ -175,87 +193,77 @@ export const printTicket = (data: CloseReportProps) => {
         </div>
     `;
 
-  const w = window.open('', '_blank', 'width=400,height=600');
-  if (w) w.document.write(generateHTML(typeLabel, content));
+    printMobileFriendly(content);
 };
 
 // --- 4. IMPRIMIR LISTA DE VENTAS (HISTORIAL) ---
 export const printSalesList = (sales: Sale[], start: string, end: string) => {
-  const { settings, clients } = useStore.getState();
-  const total = sales.reduce((acc, s) => acc + s.totalUSD, 0);
+    const { settings, clients } = useStore.getState();
+    const total = sales.reduce((acc, s) => acc + s.totalUSD, 0);
 
-  let rows = '';
-  sales.forEach(s => {
-    const clientName = clients.find(c => c.id === s.clientId)?.name || '-';
-    rows += `
+    let rows = '';
+    sales.forEach(s => {
+        const clientName = clients.find(c => c.id === s.clientId)?.name || '-';
+        rows += `
             <tr>
-                <td>${new Date(s.date).toLocaleDateString()}</td>
-                <td>#${s.id.slice(-4)}</td>
-                <td>${clientName.substring(0, 10)}</td>
-                <td style="text-align:right">$${s.totalUSD.toFixed(2)}</td>
+                <td style="border-bottom:1px solid #ddd; padding:4px;">${new Date(s.date).toLocaleDateString()}</td>
+                <td style="border-bottom:1px solid #ddd; padding:4px;">#${s.id.slice(-4)}</td>
+                <td style="border-bottom:1px solid #ddd; padding:4px;">${clientName.substring(0, 10)}</td>
+                <td style="border-bottom:1px solid #ddd; padding:4px; text-align:right">$${s.totalUSD.toFixed(2)}</td>
             </tr>
         `;
-  });
+    });
 
-  const html = `
-    <html>
-    <head>
-        <title>Reporte de Ventas</title>
-        <style>
-            body { font-family: sans-serif; font-size: 12px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { border-bottom: 1px solid #ddd; padding: 5px; text-align: left; }
-            th { background-color: #f0f0f0; }
-            .header { text-align: center; margin-bottom: 20px; }
-        </style>
-    </head>
-    <body>
+    const content = `
         <div class="header">
             <h2>Reporte de Ventas</h2>
             <p>Periodo: ${start || 'Inicio'} - ${end || 'Fin'}</p>
             <p><strong>Total Periodo: $${total.toFixed(2)}</strong></p>
         </div>
-        <table>
-            <thead><tr><th>Fecha</th><th>Ticket</th><th>Cliente</th><th style="text-align:right">Total</th></tr></thead>
+        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
+            <thead>
+                <tr style="background:#f0f0f0;">
+                    <th style="text-align:left; padding:4px;">Fecha</th>
+                    <th style="text-align:left; padding:4px;">Tkt</th>
+                    <th style="text-align:left; padding:4px;">Cliente</th>
+                    <th style="text-align:right; padding:4px;">Total</th>
+                </tr>
+            </thead>
             <tbody>${rows}</tbody>
         </table>
-        <script>window.print();</script>
-    </body>
-    </html>
     `;
 
-  const w = window.open('', '_blank', 'width=800,height=600');
-  if (w) w.document.write(html);
+    printMobileFriendly(content);
 };
 
 // --- 5. GENERAR ENLACE DE WHATSAPP ---
+// (Esta función se mantiene igual porque no usa impresión)
 export const sendToWhatsApp = (sale: Sale) => {
-  const { settings, clients } = useStore.getState();
-  const client = clients.find(c => c.id === sale.clientId);
+    const { settings, clients } = useStore.getState();
+    const client = clients.find(c => c.id === sale.clientId);
 
-  // Si el cliente tiene teléfono, lo usamos. Si no, dejamos el número vacío para que el usuario elija contacto.
-  const phone = client?.phone ? client.phone.replace(/\D/g, '') : '';
+    const phone = client?.phone ? client.phone.replace(/\D/g, '') : '';
 
-  let message = `*${settings.companyName}*\n`;
-  message += `🧾 Recibo de Venta #${sale.id.slice(-6)}\n`;
-  message += `📅 Fecha: ${new Date(sale.date).toLocaleDateString()}\n`;
-  message += `------------------------------\n`;
+    let message = `*${settings.companyName}*\n`;
+    message += `🧾 Recibo de Venta #${sale.id.slice(-6)}\n`;
+    message += `📅 Fecha: ${new Date(sale.date).toLocaleDateString()}\n`;
+    message += `------------------------------\n`;
 
-  sale.items.forEach(item => {
-    message += `${item.quantity}x ${item.name} ($${item.priceFinalUSD.toFixed(2)})\n`;
-  });
+    sale.items.forEach(item => {
+        message += `${item.quantity}x ${item.name} ($${item.priceFinalUSD.toFixed(2)})\n`;
+    });
 
-  message += `------------------------------\n`;
-  message += `*TOTAL: $${sale.totalUSD.toFixed(2)}*\n`;
-  message += `(Bs. ${sale.totalVED.toLocaleString('es-VE', { minimumFractionDigits: 2 })})\n`;
+    message += `------------------------------\n`;
+    message += `*TOTAL: $${sale.totalUSD.toFixed(2)}*\n`;
+    message += `(Bs. ${sale.totalVED.toLocaleString('es-VE', { minimumFractionDigits: 2 })})\n`;
 
-  if (sale.status === 'PENDING') {
-    const debt = sale.totalUSD - sale.paidAmountUSD;
-    message += `⚠️ *Saldo Pendiente: $${debt.toFixed(2)}*\n`;
-  }
+    if (sale.status === 'PENDING') {
+        const debt = sale.totalUSD - sale.paidAmountUSD;
+        message += `⚠️ *Saldo Pendiente: $${debt.toFixed(2)}*\n`;
+    }
 
-  message += `\nGracias por su compra! 🚗`;
+    message += `\nGracias por su compra! 🚗`;
 
-  const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-  window.open(url, '_blank');
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
 };
