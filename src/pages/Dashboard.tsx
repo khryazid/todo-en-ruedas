@@ -1,7 +1,6 @@
 /**
  * @file Dashboard.tsx
  * @description Centro de Comando Completo.
- * Corrección: Eliminadas comparaciones de tipo redundantes en TypeScript.
  */
 
 import { useState, useMemo } from 'react';
@@ -58,8 +57,7 @@ export const Dashboard = () => {
   const filteredSales = sales.filter(s => s.status !== 'CANCELLED' && isDateInScope(s.date));
   const totalSalesPeriodUSD = filteredSales.reduce((acc, s) => acc + s.totalUSD, 0);
 
-  // --- 4. KPIs GLOBALES (CORREGIDO) ---
-  // Se eliminó la verificación de !== 'CANCELLED' porque PENDING y PARTIAL ya lo excluyen.
+  // --- 4. KPIs GLOBALES ---
   const totalReceivable = sales
     .filter(s => (s.status === 'PENDING' || s.status === 'PARTIAL'))
     .reduce((acc, s) => acc + (s.totalUSD - s.paidAmountUSD), 0);
@@ -68,7 +66,7 @@ export const Dashboard = () => {
     .filter(i => (i.status === 'PENDING' || i.status === 'PARTIAL'))
     .reduce((acc, i) => acc + (i.totalUSD - i.paidAmountUSD), 0);
 
-  // --- 5. ALERTAS DE STOCK (CRÍTICO) ---
+  // --- 5. ALERTAS DE STOCK ---
   const outOfStock = products.filter(p => p.stock === 0);
   const lowStock = products.filter(p => p.stock > 0 && p.stock <= p.minStock);
 
@@ -84,15 +82,24 @@ export const Dashboard = () => {
     return { invested: totalInvested, revenue: totalRevenuePotential, profit: totalRevenuePotential - totalInvested };
   }, [products, settings]);
 
-  // --- 7. ANÁLISIS DE PRODUCTOS ---
+  // --- 7. ANÁLISIS DE PRODUCTOS (CORREGIDO) ---
   const productPerformance = useMemo(() => {
     const salesMap: Record<string, number> = {};
+
     filteredSales.forEach(sale => {
       sale.items.forEach(item => {
-        salesMap[item.sku] = (salesMap[item.sku] || 0) + item.quantity;
+        // CORRECCIÓN: Relacionamos por Nombre, ya que es el dato exacto guardado en la foto de la venta
+        if (item.name) {
+          salesMap[item.name] = (salesMap[item.name] || 0) + item.quantity;
+        }
       });
     });
-    const ranked = products.map(p => ({ ...p, soldQuantity: salesMap[p.sku] || 0 }));
+
+    // Mapeamos los productos actuales con la cantidad encontrada en el historial
+    const ranked = products.map(p => ({
+      ...p,
+      soldQuantity: salesMap[p.name] || 0
+    }));
 
     return {
       bestSellers: [...ranked].sort((a, b) => b.soldQuantity - a.soldQuantity).slice(0, 5),
@@ -100,7 +107,7 @@ export const Dashboard = () => {
     };
   }, [filteredSales, products]);
 
-  // --- 8. TOP CLIENTES (LISTA DINÁMICA) ---
+  // --- 8. TOP CLIENTES ---
   const topClientsList = useMemo(() => {
     const clientMap: Record<string, number> = {};
 
@@ -141,8 +148,8 @@ export const Dashboard = () => {
           </div>
           {filterType === 'custom' && (
             <div className="flex gap-2 animate-in slide-in-from-right fade-in">
-              <input type="date" className="border rounded-lg px-2 text-xs bg-white font-bold text-gray-600" value={customStart} onChange={e => setCustomStart(e.target.value)} />
-              <input type="date" className="border rounded-lg px-2 text-xs bg-white font-bold text-gray-600" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+              <input type="date" className="border rounded-lg px-2 text-xs bg-white font-bold text-gray-600 outline-none focus:ring-2 focus:ring-blue-100" value={customStart} onChange={e => setCustomStart(e.target.value)} />
+              <input type="date" className="border rounded-lg px-2 text-xs bg-white font-bold text-gray-600 outline-none focus:ring-2 focus:ring-blue-100" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
             </div>
           )}
         </div>
@@ -169,15 +176,16 @@ export const Dashboard = () => {
           <p className="text-xs text-gray-400 mt-1">Deuda a Proveedores</p>
         </Link>
 
-        {/* Top Cliente (Tarjeta Resumen Compacta) */}
-        <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 flex flex-col justify-between">
-          <div>
+        {/* Top Cliente */}
+        <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 flex flex-col justify-between relative overflow-hidden">
+          <div className="absolute -right-4 -top-4 opacity-10 text-blue-500"><Users size={100} /></div>
+          <div className="relative z-10">
             <p className="text-xs text-blue-500 uppercase font-bold mb-1">Líder del Periodo</p>
             <h3 className="text-lg font-black text-blue-900 truncate">
               {topClientsList[0]?.client?.name || 'N/A'}
             </h3>
           </div>
-          <p className="text-2xl font-bold text-blue-600 self-end">
+          <p className="text-2xl font-bold text-blue-600 self-end relative z-10">
             {topClientsList[0] ? formatCurrency(topClientsList[0].amount, 'USD') : '-'}
           </p>
         </div>
@@ -194,9 +202,9 @@ export const Dashboard = () => {
               <div><p className="text-green-300 text-xs uppercase font-bold mb-1">Ganancia Estimada</p><p className="text-2xl font-black text-green-300">+{formatCurrency(inventoryStats.profit, 'USD')}</p></div>
             </div>
           </div>
-          <div className="bg-white/10 rounded-2xl p-4 border border-white/10 min-w-[200px] text-center">
+          <div className="bg-white/10 rounded-2xl p-6 border border-white/10 min-w-[200px] text-center flex flex-col justify-center shadow-inner">
             <p className="text-blue-100 text-xs uppercase font-bold mb-1">Total Venta Potencial</p>
-            <p className="text-3xl font-black">{formatCurrency(inventoryStats.revenue, 'USD')}</p>
+            <p className="text-4xl font-black drop-shadow-md">{formatCurrency(inventoryStats.revenue, 'USD')}</p>
           </div>
         </div>
       </div>
@@ -230,7 +238,7 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* COLUMNA 2: TOP CLIENTES (MODIFICADO: AHORA ES LISTA) */}
+        {/* COLUMNA 2: TOP CLIENTES */}
         <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
           <div className="p-4 border-b border-gray-50 flex items-center gap-2">
             <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg"><Users size={16} /></div>
@@ -279,7 +287,7 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* COLUMNA 4: HUESOS */}
+        {/* COLUMNA 4: MENOS VENDIDOS */}
         <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">
           <div className="p-4 border-b border-gray-50 flex items-center gap-2">
             <div className="p-1.5 bg-gray-100 text-gray-700 rounded-lg"><ArrowDownRight size={16} /></div>

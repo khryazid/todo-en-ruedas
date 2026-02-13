@@ -1,11 +1,14 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { supabase } from '../supabase/client';
+import toast from 'react-hot-toast';
 import type {
   Product, CartItem, Sale, Invoice, Payment, AppSettings,
-  Supplier, PaymentMethod, Client, SaleStatus, PaymentStatus
+  Supplier, PaymentMethod, Client, SaleStatus
 } from '../types';
 
 interface StoreState {
+  user: any | null;
+  isLoading: boolean;
   settings: AppSettings;
   products: Product[];
   cart: CartItem[];
@@ -15,311 +18,589 @@ interface StoreState {
   clients: Client[];
   paymentMethods: PaymentMethod[];
 
-  updateSettings: (settings: AppSettings) => void;
+  checkSession: () => Promise<void>;
+  login: (email: string, pass: string) => Promise<boolean>;
+  logout: () => Promise<void>;
 
-  addProduct: (product: Product) => void;
-  updateProduct: (id: string, updates: Partial<Product>) => void;
-  deleteProduct: (id: string) => void;
+  fetchInitialData: () => Promise<void>;
+  updateSettings: (settings: AppSettings) => Promise<void>;
 
-  addClient: (client: Client) => void;
-  updateClient: (id: string, updates: Partial<Client>) => void;
-  deleteClient: (id: string) => void;
+  addProduct: (product: Product) => Promise<void>;
+  updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+
+  addClient: (client: Client) => Promise<void>;
+  updateClient: (id: string, updates: Partial<Client>) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
 
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
 
-  completeSale: (paymentMethod: string, clientId?: string, initialPayment?: number) => void;
+  completeSale: (paymentMethod: string, clientId?: string, initialPayment?: number) => Promise<void>;
+  annulSale: (saleId: string) => Promise<void>;
+  deleteSale: (saleId: string) => Promise<void>;
+  registerSalePayment: (saleId: string, payment: Payment) => Promise<void>;
 
-  annulSale: (saleId: string) => void;
-
-  registerSalePayment: (saleId: string, payment: Payment) => void;
-
-  addInvoice: (invoice: Invoice) => boolean;
-  updateInvoice: (invoice: Invoice) => void;
-  registerPayment: (invoiceId: string, payment: Payment) => void;
+  addInvoice: (invoice: Invoice) => Promise<boolean>;
+  updateInvoice: (invoice: Invoice) => Promise<void>;
+  deleteInvoice: (id: string) => Promise<void>;
+  registerPayment: (invoiceId: string, payment: Payment) => Promise<void>; // Función de abonos a proveedores
 
   addPaymentMethod: (name: string, currency: 'USD' | 'BS') => void;
   deletePaymentMethod: (id: string) => void;
-
-  // NUEVO: Acción para cerrar caja
-  performDailyClose: () => void;
+  performDailyClose: () => Promise<void>;
 }
 
-export const useStore = create<StoreState>()(
-  persist(
-    (set, get) => ({
-      settings: {
-        companyName: 'Todo en Ruedas C.A.',
-        rif: '000000000',
-        rifType: 'J',
-        address: 'San Cristóbal, Táchira',
-        tasaBCV: 64.50,
-        tasaTH: 70.00,
-        showMonitorRate: true,
-        lastUpdated: new Date().toISOString(),
-        lastCloseDate: new Date(0).toISOString(), // FECHA INICIAL (AÑO 1970)
-        defaultMargin: 30,
-        defaultVAT: 16,
-        printerCurrency: 'BS'
-      },
-      products: [],
-      cart: [],
-      sales: [],
-      invoices: [],
-      suppliers: [],
-      clients: [],
-      paymentMethods: [
-        { id: '1', name: 'Efectivo Divisa', currency: 'USD' },
-        { id: '2', name: 'Pago Móvil', currency: 'BS' },
-        { id: '3', name: 'Zelle', currency: 'USD' },
-        { id: '4', name: 'Punto de Venta', currency: 'BS' },
-        { id: '5', name: 'Crédito / Fiado', currency: 'USD' }
-      ],
+export const useStore = create<StoreState>((set, get) => ({
+  user: null,
+  isLoading: true,
 
-      updateSettings: (newSettings) => set({ settings: newSettings }),
+  settings: {
+    companyName: 'Cargando...',
+    rif: '', rifType: 'J', address: '',
+    tasaBCV: 0, tasaTH: 0, showMonitorRate: true,
+    lastUpdated: new Date().toISOString(),
+    lastCloseDate: new Date(0).toISOString(),
+    defaultMargin: 30, defaultVAT: 16, printerCurrency: 'BS'
+  },
+  products: [], cart: [], sales: [], invoices: [], suppliers: [], clients: [],
+  paymentMethods: [
+    { id: '1', name: 'Efectivo Divisa', currency: 'USD' },
+    { id: '2', name: 'Pago Móvil', currency: 'BS' },
+    { id: '3', name: 'Zelle', currency: 'USD' },
+    { id: '4', name: 'Punto de Venta', currency: 'BS' },
+    { id: '5', name: 'Crédito / Fiado', currency: 'USD' }
+  ],
 
-      addProduct: (product) => set((state) => ({ products: [...state.products, product] })),
-      updateProduct: (id, updates) => set((state) => ({
-        products: state.products.map((p) => (p.id === id ? { ...p, ...updates } : p)),
-      })),
-      deleteProduct: (id) => set((state) => ({
-        products: state.products.filter((p) => p.id !== id),
-      })),
+  checkSession: async () => {
+    set({ isLoading: true });
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      set({ user: session.user });
+      await get().fetchInitialData();
+    } else {
+      set({ user: null, isLoading: false });
+    }
+  },
 
-      addClient: (client) => set((state) => ({ clients: [...state.clients, client] })),
-      updateClient: (id, updates) => set((state) => ({
-        clients: state.clients.map((c) => (c.id === id ? { ...c, ...updates } : c))
-      })),
-      deleteClient: (id) => set((state) => ({
-        clients: state.clients.filter((c) => c.id !== id)
-      })),
+  login: async (email, password) => {
+    set({ isLoading: true });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      toast.error("Error: Credenciales inválidas 🔒");
+      set({ isLoading: false });
+      return false;
+    }
+    set({ user: data.user });
+    toast.success(`Bienvenido de nuevo 👋`);
+    await get().fetchInitialData();
+    return true;
+  },
 
-      addToCart: (product) => set((state) => {
-        const existing = state.cart.find((item) => item.id === product.id);
-        const costBase = product.cost + (product.freight || 0);
-        const rate = product.costType === 'BCV' ? 1 : (state.settings.tasaTH / state.settings.tasaBCV);
-        const costUSD = costBase * rate;
-        const margin = product.customMargin ?? state.settings.defaultMargin;
-        const vat = product.customVAT ?? state.settings.defaultVAT;
-        const priceFinalUSD = costUSD * (1 + margin / 100) * (1 + vat / 100);
+  logout: async () => {
+    await supabase.auth.signOut();
+    set({ user: null, cart: [], products: [], sales: [] });
+    toast.success("Sesión cerrada");
+  },
 
+  fetchInitialData: async () => {
+    if (!get().user) return;
+    set({ isLoading: true });
+    try {
+      const { data: settingsData } = await supabase.from('settings').select('*').single();
+      const { data: productsData } = await supabase.from('products').select('*');
+      const { data: clientsData } = await supabase.from('clients').select('*');
+      const { data: salesData } = await supabase.from('sales').select(`*, sale_items(*), payments(*)`).order('date', { ascending: false }).limit(100);
+      const { data: suppliersData } = await supabase.from('suppliers').select('*');
+      const { data: invoicesData } = await supabase.from('invoices').select('*');
+
+      if (settingsData) {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            companyName: settingsData.company_name, rif: settingsData.rif.split('-')[1] || settingsData.rif, rifType: (settingsData.rif.split('-')[0] || 'J') as any,
+            address: settingsData.address, tasaBCV: settingsData.tasa_bcv, tasaTH: settingsData.tasa_monitor, showMonitorRate: settingsData.show_monitor_rate,
+            lastCloseDate: settingsData.last_close_date, printerCurrency: settingsData.printer_currency
+          }
+        }));
+      }
+
+      if (productsData) {
+        set({
+          products: productsData.map((p: any) => ({
+            id: p.id, sku: p.sku, name: p.name, category: p.category || 'General',
+            stock: Number(p.stock) || 0, minStock: Number(p.min_stock) || 0, cost: Number(p.cost) || 0,
+            costType: p.cost_type || 'BCV', freight: Number(p.freight) || 0, supplier: p.supplier || 'General'
+          }))
+        });
+      }
+
+      if (clientsData) set({ clients: clientsData });
+      if (suppliersData) set({ suppliers: suppliersData });
+      if (invoicesData) {
+        set({
+          invoices: invoicesData.map((inv: any) => ({
+            ...inv,
+            subtotalUSD: inv.subtotal_usd,
+            freightTotalUSD: inv.freight_total_usd,
+            totalUSD: inv.total_usd,
+            paidAmountUSD: inv.paid_amount_usd,
+            dateIssue: inv.date_issue,
+            dateDue: inv.date_due,
+            payments: inv.payments || [] // <-- ASEGURAMOS QUE CARGUE LOS ABONOS DE SUPABASE
+          }))
+        });
+      }
+
+      if (salesData) {
+        set({
+          sales: salesData.map((s: any) => ({
+            id: s.id, date: s.date, clientId: s.client_id, totalUSD: s.total_usd, totalVED: s.total_ved, paymentMethod: s.payment_method, status: s.status, paidAmountUSD: s.paid_amount_usd,
+            items: s.sale_items.map((i: any) => ({ sku: 'N/A', name: i.product_name_snapshot || 'Producto', quantity: i.quantity, priceFinalUSD: i.unit_price_usd, costUnitUSD: i.cost_unit_usd })),
+            payments: s.payments.map((p: any) => ({ id: p.id, date: p.created_at, amountUSD: p.amount_usd, method: p.method, note: p.note }))
+          }))
+        });
+      }
+
+    } catch (error) { toast.error('Error de conexión al cargar datos'); } finally { set({ isLoading: false }); }
+  },
+
+  updateSettings: async (newSettings) => {
+    set({ settings: newSettings });
+    try {
+      const { error } = await supabase.from('settings').update({
+        company_name: newSettings.companyName, rif: `${newSettings.rifType}-${newSettings.rif}`, address: newSettings.address, tasa_bcv: newSettings.tasaBCV, tasa_monitor: newSettings.tasaTH, show_monitor_rate: newSettings.showMonitorRate, printer_currency: newSettings.printerCurrency
+      }).eq('id', (await supabase.from('settings').select('id').single()).data?.id);
+      if (error) throw error;
+      toast.success("Configuración guardada");
+    } catch (error: any) { toast.error("Error al guardar: " + error.message); }
+  },
+
+  addProduct: async (product) => {
+    try {
+      const { data, error } = await supabase.from('products').insert({
+        sku: product.sku, name: product.name, category: product.category, stock: product.stock, min_stock: product.minStock, cost: product.cost, cost_type: product.costType, freight: product.freight, supplier: product.supplier
+      }).select().single();
+
+      if (error) throw error;
+
+      if (product.supplier && product.supplier !== 'General') {
+        const existingSupplier = get().suppliers.find(s => s.name.toLowerCase() === product.supplier!.toLowerCase());
+        if (!existingSupplier) await supabase.from('suppliers').insert({ name: product.supplier, catalog: [] });
+      }
+
+      if (data) {
+        set(state => ({ products: [...state.products, { ...product, id: data.id }] }));
+        get().fetchInitialData();
+        toast.success("Producto agregado");
+      }
+    } catch (error: any) { toast.error("Error: " + error.message); }
+  },
+
+  updateProduct: async (id, updates) => {
+    try {
+      const dbUpdates: any = {};
+
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.stock !== undefined) dbUpdates.stock = updates.stock;
+      if (updates.cost !== undefined) dbUpdates.cost = updates.cost;
+      if (updates.minStock !== undefined) dbUpdates.min_stock = updates.minStock;
+      if (updates.category !== undefined) dbUpdates.category = updates.category;
+      if (updates.supplier !== undefined) dbUpdates.supplier = updates.supplier;
+      if (updates.costType !== undefined) dbUpdates.cost_type = updates.costType;
+      if (updates.freight !== undefined) dbUpdates.freight = updates.freight;
+
+      const { error } = await supabase.from('products').update(dbUpdates).eq('id', id);
+      if (error) throw error;
+
+      if (updates.supplier && updates.supplier !== 'General') {
+        const existingSupplier = get().suppliers.find(s => s.name.toLowerCase() === updates.supplier!.toLowerCase());
+        if (!existingSupplier) await supabase.from('suppliers').insert({ name: updates.supplier, catalog: [] });
+      }
+
+      set(state => ({ products: state.products.map(p => p.id === id ? { ...p, ...updates } : p) }));
+      get().fetchInitialData();
+      toast.success("Producto actualizado");
+    } catch (error: any) { toast.error("Error al actualizar: " + error.message); }
+  },
+
+  deleteProduct: async (id) => {
+    try {
+      const { error } = await supabase.from('products').delete().eq('id', id);
+
+      if (error) {
+        if (error.code === '23503' || error.message.includes('foreign key constraint')) {
+          throw new Error("No puedes borrar un producto que ya tiene ventas en el historial. Déjalo en Stock 0 o edita su nombre.");
+        }
+        throw error;
+      }
+
+      set(state => ({ products: state.products.filter(p => p.id !== id) }));
+      toast.success("Producto eliminado");
+    } catch (error: any) {
+      toast.error(error.message, { duration: 6000 });
+    }
+  },
+
+  addClient: async (client) => {
+    try {
+      const { data, error } = await supabase.from('clients').insert({
+        name: client.name, rif: client.rif, phone: client.phone, address: client.address, email: client.email, notes: client.notes
+      }).select().single();
+      if (error) throw error;
+      if (data) { set(state => ({ clients: [...state.clients, { ...client, id: data.id }] })); toast.success("Cliente registrado"); }
+    } catch (error: any) { toast.error("Error: " + error.message); }
+  },
+
+  updateClient: async (id, updates) => {
+    try {
+      const { error } = await supabase.from('clients').update(updates).eq('id', id);
+      if (error) throw error;
+      set(state => ({ clients: state.clients.map(c => c.id === id ? { ...c, ...updates } : c) }));
+      toast.success("Cliente actualizado");
+    } catch (error: any) { toast.error("Error: " + error.message); }
+  },
+
+  deleteClient: async (id) => {
+    try {
+      const { error } = await supabase.from('clients').delete().eq('id', id);
+      if (error) throw error;
+      set(state => ({ clients: state.clients.filter(c => c.id !== id) }));
+      toast.success("Cliente eliminado");
+    } catch (error: any) { toast.error("Error: " + error.message); }
+  },
+
+  addToCart: (product) => set((state) => {
+    const existing = state.cart.find((item) => item.id === product.id);
+    const costBase = product.cost + (product.freight || 0);
+    const margin = product.customMargin ?? state.settings.defaultMargin;
+    const vat = product.customVAT ?? state.settings.defaultVAT;
+
+    const basePrice = Math.round((costBase * (1 + margin / 100) * (1 + vat / 100)) * 100) / 100;
+    let priceFinalUSD = basePrice;
+
+    if (product.costType === 'TH') {
+      priceFinalUSD = (basePrice * state.settings.tasaTH) / state.settings.tasaBCV;
+    }
+    priceFinalUSD = Math.round(priceFinalUSD * 100) / 100;
+
+    if (existing) {
+      return { cart: state.cart.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item) };
+    }
+    return { cart: [...state.cart, { ...product, quantity: 1, priceFinalUSD }] };
+  }),
+
+  removeFromCart: (id) => set((state) => ({ cart: state.cart.filter((item) => item.id !== id) })),
+  updateCartQuantity: (id, quantity) => set((state) => ({ cart: quantity <= 0 ? state.cart.filter((item) => item.id !== id) : state.cart.map((item) => item.id === id ? { ...item, quantity } : item) })),
+  clearCart: () => set({ cart: [] }),
+
+  completeSale: async (paymentMethod, clientId, initialPayment) => {
+    const { cart, settings, products } = get();
+    toast.dismiss();
+
+    if (cart.length === 0) {
+      toast.error("El carrito está vacío 🛒");
+      return;
+    }
+
+    const invalidItem = cart.find(item => {
+      const product = products.find(p => p.id === item.id);
+      return !product || Number(item.quantity) > Number(product.stock);
+    });
+
+    if (invalidItem) {
+      const product = products.find(p => p.id === invalidItem.id);
+      const currentStock = product ? Number(product.stock) : 0;
+      toast.error(`⛔ STOCK INSUFICIENTE\n${invalidItem.name}\nSolicitas: ${invalidItem.quantity}\nDisponible: ${currentStock}`, { duration: 5000, style: { border: '2px solid red' } });
+      return;
+    }
+
+    const loadingToast = toast.loading('Procesando venta...');
+
+    try {
+      const totalUSD = Math.round(cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0) * 100) / 100;
+      const totalVED = Math.round((totalUSD * settings.tasaBCV) * 100) / 100;
+
+      const paidAmount = initialPayment !== undefined ? initialPayment : totalUSD;
+      let status: SaleStatus = 'COMPLETED';
+      if (paidAmount < totalUSD - 0.01) status = paidAmount > 0 ? 'PARTIAL' : 'PENDING';
+
+      const { data: saleData, error: saleError } = await supabase.from('sales').insert({
+        client_id: clientId || null, total_usd: totalUSD, total_ved: totalVED, payment_method: paymentMethod, status: status, paid_amount_usd: paidAmount, date: new Date().toISOString()
+      }).select().single();
+
+      if (saleError || !saleData) throw new Error(saleError?.message);
+
+      const saleItems = cart.map(item => ({
+        sale_id: saleData.id, product_id: item.id, quantity: item.quantity, unit_price_usd: item.priceFinalUSD, cost_unit_usd: item.cost, product_name_snapshot: item.name
+      }));
+
+      const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
+      if (itemsError) throw new Error(itemsError.message);
+
+      if (paidAmount > 0) {
+        await supabase.from('payments').insert({ sale_id: saleData.id, amount_usd: paidAmount, method: paymentMethod, note: 'Pago Inicial' });
+      }
+
+      for (const item of cart) {
+        const product = products.find(p => p.id === item.id);
+        if (product) {
+          const newStock = Number(product.stock) - Number(item.quantity);
+          await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+        }
+      }
+
+      toast.dismiss(loadingToast);
+      toast.success(`✅ Venta Registrada\nTicket #${saleData.id.slice(-6)}`);
+      set({ cart: [] });
+      get().fetchInitialData();
+
+    } catch (error: any) { toast.dismiss(loadingToast); toast.error(`Error crítico: ${error.message}`); }
+  },
+
+  annulSale: async (saleId) => {
+    const loadingToast = toast.loading('Anulando venta y restaurando stock...');
+
+    try {
+      const { data: saleItems, error: fetchError } = await supabase
+        .from('sale_items')
+        .select('product_id, quantity')
+        .eq('sale_id', saleId);
+
+      if (fetchError) throw fetchError;
+
+      const { error: updateError } = await supabase
+        .from('sales')
+        .update({ status: 'CANCELLED' })
+        .eq('id', saleId);
+
+      if (updateError) throw updateError;
+
+      if (saleItems) {
+        const { products } = get();
+
+        for (const item of saleItems) {
+          if (item.product_id) {
+            const product = products.find(p => p.id === item.product_id);
+            if (product) {
+              const restoredStock = Number(product.stock) + Number(item.quantity);
+              await supabase.from('products').update({ stock: restoredStock }).eq('id', item.product_id);
+            }
+          }
+        }
+      }
+
+      toast.dismiss(loadingToast);
+      toast.success("Venta anulada y stock devuelto 📦");
+      get().fetchInitialData();
+
+    } catch (error: any) {
+      toast.dismiss(loadingToast);
+      toast.error("Error al anular: " + error.message);
+    }
+  },
+
+  deleteSale: async (saleId) => {
+    const loadingToast = toast.loading("Eliminando venta...");
+    try {
+      const { error } = await supabase.from('sales').delete().eq('id', saleId);
+      if (error) throw error;
+
+      set(state => ({ sales: state.sales.filter(s => s.id !== saleId) }));
+      toast.dismiss(loadingToast);
+      toast.success("Venta eliminada del historial 🗑️");
+    } catch (error: any) {
+      toast.dismiss(loadingToast);
+      toast.error("Error al eliminar: " + error.message);
+    }
+  },
+
+  registerSalePayment: async (saleId, payment) => {
+    const sale = get().sales.find(s => s.id === saleId);
+    if (!sale) return;
+
+    const debt = sale.totalUSD - sale.paidAmountUSD;
+    if (payment.amountUSD > debt + 0.01) {
+      toast.error(`⚠️ El monto excede la deuda.\nDeuda actual: $${debt.toFixed(2)}`);
+      return;
+    }
+
+    try {
+      await supabase.from('payments').insert({ sale_id: saleId, amount_usd: payment.amountUSD, method: payment.method, note: payment.note });
+      const newPaid = sale.paidAmountUSD + payment.amountUSD;
+      let newStatus = sale.status;
+      if (newPaid >= sale.totalUSD - 0.01) newStatus = 'COMPLETED';
+      else if (newPaid > 0) newStatus = 'PARTIAL';
+
+      await supabase.from('sales').update({ paid_amount_usd: newPaid, status: newStatus }).eq('id', saleId);
+      toast.success("Abono registrado");
+      get().fetchInitialData();
+    } catch (error: any) { toast.error("Error: " + error.message); }
+  },
+
+  addInvoice: async (invoice) => {
+    const loadingToast = toast.loading("Registrando factura...");
+    try {
+      const { error } = await supabase.from('invoices').insert({
+        number: invoice.number,
+        supplier: invoice.supplier,
+        date_issue: invoice.dateIssue,
+        date_due: invoice.dateDue,
+        status: invoice.status,
+        cost_type: invoice.costType,
+        items: invoice.items,
+        subtotal_usd: invoice.subtotalUSD,
+        freight_total_usd: invoice.freightTotalUSD,
+        total_usd: invoice.totalUSD,
+        paid_amount_usd: invoice.paidAmountUSD,
+        payments: invoice.payments || [] // <-- ASEGURAMOS QUE SE CREE CON ARRAY VACÍO
+      });
+
+      if (error) throw error;
+
+      const totalItemsQuantity = invoice.items.reduce((acc, item) => acc + item.quantity, 0);
+      const unitFreight = totalItemsQuantity > 0
+        ? Math.round((invoice.freightTotalUSD / totalItemsQuantity) * 100) / 100
+        : 0;
+
+      for (const item of invoice.items) {
+        const existing = get().products.find(p => p.sku === item.sku);
         if (existing) {
-          return {
-            cart: state.cart.map((item) =>
-              item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-            ),
-          };
-        }
-        return { cart: [...state.cart, { ...product, quantity: 1, priceFinalUSD }] };
-      }),
-
-      removeFromCart: (id) => set((state) => ({
-        cart: state.cart.filter((item) => item.id !== id),
-      })),
-      updateCartQuantity: (id, quantity) => set((state) => ({
-        cart: quantity <= 0
-          ? state.cart.filter((item) => item.id !== id)
-          : state.cart.map((item) => item.id === id ? { ...item, quantity } : item),
-      })),
-      clearCart: () => set({ cart: [] }),
-
-      // --- VENTAS ---
-      completeSale: (paymentMethod, clientId, initialPayment) => {
-        const { cart, settings, products } = get();
-        const totalUSD = cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0);
-        const totalVED = totalUSD * settings.tasaBCV;
-
-        const paidAmount = initialPayment !== undefined ? initialPayment : totalUSD;
-
-        let status: SaleStatus = 'COMPLETED';
-        if (paidAmount < totalUSD - 0.01) {
-          status = paidAmount > 0 ? 'PARTIAL' : 'PENDING';
-        }
-
-        const newSale: Sale = {
-          id: Date.now().toString(),
-          date: new Date().toISOString(),
-          totalUSD,
-          totalVED,
-          paymentMethod,
-          status,
-          clientId,
-          paidAmountUSD: paidAmount,
-          payments: paidAmount > 0 ? [{
-            id: Date.now().toString(),
-            date: new Date().toISOString(),
-            amountUSD: paidAmount,
-            method: paymentMethod,
-            note: 'Pago Inicial / Contado'
-          }] : [],
-          items: cart.map(item => ({
+          await supabase.from('products').update({
+            stock: Number(existing.stock) + Number(item.quantity),
+            cost: item.costUnitUSD,
+            cost_type: invoice.costType,
+            freight: unitFreight
+          }).eq('id', existing.id);
+        } else {
+          await supabase.from('products').insert({
             sku: item.sku,
             name: item.name,
-            quantity: item.quantity,
-            priceFinalUSD: item.priceFinalUSD,
-            costUnitUSD: item.cost
-          }))
-        };
-
-        const updatedProducts = products.map(p => {
-          const inCart = cart.find(c => c.id === p.id);
-          if (inCart) return { ...p, stock: p.stock - inCart.quantity };
-          return p;
-        });
-
-        set((state) => ({
-          sales: [newSale, ...state.sales],
-          products: updatedProducts,
-          cart: []
-        }));
-      },
-
-      annulSale: (saleId) => {
-        const { sales, products } = get();
-        const saleToAnnul = sales.find(s => s.id === saleId);
-        if (!saleToAnnul) return;
-
-        const updatedProducts = [...products];
-        saleToAnnul.items.forEach(item => {
-          const productIndex = updatedProducts.findIndex(p => p.sku === item.sku);
-          if (productIndex >= 0) {
-            updatedProducts[productIndex] = {
-              ...updatedProducts[productIndex],
-              stock: updatedProducts[productIndex].stock + item.quantity
-            };
-          }
-        });
-
-        set((state) => ({
-          products: updatedProducts,
-          sales: state.sales.map(s => s.id === saleId ? { ...s, status: 'CANCELLED' } : s)
-        }));
-      },
-
-      registerSalePayment: (saleId, payment) => set(state => {
-        const sale = state.sales.find(s => s.id === saleId);
-        if (!sale) return {};
-
-        const newPaidAmount = sale.paidAmountUSD + payment.amountUSD;
-        let newStatus: SaleStatus = sale.status;
-
-        if (newPaidAmount >= sale.totalUSD - 0.01) newStatus = 'COMPLETED';
-        else if (newPaidAmount > 0) newStatus = 'PARTIAL';
-
-        const updatedSale = {
-          ...sale,
-          paidAmountUSD: newPaidAmount,
-          status: newStatus,
-          payments: [...sale.payments, payment]
-        };
-
-        return {
-          sales: state.sales.map(s => s.id === saleId ? updatedSale : s)
-        };
-      }),
-
-      // --- COMPRAS ---
-      addInvoice: (invoice) => {
-        set((state) => {
-          const updatedProducts = [...state.products];
-          const updatedSuppliers = [...state.suppliers];
-          let supplierIndex = updatedSuppliers.findIndex(s => s.name.toLowerCase() === invoice.supplier.toLowerCase());
-
-          if (supplierIndex === -1) {
-            updatedSuppliers.push({ id: Date.now().toString(), name: invoice.supplier, catalog: [] });
-            supplierIndex = updatedSuppliers.length - 1;
-          }
-
-          invoice.items.forEach(item => {
-            const existingProdIndex = updatedProducts.findIndex(p => p.sku === item.sku);
-            if (existingProdIndex >= 0) {
-              const prod = updatedProducts[existingProdIndex];
-              updatedProducts[existingProdIndex] = {
-                ...prod,
-                stock: prod.stock + item.quantity,
-                cost: item.costUnitUSD,
-                costType: invoice.costType,
-                supplier: invoice.supplier
-              };
-            } else {
-              updatedProducts.push({
-                id: Date.now().toString() + Math.random(),
-                sku: item.sku,
-                name: item.name,
-                category: 'General',
-                stock: item.quantity,
-                minStock: item.minStock,
-                cost: item.costUnitUSD,
-                costType: invoice.costType,
-                supplier: invoice.supplier,
-                freight: 0
-              });
-            }
-            const catalog = updatedSuppliers[supplierIndex].catalog;
-            const catalogItemIndex = catalog.findIndex(c => c.sku === item.sku);
-            if (catalogItemIndex >= 0) {
-              catalog[catalogItemIndex].lastCost = item.costUnitUSD;
-            } else {
-              catalog.push({ sku: item.sku, name: item.name, lastCost: item.costUnitUSD });
-            }
+            stock: Number(item.quantity),
+            cost: item.costUnitUSD,
+            min_stock: item.minStock,
+            category: 'General',
+            cost_type: invoice.costType,
+            supplier: invoice.supplier,
+            freight: unitFreight
           });
-
-          return {
-            invoices: [...state.invoices, invoice],
-            products: updatedProducts,
-            suppliers: updatedSuppliers
-          };
-        });
-        return true;
-      },
-
-      updateInvoice: (invoice) => set(state => ({
-        invoices: state.invoices.map(inv => inv.id === invoice.id ? invoice : inv)
-      })),
-
-      registerPayment: (invoiceId, payment) => set(state => {
-        const invoice = state.invoices.find(i => i.id === invoiceId);
-        if (!invoice) return {};
-
-        const newPaidAmount = invoice.paidAmountUSD + payment.amountUSD;
-        let newStatus: PaymentStatus = invoice.status;
-
-        if (newPaidAmount >= invoice.totalUSD - 0.01) newStatus = 'PAID';
-        else if (newPaidAmount > 0) newStatus = 'PARTIAL';
-
-        const updatedInvoice = {
-          ...invoice,
-          paidAmountUSD: newPaidAmount,
-          status: newStatus,
-          payments: [...invoice.payments, payment]
-        };
-
-        return {
-          invoices: state.invoices.map(i => i.id === invoiceId ? updatedInvoice : i)
-        };
-      }),
-
-      addPaymentMethod: (name, currency) => set(state => ({
-        paymentMethods: [...state.paymentMethods, { id: Date.now().toString(), name, currency }]
-      })),
-
-      deletePaymentMethod: (id) => set(state => ({
-        paymentMethods: state.paymentMethods.filter(pm => pm.id !== id)
-      })),
-
-      // NUEVO: Función que ejecuta el corte Z
-      performDailyClose: () => set(state => ({
-        settings: {
-          ...state.settings,
-          lastCloseDate: new Date().toISOString()
         }
-      }))
-    }),
-    {
-      name: 'todo-en-ruedas-storage',
-      storage: createJSONStorage(() => localStorage),
+      }
+
+      const existingSupplier = get().suppliers.find(s => s.name.toLowerCase() === invoice.supplier.toLowerCase());
+      const newCatalogItems = invoice.items.map(item => ({ sku: item.sku, name: item.name, lastCost: item.costUnitUSD }));
+
+      if (existingSupplier) {
+        const mergedCatalog = [...(existingSupplier.catalog || [])];
+        newCatalogItems.forEach(newItem => {
+          const idx = mergedCatalog.findIndex(c => c.sku === newItem.sku);
+          if (idx >= 0) mergedCatalog[idx] = newItem;
+          else mergedCatalog.push(newItem);
+        });
+        await supabase.from('suppliers').update({ catalog: mergedCatalog }).eq('id', existingSupplier.id);
+      } else {
+        await supabase.from('suppliers').insert({ name: invoice.supplier, catalog: newCatalogItems });
+      }
+
+      toast.dismiss(loadingToast);
+      toast.success("Factura y Stock actualizados 📦");
+      get().fetchInitialData();
+      return true;
+
+    } catch (error: any) { toast.dismiss(loadingToast); toast.error("Error al registrar: " + error.message); return false; }
+  },
+
+  // 🔥 NUEVA FUNCIÓN: ACTUALIZAR FACTURA COMPLETAMENTE 🔥
+  updateInvoice: async (invoice) => {
+    const loadingToast = toast.loading("Actualizando factura...");
+    try {
+      const { error } = await supabase.from('invoices').update({
+        number: invoice.number,
+        supplier: invoice.supplier,
+        date_due: invoice.dateDue,
+        status: invoice.status,
+        items: invoice.items,
+        subtotal_usd: invoice.subtotalUSD,
+        freight_total_usd: invoice.freightTotalUSD,
+        total_usd: invoice.totalUSD,
+        paid_amount_usd: invoice.paidAmountUSD,
+        payments: invoice.payments
+      }).eq('id', invoice.id);
+
+      if (error) throw error;
+
+      set(state => ({ invoices: state.invoices.map(i => i.id === invoice.id ? invoice : i) }));
+      toast.dismiss(loadingToast);
+    } catch (error: any) {
+      toast.dismiss(loadingToast);
+      toast.error("Error al actualizar factura: " + error.message);
     }
-  )
-);
+  },
+
+  deleteInvoice: async (id) => {
+    const loadingToast = toast.loading("Eliminando factura...");
+    try {
+      const { error } = await supabase.from('invoices').delete().eq('id', id);
+      if (error) throw error;
+
+      set(state => ({ invoices: state.invoices.filter(i => i.id !== id) }));
+      toast.dismiss(loadingToast);
+      toast.success("Factura eliminada 🗑️");
+    } catch (error: any) {
+      toast.dismiss(loadingToast);
+      toast.error("Error al eliminar: " + error.message);
+    }
+  },
+
+  // 🔥 NUEVA FUNCIÓN: REGISTRAR ABONO A FACTURA DE COMPRA 🔥
+  registerPayment: async (invoiceId, payment) => {
+    const loadingToast = toast.loading("Registrando pago...");
+    try {
+      const invoice = get().invoices.find(i => i.id === invoiceId);
+      if (!invoice) throw new Error("Factura no encontrada");
+
+      const newPaidAmount = invoice.paidAmountUSD + payment.amountUSD;
+      const newPayments = [...(invoice.payments || []), payment];
+
+      let newStatus = invoice.status;
+      if (newPaidAmount >= invoice.totalUSD - 0.01) newStatus = 'PAID';
+      else if (newPaidAmount > 0) newStatus = 'PARTIAL';
+
+      const { error } = await supabase.from('invoices').update({
+        paid_amount_usd: newPaidAmount,
+        status: newStatus,
+        payments: newPayments
+      }).eq('id', invoiceId);
+
+      if (error) throw error;
+
+      set(state => ({
+        invoices: state.invoices.map(i =>
+          i.id === invoiceId
+            ? { ...i, paidAmountUSD: newPaidAmount, status: newStatus, payments: newPayments }
+            : i
+        )
+      }));
+
+      toast.dismiss(loadingToast);
+      toast.success("Abono registrado con éxito");
+      get().fetchInitialData();
+    } catch (error: any) {
+      toast.dismiss(loadingToast);
+      toast.error("Error al registrar pago: " + error.message);
+    }
+  },
+
+  addPaymentMethod: (name, currency) => set(state => ({ paymentMethods: [...state.paymentMethods, { id: Date.now().toString(), name, currency }] })),
+  deletePaymentMethod: (id) => set(state => ({ paymentMethods: state.paymentMethods.filter(pm => pm.id !== id) })),
+  performDailyClose: async () => {
+    const now = new Date().toISOString();
+    try {
+      await supabase.from('settings').update({ last_close_date: now }).neq('id', '00000000-0000-0000-0000-000000000000');
+      set(state => ({ settings: { ...state.settings, lastCloseDate: now } }));
+      toast.success("Cierre de caja exitoso 🏁");
+    } catch (error) { toast.error("Error al cerrar caja"); }
+  }
+}));

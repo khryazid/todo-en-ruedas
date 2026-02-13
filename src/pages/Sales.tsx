@@ -1,7 +1,7 @@
 /**
  * @file Sales.tsx
  * @description Historial de Ventas.
- * Permite auditar operaciones, anular ventas, reimprimir tickets y ENVIAR POR WHATSAPP.
+ * Permite auditar operaciones, anular ventas, borrar ventas de prueba, reimprimir tickets y ENVIAR POR WHATSAPP.
  */
 
 import { useState } from 'react';
@@ -10,12 +10,12 @@ import { formatCurrency } from '../utils/pricing';
 import { printInvoice, printSalesList, sendToWhatsApp } from '../utils/ticketGenerator';
 import {
     Eye, Search, Printer, Ban,
-    X, ShoppingBag, User, Phone, MapPin, MessageCircle
+    X, ShoppingBag, User, Phone, MapPin, MessageCircle, Trash2
 } from 'lucide-react';
 import type { Sale } from '../types';
 
 export const Sales = () => {
-    const { sales, clients, annulSale } = useStore();
+    const { sales, clients, annulSale, deleteSale } = useStore(); // <--- AÑADIDO deleteSale
 
     // Estados de Filtros y Selección
     const [searchTerm, setSearchTerm] = useState('');
@@ -45,6 +45,13 @@ export const Sales = () => {
 
     const handlePrintReport = () => {
         printSalesList(filteredSales, startDate, endDate);
+    };
+
+    // --- NUEVA FUNCIÓN DE BORRADO ---
+    const handleDelete = (id: string) => {
+        if (window.confirm('🚨 ¿Seguro que deseas BORRAR DEFINITIVAMENTE esta venta? \nEsta acción es irreversible y NO restaurará el stock de inventario.')) {
+            deleteSale(id);
+        }
     };
 
     return (
@@ -146,10 +153,13 @@ export const Sales = () => {
                                                 <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border border-green-200">COMPLETADA</span>
                                             )}
                                         </td>
+
+                                        {/* ACCIONES (Detalle, Imprimir, Borrar) */}
                                         <td className="px-6 py-4 text-center sticky right-0 bg-white group-hover:bg-gray-50 transition-colors shadow-[-5px_0_10px_rgba(0,0,0,0.02)]">
                                             <div className="flex justify-center gap-2">
                                                 <button onClick={() => setSelectedSale(sale)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Ver Detalle"><Eye size={18} /></button>
                                                 <button onClick={() => printInvoice(sale)} className="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition" title="Imprimir"><Printer size={18} /></button>
+                                                <button onClick={() => handleDelete(sale.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Borrar Prueba Definitivamente"><Trash2 size={18} /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -280,7 +290,7 @@ export const Sales = () => {
                                     </button>
                                 )}
 
-                                {/* BOTÓN WHATSAPP (NUEVO) */}
+                                {/* BOTÓN WHATSAPP */}
                                 <button
                                     onClick={() => sendToWhatsApp(selectedSale)}
                                     className="px-4 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 shadow-lg shadow-green-200 transition flex items-center justify-center gap-2"

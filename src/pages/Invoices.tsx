@@ -1,33 +1,30 @@
 /**
  * @file Invoices.tsx
- * @description Gestión de Cuentas por Pagar.
- * Incluye botón de "Pagar Total" para liquidar deudas rápidamente.
  */
-
 import { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import {
     FileText, CheckCircle, Clock, TrendingDown,
-    Save, X, Trash2, Edit, History, Truck, Wallet, Plus, RefreshCw, Zap
+    Save, X, Trash2, Edit, History, Truck, Wallet, RefreshCw, Zap, Filter, Search
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import type { Invoice, Payment, IncomingItem } from '../types';
 
 export const Invoices = () => {
-    const { invoices, products, registerPayment, updateInvoice, updateProduct, paymentMethods } = useStore();
+    const { invoices, products, registerPayment, updateInvoice, updateProduct, paymentMethods, deleteInvoice } = useStore(); // <--- AÑADIDO deleteInvoice
     const location = useLocation();
 
-    // Estados de Modales
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-
     const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
     const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
-
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('');
     const [paymentNote, setPaymentNote] = useState('');
+
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('ALL');
 
     useEffect(() => {
         if (paymentMethods.length > 0) setPaymentMethod(paymentMethods[0].name);
@@ -40,15 +37,21 @@ export const Invoices = () => {
         }
     }, [location.state, invoices]);
 
-    const sortedInvoices = useMemo(() => {
-        return [...invoices].sort((a, b) => {
+    const filteredInvoices = useMemo(() => {
+        let filtered = invoices.filter(inv => {
+            const matchesSearch = inv.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (inv.supplier || '').toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === 'ALL' || inv.status === statusFilter;
+            return matchesSearch && matchesStatus;
+        });
+
+        return filtered.sort((a, b) => {
             if (a.status === 'PENDING' && b.status === 'PAID') return -1;
             if (a.status === 'PAID' && b.status === 'PENDING') return 1;
             return new Date(a.dateDue).getTime() - new Date(b.dateDue).getTime();
         });
-    }, [invoices]);
+    }, [invoices, searchTerm, statusFilter]);
 
-    // --- MANEJO DE MODALES ---
     const openPaymentModal = (invoice: Invoice) => {
         setSelectedInvoice(invoice);
         setPaymentAmount('');
@@ -60,7 +63,12 @@ export const Invoices = () => {
         setIsDetailModalOpen(true);
     };
 
-    // --- LÓGICA DE EDICIÓN DE PRODUCTOS ---
+    const handleDeleteInvoice = (id: string) => {
+        if (window.confirm('🚨 ¿Seguro que deseas ELIMINAR esta factura?\nEsto NO alterará el stock actual del inventario.')) {
+            deleteInvoice(id);
+        }
+    };
+
     const handleItemChange = (index: number, field: keyof IncomingItem, value: any) => {
         if (!editingInvoice) return;
         const newItems = [...editingInvoice.items];
@@ -87,13 +95,11 @@ export const Invoices = () => {
         const originalInvoice = invoices.find(i => i.id === editingInvoice.id);
         if (!originalInvoice) return;
 
-        // 1. Revertir stock viejo
         originalInvoice.items.forEach(oldItem => {
             const product = products.find(p => p.sku === oldItem.sku);
             if (product) updateProduct(product.id, { stock: product.stock - oldItem.quantity });
         });
 
-        // 2. Aplicar stock nuevo (Hack de timeout para asegurar secuencialidad)
         setTimeout(() => {
             editingInvoice.items.forEach(newItem => {
                 const currentProducts = useStore.getState().products;
@@ -106,14 +112,12 @@ export const Invoices = () => {
         }, 50);
     };
 
-    // --- GESTIÓN DE PAGOS ---
     const handleRegisterPayment = (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedInvoice) return;
         const amount = parseFloat(paymentAmount);
         if (amount <= 0) return alert("Monto inválido");
         const debt = selectedInvoice.totalUSD - selectedInvoice.paidAmountUSD;
-        // Permitimos un margen de error de 0.01 por redondeo
         if (amount > debt + 0.01) return alert(`El monto excede la deuda (${formatCurrency(debt, 'USD')})`);
 
         const newPayment: Payment = {
@@ -145,7 +149,6 @@ export const Invoices = () => {
 
     return (
         <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen animate-in fade-in duration-300">
-            {/* HEADER */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
                     <h2 className="text-2xl font-black text-gray-800 tracking-tight">Cuentas por Pagar</h2>
@@ -157,9 +160,37 @@ export const Invoices = () => {
                 </div>
             </div>
 
-            {/* GRID FACTURAS */}
+            {/* BARRA DE FILTROS */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+                <div className="p-4 flex flex-col md:flex-row gap-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                        <input
+                            type="text"
+                            placeholder="Buscar por Nº Control o Proveedor..."
+                            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 transition font-medium text-gray-700"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <div className="relative w-full md:w-64">
+                        <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                        <select
+                            className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 transition font-bold text-gray-700 appearance-none cursor-pointer"
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                        >
+                            <option value="ALL">Todos los Estados</option>
+                            <option value="PENDING">Pendientes</option>
+                            <option value="PARTIAL">Abonadas</option>
+                            <option value="PAID">Pagadas</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {sortedInvoices.map(invoice => {
+                {filteredInvoices.map(invoice => {
                     const debt = invoice.totalUSD - invoice.paidAmountUSD;
                     const isPaid = invoice.status === 'PAID';
                     const isOverdue = new Date(invoice.dateDue) < new Date() && !isPaid;
@@ -178,15 +209,19 @@ export const Invoices = () => {
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => openDetailModal(invoice)} className="flex-1 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition flex items-center justify-center gap-2 text-xs"><Edit size={14} /> Editar / Detalles</button>
+                                <button onClick={() => openDetailModal(invoice)} className="flex-1 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition flex items-center justify-center gap-2 text-xs"><Edit size={14} /> Editar</button>
                                 {!isPaid && <button onClick={() => openPaymentModal(invoice)} className="flex-1 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition flex items-center justify-center gap-2 text-xs shadow-md shadow-red-100"><Wallet size={14} /> Abonar</button>}
+
+                                {/* BOTÓN ELIMINAR FACTURA */}
+                                <button onClick={() => handleDeleteInvoice(invoice.id)} className="p-2 border border-gray-200 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition" title="Borrar Definitivamente">
+                                    <Trash2 size={16} />
+                                </button>
                             </div>
                         </div>
                     );
                 })}
             </div>
 
-            {/* MODAL 1: REGISTRAR PAGO (CON BOTÓN DE ABONO TOTAL) */}
             {isPaymentModalOpen && selectedInvoice && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
                     <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden">
@@ -194,17 +229,10 @@ export const Invoices = () => {
                         <form onSubmit={handleRegisterPayment} className="p-6 space-y-4">
                             <div className="bg-red-50 p-4 rounded-xl text-center border border-red-100"><p className="text-xs text-red-400 uppercase font-bold mb-1">Deuda Pendiente</p><p className="text-3xl font-black text-red-600">{formatCurrency(selectedInvoice.totalUSD - selectedInvoice.paidAmountUSD, 'USD')}</p></div>
 
-                            {/* CAMPO MONTO CON BOTÓN DE "PAGAR TOTAL" */}
                             <div>
                                 <div className="flex justify-between items-center mb-1">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Monto ($)</label>
-                                    <button
-                                        type="button"
-                                        onClick={() => setPaymentAmount((selectedInvoice.totalUSD - selectedInvoice.paidAmountUSD).toFixed(2))}
-                                        className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded-md font-bold hover:bg-blue-100 transition flex items-center gap-1"
-                                    >
-                                        <Zap size={10} fill="currentColor" /> PAGAR TOTAL
-                                    </button>
+                                    <button type="button" onClick={() => setPaymentAmount((selectedInvoice.totalUSD - selectedInvoice.paidAmountUSD).toFixed(2))} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1 rounded-md font-bold hover:bg-blue-100 transition flex items-center gap-1"><Zap size={10} fill="currentColor" /> PAGAR TOTAL</button>
                                 </div>
                                 <input type="number" step="0.01" autoFocus required className="w-full text-lg font-bold border-2 border-gray-200 rounded-xl p-3 focus:border-green-500 outline-none" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
                             </div>
@@ -217,7 +245,6 @@ export const Invoices = () => {
                 </div>
             )}
 
-            {/* MODAL 2: VER / EDITAR DETALLES */}
             {isDetailModalOpen && editingInvoice && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 md:p-4 backdrop-blur-sm animate-in zoom-in-95">
                     <div className="bg-white w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">

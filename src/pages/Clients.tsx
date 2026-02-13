@@ -1,27 +1,34 @@
 /**
  * @file Clients.tsx
  * @description Gestión de Clientes (CRM Avanzado).
- * Incluye historial de compras, cálculo de valor de vida (LTV) y nivel de fidelidad.
+ * Incluye historial de compras, cálculo de valor de vida (LTV), nivel de fidelidad,
+ * y visualización detallada de tickets con funciones de impresión y WhatsApp.
  */
 
 import { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
+import { printInvoice, sendToWhatsApp } from '../utils/ticketGenerator';
 import {
     Users, Search, Plus, Edit, Trash2,
     Phone, Mail, MapPin, X, Save,
-    ShoppingBag, Calendar, TrendingUp, Award, Clock
+    ShoppingBag, Calendar, TrendingUp, Award, Clock,
+    Eye, Printer, Ban, MessageCircle, User
 } from 'lucide-react';
 import type { Client, Sale } from '../types';
 
 export const Clients = () => {
-    const { clients, sales, addClient, updateClient, deleteClient } = useStore();
+    // AÑADIDO annulSale para poder anular desde el detalle del cliente
+    const { clients, sales, addClient, updateClient, deleteClient, annulSale } = useStore();
 
     // Estados UI
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Estado para el Detalle de la Venta (NUEVO)
+    const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
     // Estado Formulario
     const initialForm: Client = { id: '', name: '', rif: '', phone: '', address: '', email: '', notes: '' };
@@ -50,7 +57,7 @@ export const Clients = () => {
             ? new Date(Math.max(...clientSales.map(s => new Date(s.date).getTime()))).toLocaleDateString()
             : 'Nunca';
 
-        return { totalSpent, visitCount, tier, lastVisit, history: clientSales };
+        return { totalSpent, visitCount, tier, lastVisit, history: sales.filter(s => s.clientId === clientId) };
     };
 
     // --- HANDLERS ---
@@ -217,7 +224,7 @@ export const Clients = () => {
                 </div>
             )}
 
-            {/* MODAL 2: HISTORIAL DE COMPRAS (NUEVO) */}
+            {/* MODAL 2: HISTORIAL DE COMPRAS */}
             {isHistoryOpen && selectedClient && (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-2 md:p-4 backdrop-blur-sm animate-in zoom-in-95">
                     <div className="bg-white w-full max-w-3xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
@@ -240,28 +247,53 @@ export const Clients = () => {
                                 </div>
                             ) : (
                                 <table className="w-full text-sm text-left">
-                                    <thead className="bg-gray-100 text-xs uppercase font-bold text-gray-500 sticky top-0">
+                                    <thead className="bg-gray-100 text-xs uppercase font-bold text-gray-500 sticky top-0 shadow-sm">
                                         <tr>
                                             <th className="p-4">Fecha</th>
                                             <th className="p-4">Ticket</th>
+                                            <th className="p-4 text-center">Estado</th>
                                             <th className="p-4 text-center">Ítems</th>
                                             <th className="p-4 text-right">Total ($)</th>
+                                            <th className="p-4 text-center">Acción</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {getClientMetrics(selectedClient.id).history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(sale => (
-                                            <tr key={sale.id} className="hover:bg-gray-50 transition">
-                                                <td className="p-4 font-medium text-gray-700">
-                                                    {new Date(sale.date).toLocaleDateString()}
-                                                    <span className="block text-[10px] text-gray-400 font-normal">{new Date(sale.date).toLocaleTimeString()}</span>
-                                                </td>
-                                                <td className="p-4 font-mono text-xs text-gray-500">#{sale.id.slice(-6)}</td>
-                                                <td className="p-4 text-center">
-                                                    <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-bold">{sale.items.length}</span>
-                                                </td>
-                                                <td className="p-4 text-right font-black text-gray-800">{formatCurrency(sale.totalUSD, 'USD')}</td>
-                                            </tr>
-                                        ))}
+                                        {getClientMetrics(selectedClient.id).history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(sale => {
+                                            const isCancelled = sale.status === 'CANCELLED';
+                                            return (
+                                                <tr key={sale.id} className={`hover:bg-gray-50 transition ${isCancelled ? 'bg-red-50/30' : ''}`}>
+                                                    <td className="p-4 font-medium text-gray-700">
+                                                        {new Date(sale.date).toLocaleDateString()}
+                                                        <span className="block text-[10px] text-gray-400 font-normal">{new Date(sale.date).toLocaleTimeString()}</span>
+                                                    </td>
+                                                    <td className="p-4 font-mono text-xs text-gray-500">#{sale.id.slice(-6)}</td>
+                                                    <td className="p-4 text-center">
+                                                        {isCancelled ? (
+                                                            <span className="inline-flex items-center bg-red-100 text-red-600 px-2 py-0.5 rounded text-[10px] font-bold">ANULADA</span>
+                                                        ) : sale.status === 'PENDING' || sale.status === 'PARTIAL' ? (
+                                                            <span className="inline-flex items-center bg-orange-100 text-orange-600 px-2 py-0.5 rounded text-[10px] font-bold">CRÉDITO</span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold">PAGADA</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-bold">{sale.items.length}</span>
+                                                    </td>
+                                                    <td className={`p-4 text-right font-black ${isCancelled ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                                                        {formatCurrency(sale.totalUSD, 'USD')}
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <button
+                                                            onClick={() => setSelectedSale(sale)}
+                                                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                                            title="Ver Detalle"
+                                                        >
+                                                            <Eye size={18} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             )}
@@ -270,11 +302,140 @@ export const Clients = () => {
                         {/* Footer Resumen */}
                         <div className="p-5 bg-gray-50 border-t flex justify-between items-center">
                             <div className="text-xs text-gray-500">
-                                <p>Compras Totales: <strong className="text-gray-800">{getClientMetrics(selectedClient.id).visitCount}</strong></p>
+                                <p>Compras Válidas: <strong className="text-gray-800">{getClientMetrics(selectedClient.id).visitCount}</strong></p>
                             </div>
                             <div className="text-right">
                                 <p className="text-[10px] uppercase font-bold text-gray-400">Total Histórico</p>
                                 <p className="text-2xl font-black text-green-600">{formatCurrency(getClientMetrics(selectedClient.id).totalSpent, 'USD')}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* MODAL 3: DETALLE DE VENTA INDIVIDUAL (Se sobrepone al historial) */}
+            {selectedSale && (
+                <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm animate-in zoom-in-95">
+                    <div className="bg-white w-full md:max-w-3xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+
+                        {/* Header Modal Detalle */}
+                        <div className="p-5 bg-gray-50 border-b flex justify-between items-center">
+                            <div>
+                                <h3 className="font-bold text-xl text-gray-800">Detalle de Venta</h3>
+                                <p className="text-sm text-gray-500 font-mono">Ticket #{selectedSale.id.slice(-6)} • {new Date(selectedSale.date).toLocaleString('es-VE')}</p>
+                            </div>
+                            <button onClick={() => setSelectedSale(null)} className="bg-white p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition shadow-sm"><X size={20} /></button>
+                        </div>
+
+                        {/* Contenido Modal Detalle */}
+                        <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
+
+                            {/* Tarjeta Cliente en Detalle */}
+                            <div className="bg-blue-50 p-4 m-4 rounded-xl border border-blue-100 flex flex-col md:flex-row gap-4 items-start md:items-center">
+                                <div className="bg-blue-200 p-3 rounded-full text-blue-700">
+                                    <User size={24} />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-xs font-bold text-blue-400 uppercase mb-1">Cliente Registrado</p>
+                                    <h4 className="text-lg font-black text-blue-900">{selectedClient?.name}</h4>
+                                    <div className="flex flex-wrap gap-4 mt-2 text-sm text-blue-800">
+                                        <span className="font-mono bg-white/50 px-2 rounded border border-blue-200">{selectedClient?.rif}</span>
+                                        {selectedClient?.phone && <span className="flex items-center gap-1"><Phone size={14} /> {selectedClient.phone}</span>}
+                                        {selectedClient?.address && <span className="flex items-center gap-1"><MapPin size={14} /> {selectedClient.address}</span>}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* VISTA MÓVIL ITEMS */}
+                            <div className="md:hidden p-4 space-y-3 pt-0">
+                                {selectedSale.items.map((item, i) => (
+                                    <div key={i} className="flex justify-between py-3 border-b border-dashed border-gray-100 last:border-0">
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-800"><span className="text-red-600">{item.quantity}x</span> {item.name}</p>
+                                            <p className="text-xs text-gray-400 font-mono mt-0.5">{item.sku}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold text-gray-900">{formatCurrency(item.priceFinalUSD * item.quantity, 'USD')}</p>
+                                            <p className="text-[10px] text-gray-400">{formatCurrency(item.priceFinalUSD, 'USD')} c/u</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* VISTA PC ITEMS */}
+                            <div className="hidden md:block">
+                                <table className="w-full text-left text-sm">
+                                    <thead className="bg-gray-100 text-xs uppercase font-bold text-gray-500">
+                                        <tr>
+                                            <th className="px-6 py-3">Código</th>
+                                            <th className="px-6 py-3">Producto</th>
+                                            <th className="px-6 py-3 text-center">Cant.</th>
+                                            <th className="px-6 py-3 text-right">Precio Unit.</th>
+                                            <th className="px-6 py-3 text-right">Subtotal</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {selectedSale.items.map((item, i) => (
+                                            <tr key={i} className="hover:bg-gray-50">
+                                                <td className="px-6 py-3 font-mono text-xs text-gray-500">{item.sku}</td>
+                                                <td className="px-6 py-3 font-medium text-gray-700">{item.name}</td>
+                                                <td className="px-6 py-3 text-center font-bold">{item.quantity}</td>
+                                                <td className="px-6 py-3 text-right text-gray-500">{formatCurrency(item.priceFinalUSD, 'USD')}</td>
+                                                <td className="px-6 py-3 text-right font-bold text-gray-900">{formatCurrency(item.priceFinalUSD * item.quantity, 'USD')}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Footer Modal Detalle con Acciones */}
+                        <div className="bg-gray-50 p-5 border-t">
+                            <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 mb-6">
+                                <div className="text-sm text-gray-500">
+                                    <span className="block">Método: <strong className="text-gray-800">{selectedSale.paymentMethod}</strong></span>
+                                    <span className="block">Estado: <strong className={selectedSale.status === 'CANCELLED' ? 'text-red-600' : 'text-green-600'}>{selectedSale.status === 'CANCELLED' ? 'ANULADA' : selectedSale.status === 'COMPLETED' ? 'COMPLETADA' : 'PENDIENTE'}</strong></span>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total Venta</p>
+                                    <p className="text-3xl font-black text-gray-900 leading-none">{formatCurrency(selectedSale.totalUSD, 'USD')}</p>
+                                    <p className="text-sm font-medium text-gray-500 mt-1">Ref. Bs {selectedSale.totalVED.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                {/* BOTÓN ANULAR */}
+                                {selectedSale.status !== 'CANCELLED' && (
+                                    <button
+                                        onClick={() => {
+                                            if (window.confirm('¿Seguro que deseas anular esta venta? El stock volverá al inventario.')) {
+                                                annulSale(selectedSale.id);
+                                                setSelectedSale(null);
+                                            }
+                                        }}
+                                        className="px-4 py-3 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 flex items-center justify-center gap-2 transition"
+                                        title="Anular Venta"
+                                    >
+                                        <Ban size={20} />
+                                    </button>
+                                )}
+
+                                {/* BOTÓN WHATSAPP */}
+                                <button
+                                    onClick={() => sendToWhatsApp(selectedSale)}
+                                    className="px-4 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 shadow-lg shadow-green-200 transition flex items-center justify-center gap-2"
+                                    title="Enviar por WhatsApp"
+                                >
+                                    <MessageCircle size={20} />
+                                </button>
+
+                                {/* BOTÓN IMPRIMIR */}
+                                <button
+                                    onClick={() => printInvoice(selectedSale)}
+                                    className="flex-1 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black flex justify-center items-center gap-2 shadow-lg transition transform active:scale-95"
+                                >
+                                    <Printer size={20} /> REIMPRIMIR TICKET
+                                </button>
                             </div>
                         </div>
                     </div>

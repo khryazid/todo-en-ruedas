@@ -1,74 +1,77 @@
 /**
  * @file ticketGenerator.ts
  * @description Motor de generación de tickets y reportes.
- * OPTIMIZADO PARA MÓVIL: Usa reemplazo del cuerpo del documento en lugar de pop-ups.
+ * OPTIMIZADO V2: Usa Inyección CSS para evitar páginas en blanco en móviles.
  */
 
 import type { Sale, AppSettings, PaymentMethod } from '../types';
 import { useStore } from '../store/useStore';
 
-// --- 1. FUNCIÓN MAESTRA DE IMPRESIÓN (MÓVIL FRIENDLY) ---
-// Esta función reemplaza la pantalla actual, imprime y recarga.
+// --- 1. FUNCIÓN MAESTRA DE IMPRESIÓN (CSS INJECTION) ---
 const printMobileFriendly = (content: string) => {
-    // 1. Guardar estilos base para impresión térmica
-    const style = `
-        <style>
-            body { 
-                font-family: 'Courier New', monospace; 
-                font-size: 12px; 
-                margin: 0; 
-                padding: 10px; 
-                color: #000; 
-                background: #fff; 
-                width: 100%;
+    // 1. Crear un contenedor para el ticket si no existe
+    let printArea = document.getElementById('print-area');
+    if (!printArea) {
+        printArea = document.createElement('div');
+        printArea.id = 'print-area';
+        document.body.appendChild(printArea);
+    }
+
+    // 2. Inyectar el contenido del ticket
+    printArea.innerHTML = content;
+
+    // 3. Agregar estilos específicos para ocultar la App y mostrar solo el ticket al imprimir
+    const styleId = 'print-styles';
+    let styleTag = document.getElementById(styleId);
+    if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = styleId;
+        styleTag.innerHTML = `
+            @media screen {
+                #print-area { display: none; } /* Oculto en pantalla normal */
             }
-            .header { text-align: center; margin-bottom: 10px; border-bottom: 1px dashed #000; padding-bottom: 5px; }
-            .title { font-size: 16px; font-weight: bold; margin: 5px 0; }
-            .subtitle { font-size: 10px; text-transform: uppercase; }
-            .divider { border-top: 1px dashed #000; margin: 5px 0; }
-            .item { display: flex; justify-content: space-between; margin-bottom: 2px; }
-            .totals { margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; }
-            .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; }
-            .footer { text-align: center; margin-top: 20px; font-size: 10px; }
-            .bold { font-weight: bold; }
-            
-            /* Ocultar elementos de la interfaz si quedara algo */
             @media print {
-                @page { margin: 0; size: auto; }
-                body { margin: 0; }
-                .no-print { display: none; }
+                /* Ocultar TODO lo demás */
+                body * { visibility: hidden; }
+                #root, #root * { display: none; }
+                
+                /* Mostrar solo el área de impresión */
+                #print-area, #print-area * { 
+                    visibility: visible; 
+                    display: block; 
+                }
+                #print-area {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    margin: 0;
+                    padding: 0;
+                }
+                
+                /* Estilos del Ticket */
+                body { font-family: 'Courier New', monospace; font-size: 12px; color: black; background: white; }
+                .header { text-align: center; margin-bottom: 10px; border-bottom: 1px dashed #000; padding-bottom: 5px; }
+                .title { font-size: 16px; font-weight: bold; margin: 5px 0; }
+                .subtitle { font-size: 10px; text-transform: uppercase; }
+                .divider { border-top: 1px dashed #000; margin: 5px 0; }
+                .item { display: flex; justify-content: space-between; margin-bottom: 2px; }
+                .totals { margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; }
+                .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; }
+                .footer { text-align: center; margin-top: 20px; font-size: 10px; }
+                .bold { font-weight: bold; }
             }
-        </style>
-    `;
+        `;
+        document.head.appendChild(styleTag);
+    }
 
-    // 2. Construir el HTML final
-    const fullHTML = `
-        <html>
-            <head>
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                ${style}
-            </head>
-            <body>
-                ${content}
-                <script>
-                    // Esperar un momento para asegurar que el renderizado esté listo
-                    setTimeout(() => {
-                        window.print();
-                        // En móviles, es mejor recargar después de imprimir para recuperar los eventos de React
-                        // Un pequeño delay para que no corte el diálogo de impresión
-                        setTimeout(() => {
-                           window.location.reload();
-                        }, 500);
-                    }, 500);
-                </script>
-            </body>
-        </html>
-    `;
+    // 4. Imprimir con un pequeño retraso para asegurar el renderizado
+    setTimeout(() => {
+        window.print();
 
-    // 3. Reemplazar el documento actual (La técnica "Body Swap")
-    document.open();
-    document.write(fullHTML);
-    document.close();
+        // Opcional: Limpiar el área de impresión después
+        // setTimeout(() => { if(printArea) printArea.innerHTML = ''; }, 1000);
+    }, 200);
 };
 
 
@@ -237,11 +240,9 @@ export const printSalesList = (sales: Sale[], start: string, end: string) => {
 };
 
 // --- 5. GENERAR ENLACE DE WHATSAPP ---
-// (Esta función se mantiene igual porque no usa impresión)
 export const sendToWhatsApp = (sale: Sale) => {
     const { settings, clients } = useStore.getState();
     const client = clients.find(c => c.id === sale.clientId);
-
     const phone = client?.phone ? client.phone.replace(/\D/g, '') : '';
 
     let message = `*${settings.companyName}*\n`;
