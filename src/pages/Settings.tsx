@@ -2,6 +2,8 @@
  * @file Settings.tsx
  * @description Pantalla de Configuración Global conectada a Supabase.
  * Incluye: Datos Fiscales, Tasas de Cambio, Márgenes y Métodos de Pago.
+ *
+ * ✅ SPRINT 1.2 FIX: handleAddMethod y deletePaymentMethod ahora son async.
  */
 
 import { useState, useEffect } from 'react';
@@ -26,13 +28,13 @@ export const Settings = () => {
 
   const handleSave = async () => {
     await updateSettings({ ...formData, lastUpdated: new Date().toISOString() });
-    // El toast de confirmación ya lo maneja el useStore
   };
 
-  const handleAddMethod = (e: React.FormEvent) => {
+  // ✅ FIX: Ahora es async para coincidir con el store
+  const handleAddMethod = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMethodName.trim()) return;
-    addPaymentMethod(newMethodName, newMethodCurrency);
+    await addPaymentMethod(newMethodName, newMethodCurrency);
     setNewMethodName('');
   };
 
@@ -204,7 +206,7 @@ export const Settings = () => {
                 <span>{method.name}</span>
                 <span className="text-[10px] opacity-70">({method.currency})</span>
                 <button
-                  onClick={() => deletePaymentMethod(method.id)}
+                  onClick={async () => await deletePaymentMethod(method.id)}
                   className="text-gray-400 hover:text-red-500 hover:bg-white rounded-full p-1 ml-1 transition"
                   title="Eliminar método"
                 >
