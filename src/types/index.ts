@@ -1,7 +1,11 @@
 /**
  * @file index.ts
  * @description Definiciones de Tipos Globales.
- * Incluye todos los modelos de datos y la configuración con FECHA DE CIERRE.
+ * Única fuente de verdad para todos los tipos del sistema.
+ *
+ * ✅ SPRINT 3 FIXES:
+ *   3.1 — Este es el ÚNICO archivo de tipos (eliminar src/index.ts duplicado)
+ *   3.3 — Agregado isCredit en Sale
  */
 
 // --- TIPOS BÁSICOS ---
@@ -73,6 +77,7 @@ export interface Sale {
   clientId?: string;
   paidAmountUSD: number;
   payments: Payment[];
+  isCredit: boolean; // ✅ FIX 3.3: Flag explícito para ventas a crédito
 }
 
 export interface Supplier {
@@ -115,7 +120,6 @@ export interface PaymentMethod {
   currency: PaymentCurrency;
 }
 
-// --- INTERFAZ ACTUALIZADA ---
 export interface AppSettings {
   companyName: string;
   rif: string;
@@ -128,5 +132,5 @@ export interface AppSettings {
   defaultMargin: number;
   defaultVAT: number;
   printerCurrency: CurrencyView;
-  lastCloseDate?: string; // <--- CAMPO NUEVO PARA EL CIERRE Z
+  lastCloseDate?: string;
 }

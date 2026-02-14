@@ -2,17 +2,21 @@
  * @file useStore.ts
  * @description Store central de Zustand — "El Cerebro" del sistema.
  *
- * ✅ SPRINT 1 FIXES APLICADOS:
- *   1.2 — Métodos de pago persistidos en Supabase (async)
- *   1.3 — user tipado como User de Supabase (no any)
- *   1.4 — Eliminados fetchInitialData() redundantes en addProduct/updateProduct
- *   BONUS — settingsId cacheado para evitar query extra en updateSettings
+ * ✅ SPRINT 1 FIXES:
+ *   1.2 — Métodos de pago persistidos en Supabase
+ *   1.3 — user tipado como User de Supabase
+ *   1.4 — Eliminados fetchInitialData() redundantes
+ *   BONUS — settingsId cacheado
+ *
+ * ✅ SPRINT 3 FIXES:
+ *   3.2 — SKU guardado en sale_items y leído en fetchInitialData
+ *   3.3 — isCredit flag en ventas (insert + read)
  */
 
 import { create } from 'zustand';
 import { supabase } from '../supabase/client';
 import toast from 'react-hot-toast';
-import type { User } from '@supabase/supabase-js'; // ✅ FIX 1.3
+import type { User } from '@supabase/supabase-js';
 import type {
   Product, CartItem, Sale, Invoice, Payment, AppSettings,
   Supplier, PaymentMethod, Client, SaleStatus
@@ -22,9 +26,9 @@ import type {
 // INTERFAZ DEL STORE
 // =============================================
 interface StoreState {
-  user: User | null; // ✅ FIX 1.3: Era `any | null`
+  user: User | null;
   isLoading: boolean;
-  settingsId: string | null; // ✅ BONUS: Cache del ID de settings
+  settingsId: string | null;
   settings: AppSettings;
   products: Product[];
   cart: CartItem[];
@@ -34,48 +38,39 @@ interface StoreState {
   clients: Client[];
   paymentMethods: PaymentMethod[];
 
-  // Auth
   checkSession: () => Promise<void>;
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => Promise<void>;
 
-  // Data
   fetchInitialData: () => Promise<void>;
   updateSettings: (settings: AppSettings) => Promise<void>;
 
-  // Productos
   addProduct: (product: Product) => Promise<void>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
 
-  // Clientes
   addClient: (client: Client) => Promise<void>;
   updateClient: (id: string, updates: Partial<Client>) => Promise<void>;
   deleteClient: (id: string) => Promise<void>;
 
-  // Carrito
   addToCart: (product: Product) => void;
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
 
-  // Ventas
   completeSale: (paymentMethod: string, clientId?: string, initialPayment?: number) => Promise<void>;
   annulSale: (saleId: string) => Promise<void>;
   deleteSale: (saleId: string) => Promise<void>;
   registerSalePayment: (saleId: string, payment: Payment) => Promise<void>;
 
-  // Facturas de Compra
   addInvoice: (invoice: Invoice) => Promise<boolean>;
   updateInvoice: (invoice: Invoice) => Promise<void>;
   deleteInvoice: (id: string) => Promise<void>;
   registerPayment: (invoiceId: string, payment: Payment) => Promise<void>;
 
-  // Métodos de Pago — ✅ FIX 1.2: Ahora son async
   addPaymentMethod: (name: string, currency: 'USD' | 'BS') => Promise<void>;
   deletePaymentMethod: (id: string) => Promise<void>;
 
-  // Caja
   performDailyClose: () => Promise<void>;
 }
 
@@ -84,10 +79,9 @@ interface StoreState {
 // =============================================
 export const useStore = create<StoreState>((set, get) => ({
 
-  // --- ESTADO INICIAL ---
   user: null,
   isLoading: true,
-  settingsId: null, // ✅ BONUS
+  settingsId: null,
 
   settings: {
     companyName: 'Cargando...',
@@ -99,8 +93,6 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   products: [], cart: [], sales: [], invoices: [], suppliers: [], clients: [],
-
-  // ✅ FIX 1.2: Métodos de pago iniciales vacíos (se cargan desde Supabase)
   paymentMethods: [],
 
   // =============================================
@@ -152,11 +144,11 @@ export const useStore = create<StoreState>((set, get) => ({
       const { data: salesData } = await supabase.from('sales').select(`*, sale_items(*), payments(*)`).order('date', { ascending: false }).limit(100);
       const { data: suppliersData } = await supabase.from('suppliers').select('*');
       const { data: invoicesData } = await supabase.from('invoices').select('*');
-      const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*'); // ✅ FIX 1.2
+      const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*');
 
       if (settingsData) {
         set((state) => ({
-          settingsId: settingsData.id, // ✅ BONUS: Cacheamos el ID
+          settingsId: settingsData.id,
           settings: {
             ...state.settings,
             companyName: settingsData.company_name,
@@ -185,13 +177,10 @@ export const useStore = create<StoreState>((set, get) => ({
       if (clientsData) set({ clients: clientsData });
       if (suppliersData) set({ suppliers: suppliersData });
 
-      // ✅ FIX 1.2: Cargar métodos de pago desde Supabase
       if (paymentMethodsData && paymentMethodsData.length > 0) {
         set({
           paymentMethods: paymentMethodsData.map((pm: any) => ({
-            id: pm.id,
-            name: pm.name,
-            currency: pm.currency
+            id: pm.id, name: pm.name, currency: pm.currency
           }))
         });
       }
@@ -214,12 +203,17 @@ export const useStore = create<StoreState>((set, get) => ({
       if (salesData) {
         set({
           sales: salesData.map((s: any) => ({
-            id: s.id, date: s.date, clientId: s.client_id,
-            totalUSD: s.total_usd, totalVED: s.total_ved,
-            paymentMethod: s.payment_method, status: s.status,
+            id: s.id,
+            date: s.date,
+            clientId: s.client_id,
+            totalUSD: s.total_usd,
+            totalVED: s.total_ved,
+            paymentMethod: s.payment_method,
+            status: s.status,
             paidAmountUSD: s.paid_amount_usd,
+            isCredit: s.is_credit || false, // ✅ FIX 3.3: Leer flag de crédito
             items: s.sale_items.map((i: any) => ({
-              sku: 'N/A', // TODO Sprint 3.2: Leer SKU real
+              sku: i.sku || 'N/A', // ✅ FIX 3.2: Leer SKU real
               name: i.product_name_snapshot || 'Producto',
               quantity: i.quantity,
               priceFinalUSD: i.unit_price_usd,
@@ -247,10 +241,9 @@ export const useStore = create<StoreState>((set, get) => ({
   updateSettings: async (newSettings) => {
     set({ settings: newSettings });
     try {
-      const settingsId = get().settingsId; // ✅ BONUS: Usamos el ID cacheado
+      const settingsId = get().settingsId;
 
       if (!settingsId) {
-        // Fallback: si por alguna razón no tenemos el ID, lo buscamos
         const { data } = await supabase.from('settings').select('id').single();
         if (data) set({ settingsId: data.id });
       }
@@ -293,7 +286,6 @@ export const useStore = create<StoreState>((set, get) => ({
 
       if (data) {
         set(state => ({ products: [...state.products, { ...product, id: data.id }] }));
-        // ✅ FIX 1.4: Eliminado get().fetchInitialData() — ya actualizamos el state local arriba
         toast.success("Producto agregado");
       }
     } catch (error: any) {
@@ -304,7 +296,6 @@ export const useStore = create<StoreState>((set, get) => ({
   updateProduct: async (id, updates) => {
     try {
       const dbUpdates: any = {};
-
       if (updates.name !== undefined) dbUpdates.name = updates.name;
       if (updates.stock !== undefined) dbUpdates.stock = updates.stock;
       if (updates.cost !== undefined) dbUpdates.cost = updates.cost;
@@ -323,7 +314,6 @@ export const useStore = create<StoreState>((set, get) => ({
       }
 
       set(state => ({ products: state.products.map(p => p.id === id ? { ...p, ...updates } : p) }));
-      // ✅ FIX 1.4: Eliminado get().fetchInitialData() — ya actualizamos el state local arriba
       toast.success("Producto actualizado");
     } catch (error: any) {
       toast.error("Error al actualizar: " + error.message);
@@ -333,14 +323,12 @@ export const useStore = create<StoreState>((set, get) => ({
   deleteProduct: async (id) => {
     try {
       const { error } = await supabase.from('products').delete().eq('id', id);
-
       if (error) {
         if (error.code === '23503' || error.message.includes('foreign key constraint')) {
           throw new Error("No puedes borrar un producto que ya tiene ventas en el historial. Déjalo en Stock 0 o edita su nombre.");
         }
         throw error;
       }
-
       set(state => ({ products: state.products.filter(p => p.id !== id) }));
       toast.success("Producto eliminado");
     } catch (error: any) {
@@ -464,6 +452,9 @@ export const useStore = create<StoreState>((set, get) => ({
       let status: SaleStatus = 'COMPLETED';
       if (paidAmount < totalUSD - 0.01) status = paidAmount > 0 ? 'PARTIAL' : 'PENDING';
 
+      // ✅ FIX 3.3: Determinar si es venta a crédito
+      const isCredit = paidAmount < totalUSD - 0.01;
+
       const { data: saleData, error: saleError } = await supabase.from('sales').insert({
         client_id: clientId || null,
         total_usd: totalUSD,
@@ -471,18 +462,21 @@ export const useStore = create<StoreState>((set, get) => ({
         payment_method: paymentMethod,
         status: status,
         paid_amount_usd: paidAmount,
-        date: new Date().toISOString()
+        date: new Date().toISOString(),
+        is_credit: isCredit // ✅ FIX 3.3
       }).select().single();
 
       if (saleError || !saleData) throw new Error(saleError?.message);
 
+      // ✅ FIX 3.2: Ahora guardamos el SKU del producto
       const saleItems = cart.map(item => ({
         sale_id: saleData.id,
         product_id: item.id,
         quantity: item.quantity,
         unit_price_usd: item.priceFinalUSD,
         cost_unit_usd: item.cost,
-        product_name_snapshot: item.name
+        product_name_snapshot: item.name,
+        sku: item.sku // ✅ FIX 3.2
       }));
 
       const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
@@ -769,7 +763,7 @@ export const useStore = create<StoreState>((set, get) => ({
   },
 
   // =============================================
-  // MÉTODOS DE PAGO — ✅ FIX 1.2: Ahora persisten en Supabase
+  // MÉTODOS DE PAGO
   // =============================================
 
   addPaymentMethod: async (name, currency) => {
@@ -818,7 +812,7 @@ export const useStore = create<StoreState>((set, get) => ({
   performDailyClose: async () => {
     const now = new Date().toISOString();
     try {
-      const settingsId = get().settingsId; // ✅ BONUS: Usamos ID cacheado
+      const settingsId = get().settingsId;
       if (settingsId) {
         await supabase.from('settings').update({ last_close_date: now }).eq('id', settingsId);
       } else {

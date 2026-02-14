@@ -2,6 +2,8 @@
  * @file AccountsReceivable.tsx
  * @description Gestión de Cuentas por Cobrar (Fiados).
  * Mantiene el historial de deudas pagadas para auditoría.
+ *
+ * ✅ SPRINT 3.3 FIX: Usa s.isCredit en vez de heurística de payments.length > 1
  */
 
 import { useState } from 'react';
@@ -26,25 +28,16 @@ export const AccountsReceivable = () => {
     const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0]?.name || 'Efectivo');
     const [paymentNote, setPaymentNote] = useState('');
 
-    // --- FILTRADO DE VENTAS A CRÉDITO ---
-    // Primero, obtenemos TODAS las ventas que alguna vez fueron a crédito (incluso las ya pagadas)
-    // Para saber si una venta fue a crédito, revisamos si tiene un pago inicial menor al total.
-    // Como simplificación, asumiremos que si está PENDING, PARTIAL o si su método de pago inicial implicaba crédito, debe estar aquí.
-    // Para mayor precisión, nos basamos en el estado actual para separar las pestañas.
-
+    // ✅ FIX 3.3: Ahora usamos el flag isCredit directamente
+    // Ya no necesitamos la heurística frágil de payments.length > 1
     const allCreditSales = sales.filter(s => {
-        // Excluimos ventas de contado (donde el primer y único pago iguala al total al instante)
-        // y ventas anuladas.
         if (s.status === 'CANCELLED') return false;
 
-        // Si el estado es PENDING o PARTIAL, definitivamente es crédito activo.
-        if (s.status === 'PENDING' || s.status === 'PARTIAL') return true;
+        // Si tiene el flag isCredit, usarlo directamente
+        if (s.isCredit) return true;
 
-        // Si está COMPLETED, revisamos si tiene múltiples pagos (lo que indica que se pagó a plazos)
-        // o si el cliente está registrado (usualmente las ventas a crédito requieren cliente)
-        // Esta es una aproximación. Lo ideal es que el backend registre un flag 'isCredit'.
-        // Por ahora, asumiremos que si tiene > 1 pago y está COMPLETED, fue un crédito saldado.
-        if (s.status === 'COMPLETED' && s.payments && s.payments.length > 1) return true;
+        // Fallback para ventas antiguas sin el flag (compatibilidad hacia atrás)
+        if (s.status === 'PENDING' || s.status === 'PARTIAL') return true;
 
         return false;
     });
@@ -54,7 +47,6 @@ export const AccountsReceivable = () => {
         const name = client?.name.toLowerCase() || 'anónimo';
         const matchesSearch = name.includes(searchTerm.toLowerCase()) || s.id.includes(searchTerm);
 
-        // Filtro por Pestaña
         if (activeTab === 'PENDING') {
             return matchesSearch && (s.status === 'PENDING' || s.status === 'PARTIAL');
         } else {
@@ -62,7 +54,7 @@ export const AccountsReceivable = () => {
         }
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    // 2. CALCULAR TOTAL POR COBRAR (Solo de las pendientes)
+    // Calcular total por cobrar (Solo de las pendientes)
     const totalReceivable = sales
         .filter(s => s.status === 'PENDING' || s.status === 'PARTIAL')
         .reduce((acc, s) => acc + (s.totalUSD - s.paidAmountUSD), 0);
@@ -248,34 +240,43 @@ export const AccountsReceivable = () => {
 
                         <form onSubmit={handleRegisterPayment} className="space-y-4">
                             <div>
-                                <div className="flex justify-between">
-                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Monto a Abonar ($)</label>
-                                    <button type="button" onClick={() => {
-                                        const s = sales.find(x => x.id === selectedSaleId);
-                                        if (s) setPaymentAmount((s.totalUSD - s.paidAmountUSD).toFixed(2));
-                                    }} className="text-[10px] text-blue-600 font-bold hover:underline">COBRAR TODO</button>
-                                </div>
-                                <input type="number" step="0.01" required autoFocus className="w-full border-2 border-gray-200 rounded-xl p-3 text-lg font-bold focus:border-green-500 outline-none" placeholder="0.00" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} />
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Monto del Abono ($)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    autoFocus
+                                    required
+                                    className="w-full text-lg font-bold border-2 border-gray-200 rounded-xl p-3 focus:border-green-500 outline-none"
+                                    value={paymentAmount}
+                                    onChange={e => setPaymentAmount(e.target.value)}
+                                />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Método de Pago</label>
-                                <select className="w-full border-2 border-gray-200 rounded-xl p-3 bg-white font-medium" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Método</label>
+                                <select
+                                    className="w-full border-2 border-gray-200 rounded-xl p-3 bg-white"
+                                    value={paymentMethod}
+                                    onChange={e => setPaymentMethod(e.target.value)}
+                                >
                                     {paymentMethods.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
                                 </select>
                             </div>
                             <div>
                                 <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Nota (Opcional)</label>
-                                <input className="w-full border-2 border-gray-200 rounded-xl p-3 text-sm" placeholder="Recibido por..." value={paymentNote} onChange={e => setPaymentNote(e.target.value)} />
+                                <input
+                                    className="w-full border-2 border-gray-200 rounded-xl p-3 text-sm"
+                                    placeholder="Ref. bancaria..."
+                                    value={paymentNote}
+                                    onChange={e => setPaymentNote(e.target.value)}
+                                />
                             </div>
-
-                            <button type="submit" className="w-full py-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg mt-2 flex items-center justify-center gap-2 transition active:scale-95">
-                                <CheckCircle size={20} /> CONFIRMAR PAGO
+                            <button type="submit" className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 mt-2">
+                                CONFIRMAR COBRO
                             </button>
                         </form>
                     </div>
                 </div>
             )}
-
         </div>
     );
 };
