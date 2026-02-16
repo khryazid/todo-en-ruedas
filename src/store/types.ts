@@ -1,0 +1,66 @@
+/**
+ * @file store/types.ts
+ * @description Interfaz completa del Store.
+ * Todos los slices y páginas importan de aquí.
+ */
+
+import type { User } from '@supabase/supabase-js';
+import type {
+  Product, CartItem, Sale, Invoice, Payment, AppSettings,
+  Supplier, PaymentMethod, Client
+} from '../types';
+
+export interface StoreState {
+  // --- Estado ---
+  user: User | null;
+  isLoading: boolean;
+  settingsId: string | null;
+  settings: AppSettings;
+  products: Product[];
+  cart: CartItem[];
+  sales: Sale[];
+  invoices: Invoice[];
+  suppliers: Supplier[];
+  clients: Client[];
+  paymentMethods: PaymentMethod[];
+
+  // --- Auth ---
+  checkSession: () => Promise<void>;
+  login: (email: string, pass: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  fetchInitialData: () => Promise<void>;
+
+  // --- Settings ---
+  updateSettings: (settings: AppSettings) => Promise<void>;
+  performDailyClose: () => Promise<void>;
+  addPaymentMethod: (name: string, currency: 'USD' | 'BS') => Promise<void>;
+  deletePaymentMethod: (id: string) => Promise<void>;
+
+  // --- Products ---
+  addProduct: (product: Product) => Promise<void>;
+  updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+
+  // --- Clients ---
+  addClient: (client: Client) => Promise<void>;
+  updateClient: (id: string, updates: Partial<Client>) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
+
+  // --- Cart ---
+  addToCart: (product: Product) => void;
+  removeFromCart: (productId: string) => void;
+  updateCartQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => void;
+
+  // --- Sales ---
+  completeSale: (paymentMethod: string, clientId?: string, initialPayment?: number) => Promise<void>;
+  annulSale: (saleId: string) => Promise<void>;
+  deleteSale: (saleId: string) => Promise<void>;
+  registerSalePayment: (saleId: string, payment: Payment) => Promise<void>;
+
+  // --- Invoices ---
+  addInvoice: (invoice: Invoice) => Promise<boolean>;
+  updateInvoice: (invoice: Invoice) => Promise<void>;
+  deleteInvoice: (id: string) => Promise<void>;
+  registerPayment: (invoiceId: string, payment: Payment) => Promise<void>;
+}
