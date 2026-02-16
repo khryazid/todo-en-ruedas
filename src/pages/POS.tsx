@@ -1,8 +1,15 @@
 /**
  * @file POS.tsx
+ * @description Punto de Venta optimizado.
+ *
+ * ✅ SPRINT 6 FIXES:
+ *   6.2 — useMemo: precios calculados solo cuando cambian products/settings
+ *   6.3 — React.memo: ProductCard no re-renderiza si sus props no cambian
+ *   6.5 — Debounce: búsqueda con 200ms de delay para inventarios grandes
+ *   6.6 — useCallback: handlers estables entre renders
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
 import {
@@ -10,8 +17,55 @@ import {
     DollarSign, CheckCircle, X, User, UserPlus, AlertTriangle, ChevronDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import type { Client } from '../types';
+import type { Product, Client } from '../types';
 
+// =============================================
+// HOOK: useDebounce
+// =============================================
+function useDebounce(value: string, delay: number) {
+    const [debounced, setDebounced] = useState(value);
+    useEffect(() => {
+        const timer = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(timer);
+    }, [value, delay]);
+    return debounced;
+}
+
+// =============================================
+// COMPONENTE MEMOIZADO: ProductCard
+// =============================================
+interface ProductCardProps {
+    product: Product;
+    priceUSD: number;
+    onAdd: (product: Product) => void;
+}
+
+const ProductCard = memo(({ product, priceUSD, onAdd }: ProductCardProps) => {
+    const isOutOfStock = product.stock === 0;
+
+    return (
+        <div
+            onClick={() => !isOutOfStock && onAdd(product)}
+            className={`relative flex flex-col justify-between p-3 md:p-4 rounded-2xl border shadow-sm transition-all duration-200 active:scale-95 cursor-pointer h-full group select-none ${isOutOfStock ? 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed' : 'bg-white border-gray-100 hover:shadow-md hover:border-red-200'}`}
+        >
+            <div>
+                <div className="flex justify-between items-start mb-1">
+                    <span className="text-[10px] font-mono font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{product.sku}</span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${product.stock <= product.minStock ? 'bg-orange-50 text-orange-700 border-orange-100' : 'bg-green-50 text-green-700 border-green-100'}`}>{product.stock} un.</span>
+                </div>
+                <h3 className="text-xs md:text-sm font-bold text-gray-700 leading-snug line-clamp-3 min-h-[2.5rem] mb-2 group-hover:text-red-600 transition-colors" title={product.name}>{product.name}</h3>
+            </div>
+            <div className="mt-auto pt-3 border-t border-dashed border-gray-100 flex justify-between items-end">
+                <div className="flex flex-col"><span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Precio</span><span className="text-base md:text-lg font-black text-gray-900 leading-none">{formatCurrency(priceUSD, 'USD')}</span></div>
+                {!isOutOfStock && <div className="bg-red-50 text-red-600 w-8 h-8 rounded-xl flex items-center justify-center shadow-sm group-hover:bg-red-600 group-hover:text-white transition-all duration-300"><Plus size={18} strokeWidth={3} /></div>}
+            </div>
+        </div>
+    );
+});
+
+// =============================================
+// COMPONENTE PRINCIPAL: POS
+// =============================================
 export const POS = () => {
     const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, completeSale, settings, paymentMethods } = useStore();
 
@@ -25,6 +79,9 @@ export const POS = () => {
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [showClientList, setShowClientList] = useState(false);
     const clientListRef = useRef<HTMLDivElement>(null);
+
+    // ✅ FIX 6.5: Debounce de búsqueda (200ms)
+    const debouncedSearch = useDebounce(searchTerm, 200);
 
     const filteredClients = clients.filter(c =>
         c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
@@ -41,24 +98,42 @@ export const POS = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleSelectClient = (client: Client) => {
+    const handleSelectClient = useCallback((client: Client) => {
         setSelectedClient(client);
         setClientSearch(client.name);
         setShowClientList(false);
-    };
+    }, []);
 
-    const clearClient = () => {
+    const clearClient = useCallback(() => {
         setSelectedClient(null);
         setClientSearch('');
         setShowClientList(false);
-    };
+    }, []);
 
-    const filteredProducts = products.filter(p =>
-        (p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.sku || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // ✅ FIX 6.2: Pre-calcular precios solo cuando cambian products o settings
+    const productsWithPrices = useMemo(() => {
+        return products.map(p => ({
+            product: p,
+            priceUSD: calculatePrices(p, settings).finalPriceUSD
+        }));
+    }, [products, settings]);
 
-    // --- TOTALES (LA ILUSIÓN YA VIENE DEL CEREBRO) ---
+    // ✅ FIX 6.2: Filtrar sobre la lista ya precalculada con el término debounced
+    const filteredProducts = useMemo(() => {
+        if (!debouncedSearch) return productsWithPrices;
+        const term = debouncedSearch.toLowerCase();
+        return productsWithPrices.filter(({ product: p }) =>
+            (p.name || '').toLowerCase().includes(term) ||
+            (p.sku || '').toLowerCase().includes(term)
+        );
+    }, [productsWithPrices, debouncedSearch]);
+
+    // ✅ FIX 6.6: Handler estable para addToCart
+    const handleAddToCart = useCallback((product: Product) => {
+        addToCart(product);
+    }, [addToCart]);
+
+    // Totales
     const totalUSD = Math.round(cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0) * 100) / 100;
     const totalBs = Math.round((totalUSD * settings.tasaBCV) * 100) / 100;
 
@@ -69,7 +144,7 @@ export const POS = () => {
         }
     }, [isCheckoutModalOpen]);
 
-    const handleCheckout = () => {
+    const handleCheckout = useCallback(() => {
         if (isCreditSale && !selectedClient) return alert("⚠️ Para vender a crédito, DEBES seleccionar un Cliente registrado.");
 
         let paymentAmount = totalUSD;
@@ -82,7 +157,7 @@ export const POS = () => {
         completeSale(selectedPaymentMethod, selectedClient?.id, paymentAmount);
         setIsCheckoutModalOpen(false);
         clearClient();
-    };
+    }, [isCreditSale, selectedClient, totalUSD, initialPayment, selectedPaymentMethod, completeSale, clearClient]);
 
     return (
         <div className="flex flex-col md:flex-row h-[calc(100vh-5rem)] md:h-screen bg-gray-100 w-full overflow-hidden">
@@ -105,32 +180,14 @@ export const POS = () => {
 
                 <div className="flex-1 overflow-y-auto p-2 md:p-4 custom-scrollbar bg-gray-50">
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 pb-20 md:pb-0">
-                        {filteredProducts.map(product => {
-                            const prices = calculatePrices(product, settings);
-                            const estimatedPrice = prices.finalPriceUSD;
-                            const isOutOfStock = product.stock === 0;
-
-                            return (
-                                <div
-                                    key={product.id}
-                                    onClick={() => !isOutOfStock && addToCart(product)}
-                                    className={`relative flex flex-col justify-between p-3 md:p-4 rounded-2xl border shadow-sm transition-all duration-200 active:scale-95 cursor-pointer h-full group select-none ${isOutOfStock ? 'bg-gray-50 border-gray-200 opacity-60 grayscale' : 'bg-white border-gray-100 hover:border-red-200 hover:shadow-lg hover:-translate-y-1'}`}
-                                >
-                                    {isOutOfStock && <div className="absolute inset-0 flex items-center justify-center bg-white/60 z-10 rounded-2xl backdrop-blur-[1px]"><span className="bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-md transform -rotate-12 border-2 border-white">AGOTADO</span></div>}
-                                    <div className="w-full">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="text-[10px] font-mono font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md border border-gray-200">{product.sku}</span>
-                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${product.stock <= product.minStock ? 'bg-orange-50 text-orange-700 border-orange-100' : 'bg-green-50 text-green-700 border-green-100'}`}>{product.stock} un.</span>
-                                        </div>
-                                        <h3 className="text-xs md:text-sm font-bold text-gray-700 leading-snug line-clamp-3 min-h-[2.5rem] mb-2 group-hover:text-red-600 transition-colors" title={product.name}>{product.name}</h3>
-                                    </div>
-                                    <div className="mt-auto pt-3 border-t border-dashed border-gray-100 flex justify-between items-end">
-                                        <div className="flex flex-col"><span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Precio</span><span className="text-base md:text-lg font-black text-gray-900 leading-none">{formatCurrency(estimatedPrice, 'USD')}</span></div>
-                                        {!isOutOfStock && <div className="bg-red-50 text-red-600 w-8 h-8 rounded-xl flex items-center justify-center shadow-sm group-hover:bg-red-600 group-hover:text-white transition-all duration-300"><Plus size={18} strokeWidth={3} /></div>}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        {filteredProducts.map(({ product, priceUSD }) => (
+                            <ProductCard
+                                key={product.id}
+                                product={product}
+                                priceUSD={priceUSD}
+                                onAdd={handleAddToCart}
+                            />
+                        ))}
                     </div>
                 </div>
             </div>
@@ -152,28 +209,24 @@ export const POS = () => {
                             }}
                             onFocus={() => setShowClientList(true)}
                         />
-                        {selectedClient || clientSearch ? (
+                        {(selectedClient || clientSearch) ? (
                             <button onClick={clearClient} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"><X size={14} /></button>
-                        ) : (
-                            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" />
-                        )}
-
-                        {showClientList && (clientSearch || filteredClients.length > 0) && (
-                            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-[250px] overflow-y-auto custom-scrollbar">
-                                {filteredClients.length > 0 ? (
-                                    filteredClients.map(client => (
-                                        <button key={client.id} onClick={() => handleSelectClient(client)} className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-50 last:border-0 transition flex flex-col">
-                                            <span className="font-bold text-gray-800 text-sm">{client.name}</span>
-                                            <span className="text-[10px] text-gray-500 font-mono">RIF: {client.rif}</span>
-                                        </button>
-                                    ))
-                                ) : (
-                                    <div className="p-3 text-center text-xs text-gray-400 italic">No se encontraron clientes.</div>
-                                )}
-                            </div>
-                        )}
+                        ) : null}
                     </div>
-                    <Link to="/clients" className="p-2 bg-white border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-600 hover:text-white transition"><UserPlus size={18} /></Link>
+                    {showClientList && clientSearch && !selectedClient && (
+                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-xl shadow-lg z-50 max-h-40 overflow-y-auto">
+                            {filteredClients.length > 0 ? filteredClients.slice(0, 5).map(c => (
+                                <button key={c.id} onClick={() => handleSelectClient(c)} className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b border-gray-50 transition">
+                                    <span className="font-bold text-gray-800">{c.name}</span>
+                                    <span className="text-gray-400 ml-2 text-xs">{c.rif}</span>
+                                </button>
+                            )) : (
+                                <div className="p-3 text-center text-xs text-gray-400">
+                                    No se encontró. <Link to="/clients" className="text-blue-600 font-bold hover:underline">Registrar Nuevo</Link>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50 custom-scrollbar max-h-[20vh] md:max-h-none">
@@ -211,6 +264,7 @@ export const POS = () => {
                 </div>
             </div>
 
+            {/* MODAL DE CHECKOUT */}
             {isCheckoutModalOpen && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in">
                     <div className="bg-white w-full md:w-[420px] rounded-t-3xl md:rounded-3xl shadow-2xl p-6 animate-in slide-in-from-bottom duration-300">
