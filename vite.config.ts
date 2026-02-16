@@ -2,30 +2,54 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icon.png'], // Asegúrate de tener tu icon.png en public
+      includeAssets: ['icon-192.png', 'icon-512.png', 'apple-touch-icon.png'],
       manifest: {
         name: 'Todo en Ruedas - Sistema de Gestión',
         short_name: 'TodoEnRuedas',
-        description: 'Sistema de Inventario y Ventas',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
-        display: 'standalone', // Esto hace que se abra como programa, sin barra de navegador
+        description: 'Sistema ERP & POS - Inventario y Ventas Multimoneda',
+        theme_color: '#111827',
+        background_color: '#111827',
+        display: 'standalone',
+        orientation: 'any',
+        start_url: '/',
+        scope: '/',
         icons: [
           {
-            src: 'icon.png', // Tu logo debe estar en la carpeta public
+            src: 'icon-192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'icon.png',
+            src: 'icon-512.png',
             sizes: '512x512',
             type: 'image/png'
+          },
+          {
+            src: 'icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/zdoqkpvqpnyntxmudcda\.supabase\.co\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'supabase-api',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 5 // 5 minutos
+              }
+            }
           }
         ]
       }
