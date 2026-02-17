@@ -6,8 +6,9 @@
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { Sale, Payment, SaleStatus } from '../../types';
+import type { SetState, GetState } from '../types';
 
-export const createSaleSlice = (set: any, get: any) => ({
+export const createSaleSlice = (set: SetState, get: GetState) => ({
 
   sales: [] as Sale[],
 
@@ -20,13 +21,13 @@ export const createSaleSlice = (set: any, get: any) => ({
       return;
     }
 
-    const invalidItem = cart.find((item: any) => {
-      const product = products.find((p: any) => p.id === item.id);
+    const invalidItem = cart.find((item) => {
+      const product = products.find((p) => p.id === item.id);
       return !product || Number(item.quantity) > Number(product.stock);
     });
 
     if (invalidItem) {
-      const product = products.find((p: any) => p.id === invalidItem.id);
+      const product = products.find((p) => p.id === invalidItem.id);
       const currentStock = product ? Number(product.stock) : 0;
       toast.error(
         `⛔ STOCK INSUFICIENTE\n${invalidItem.name}\nSolicitas: ${invalidItem.quantity}\nDisponible: ${currentStock}`,
@@ -38,7 +39,7 @@ export const createSaleSlice = (set: any, get: any) => ({
     const loadingToast = toast.loading('Procesando venta...');
 
     try {
-      const totalUSD = Math.round(cart.reduce((acc: number, item: any) => acc + (item.priceFinalUSD * item.quantity), 0) * 100) / 100;
+      const totalUSD = Math.round(cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0) * 100) / 100;
       const totalVED = Math.round((totalUSD * settings.tasaBCV) * 100) / 100;
 
       const paidAmount = initialPayment !== undefined ? initialPayment : totalUSD;
@@ -60,7 +61,7 @@ export const createSaleSlice = (set: any, get: any) => ({
 
       if (saleError || !saleData) throw new Error(saleError?.message);
 
-      const saleItems = cart.map((item: any) => ({
+      const saleItems = cart.map((item) => ({
         sale_id: saleData.id,
         product_id: item.id,
         quantity: item.quantity,
@@ -83,21 +84,58 @@ export const createSaleSlice = (set: any, get: any) => ({
       }
 
       for (const item of cart) {
-        const product = products.find((p: any) => p.id === item.id);
+        const product = products.find((p) => p.id === item.id);
         if (product) {
           const newStock = Number(product.stock) - Number(item.quantity);
           await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
         }
       }
 
+      // Incremental update: build sale locally and update stock
+      const newSale: Sale = {
+        id: saleData.id,
+        date: saleData.date,
+        clientId: clientId || undefined,
+        totalUSD,
+        totalVED,
+        paymentMethod,
+        status,
+        paidAmountUSD: paidAmount,
+        isCredit,
+        items: cart.map((item) => ({
+          sku: item.sku,
+          name: item.name,
+          quantity: item.quantity,
+          priceFinalUSD: item.priceFinalUSD,
+          costUnitUSD: item.cost
+        })),
+        payments: paidAmount > 0 ? [{
+          id: crypto.randomUUID(),
+          date: new Date().toISOString(),
+          amountUSD: paidAmount,
+          method: paymentMethod,
+          note: 'Pago Inicial'
+        }] : []
+      };
+
+      set((state) => ({
+        cart: [],
+        sales: [newSale, ...state.sales],
+        products: state.products.map((p) => {
+          const cartItem = cart.find((ci) => ci.id === p.id);
+          if (cartItem) {
+            return { ...p, stock: Number(p.stock) - Number(cartItem.quantity) };
+          }
+          return p;
+        })
+      }));
+
       toast.dismiss(loadingToast);
       toast.success(`✅ Venta Registrada\nTicket #${saleData.id.slice(-6)}`);
-      set({ cart: [] });
-      get().fetchInitialData();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss(loadingToast);
-      toast.error(`Error crítico: ${error.message}`);
+      toast.error(`Error crítico: ${(error as Error).message}`);
     }
   },
 
@@ -123,7 +161,7 @@ export const createSaleSlice = (set: any, get: any) => ({
         const { products } = get();
         for (const item of saleItems) {
           if (item.product_id) {
-            const product = products.find((p: any) => p.id === item.product_id);
+            const product = products.find((p) => p.id === item.product_id);
             if (product) {
               const restoredStock = Number(product.stock) + Number(item.quantity);
               await supabase.from('products').update({ stock: restoredStock }).eq('id', item.product_id);
@@ -132,13 +170,24 @@ export const createSaleSlice = (set: any, get: any) => ({
         }
       }
 
+      // Incremental update: update sale status and restore stock locally
+      set((state) => ({
+        sales: state.sales.map((s) => s.id === saleId ? { ...s, status: 'CANCELLED' as SaleStatus } : s),
+        products: state.products.map((p) => {
+          const restoredItem = saleItems?.find((si) => si.product_id === p.id);
+          if (restoredItem) {
+            return { ...p, stock: Number(p.stock) + Number(restoredItem.quantity) };
+          }
+          return p;
+        })
+      }));
+
       toast.dismiss(loadingToast);
       toast.success("Venta anulada y stock devuelto 📦");
-      get().fetchInitialData();
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss(loadingToast);
-      toast.error("Error al anular: " + error.message);
+      toast.error("Error al anular: " + (error as Error).message);
     }
   },
 
@@ -148,17 +197,17 @@ export const createSaleSlice = (set: any, get: any) => ({
       const { error } = await supabase.from('sales').delete().eq('id', saleId);
       if (error) throw error;
 
-      set((state: any) => ({ sales: state.sales.filter((s: any) => s.id !== saleId) }));
+      set((state) => ({ sales: state.sales.filter((s) => s.id !== saleId) }));
       toast.dismiss(loadingToast);
       toast.success("Venta eliminada del historial 🗑️");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss(loadingToast);
-      toast.error("Error al eliminar: " + error.message);
+      toast.error("Error al eliminar: " + (error as Error).message);
     }
   },
 
   registerSalePayment: async (saleId: string, payment: Payment) => {
-    const sale = get().sales.find((s: any) => s.id === saleId);
+    const sale = get().sales.find((s) => s.id === saleId);
     if (!sale) return;
 
     const debt = sale.totalUSD - sale.paidAmountUSD;
@@ -176,7 +225,7 @@ export const createSaleSlice = (set: any, get: any) => ({
       });
 
       const newPaid = sale.paidAmountUSD + payment.amountUSD;
-      let newStatus = sale.status;
+      let newStatus: SaleStatus = sale.status;
       if (newPaid >= sale.totalUSD - 0.01) newStatus = 'COMPLETED';
       else if (newPaid > 0) newStatus = 'PARTIAL';
 
@@ -185,10 +234,23 @@ export const createSaleSlice = (set: any, get: any) => ({
         status: newStatus
       }).eq('id', saleId);
 
+      // Incremental update: update paid amount and status locally
+      set((state) => ({
+        sales: state.sales.map((s) =>
+          s.id === saleId
+            ? {
+                ...s,
+                paidAmountUSD: newPaid,
+                status: newStatus,
+                payments: [...s.payments, payment]
+              }
+            : s
+        )
+      }));
+
       toast.success("Abono registrado");
-      get().fetchInitialData();
-    } catch (error: any) {
-      toast.error("Error: " + error.message);
+    } catch (error: unknown) {
+      toast.error("Error: " + (error as Error).message);
     }
   },
 });

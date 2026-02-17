@@ -6,8 +6,9 @@
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { AppSettings, PaymentMethod } from '../../types';
+import type { SetState, GetState } from '../types';
 
-export const createSettingsSlice = (set: any, get: any) => ({
+export const createSettingsSlice = (set: SetState, get: GetState) => ({
 
   settings: {
     companyName: 'Cargando...',
@@ -42,8 +43,8 @@ export const createSettingsSlice = (set: any, get: any) => ({
 
       if (error) throw error;
       toast.success("Configuración guardada");
-    } catch (error: any) {
-      toast.error("Error al guardar: " + error.message);
+    } catch (error: unknown) {
+      toast.error("Error al guardar: " + (error as Error).message);
     }
   },
 
@@ -58,13 +59,13 @@ export const createSettingsSlice = (set: any, get: any) => ({
       if (error) throw error;
 
       if (data) {
-        set((state: any) => ({
+        set((state) => ({
           paymentMethods: [...state.paymentMethods, { id: data.id, name: data.name, currency: data.currency }]
         }));
         toast.success("Método de pago agregado");
       }
-    } catch (error: any) {
-      toast.error("Error al agregar método: " + error.message);
+    } catch (error: unknown) {
+      toast.error("Error al agregar método: " + (error as Error).message);
     }
   },
 
@@ -77,12 +78,12 @@ export const createSettingsSlice = (set: any, get: any) => ({
 
       if (error) throw error;
 
-      set((state: any) => ({
-        paymentMethods: state.paymentMethods.filter((pm: any) => pm.id !== id)
+      set((state) => ({
+        paymentMethods: state.paymentMethods.filter((pm) => pm.id !== id)
       }));
       toast.success("Método de pago eliminado");
-    } catch (error: any) {
-      toast.error("Error al eliminar método: " + error.message);
+    } catch (error: unknown) {
+      toast.error("Error al eliminar método: " + (error as Error).message);
     }
   },
 
@@ -95,7 +96,7 @@ export const createSettingsSlice = (set: any, get: any) => ({
       } else {
         await supabase.from('settings').update({ last_close_date: now }).neq('id', '00000000-0000-0000-0000-000000000000');
       }
-      set((state: any) => ({ settings: { ...state.settings, lastCloseDate: now } }));
+      set((state) => ({ settings: { ...state.settings, lastCloseDate: now } }));
       toast.success("Cierre de caja exitoso 🏁");
     } catch (error) {
       toast.error("Error al cerrar caja");

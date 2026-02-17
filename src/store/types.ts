@@ -10,6 +10,9 @@ import type {
   Supplier, PaymentMethod, Client
 } from '../types';
 
+export type SetState = (partial: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void;
+export type GetState = () => StoreState;
+
 export interface StoreState {
   // --- Estado ---
   user: User | null;

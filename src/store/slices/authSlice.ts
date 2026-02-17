@@ -5,8 +5,9 @@
 
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
+import type { SetState, GetState } from '../types';
 
-export const createAuthSlice = (set: any, get: any) => ({
+export const createAuthSlice = (set: SetState, get: GetState) => ({
 
   user: null,
   isLoading: true,
@@ -56,7 +57,7 @@ export const createAuthSlice = (set: any, get: any) => ({
       const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*');
 
       if (settingsData) {
-        set((state: any) => ({
+        set((state) => ({
           settingsId: settingsData.id,
           settings: {
             ...state.settings,
@@ -75,7 +76,7 @@ export const createAuthSlice = (set: any, get: any) => ({
 
       if (productsData) {
         set({
-          products: productsData.map((p: any) => ({
+          products: productsData.map((p) => ({
             id: p.id, sku: p.sku, name: p.name, category: p.category || 'General',
             stock: Number(p.stock) || 0, minStock: Number(p.min_stock) || 0, cost: Number(p.cost) || 0,
             costType: p.cost_type || 'BCV', freight: Number(p.freight) || 0, supplier: p.supplier || 'General'
@@ -88,7 +89,7 @@ export const createAuthSlice = (set: any, get: any) => ({
 
       if (paymentMethodsData && paymentMethodsData.length > 0) {
         set({
-          paymentMethods: paymentMethodsData.map((pm: any) => ({
+          paymentMethods: paymentMethodsData.map((pm) => ({
             id: pm.id, name: pm.name, currency: pm.currency
           }))
         });
@@ -96,7 +97,7 @@ export const createAuthSlice = (set: any, get: any) => ({
 
       if (invoicesData) {
         set({
-          invoices: invoicesData.map((inv: any) => ({
+          invoices: invoicesData.map((inv) => ({
             ...inv,
             subtotalUSD: inv.subtotal_usd,
             freightTotalUSD: inv.freight_total_usd,
@@ -111,7 +112,7 @@ export const createAuthSlice = (set: any, get: any) => ({
 
       if (salesData) {
         set({
-          sales: salesData.map((s: any) => ({
+          sales: salesData.map((s) => ({
             id: s.id,
             date: s.date,
             clientId: s.client_id,
@@ -121,14 +122,14 @@ export const createAuthSlice = (set: any, get: any) => ({
             status: s.status,
             paidAmountUSD: s.paid_amount_usd,
             isCredit: s.is_credit || false,
-            items: s.sale_items.map((i: any) => ({
+            items: s.sale_items.map((i: Record<string, unknown>) => ({
               sku: i.sku || 'N/A',
               name: i.product_name_snapshot || 'Producto',
               quantity: i.quantity,
               priceFinalUSD: i.unit_price_usd,
               costUnitUSD: i.cost_unit_usd
             })),
-            payments: s.payments.map((p: any) => ({
+            payments: s.payments.map((p: Record<string, unknown>) => ({
               id: p.id, date: p.created_at,
               amountUSD: p.amount_usd, method: p.method, note: p.note
             }))

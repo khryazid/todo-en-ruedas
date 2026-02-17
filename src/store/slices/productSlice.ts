@@ -6,8 +6,9 @@
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { Product } from '../../types';
+import type { SetState, GetState } from '../types';
 
-export const createProductSlice = (set: any, get: any) => ({
+export const createProductSlice = (set: SetState, get: GetState) => ({
 
   products: [] as Product[],
 
@@ -22,22 +23,22 @@ export const createProductSlice = (set: any, get: any) => ({
       if (error) throw error;
 
       if (product.supplier && product.supplier !== 'General') {
-        const existingSupplier = get().suppliers.find((s: any) => s.name.toLowerCase() === product.supplier!.toLowerCase());
+        const existingSupplier = get().suppliers.find((s) => s.name.toLowerCase() === product.supplier!.toLowerCase());
         if (!existingSupplier) await supabase.from('suppliers').insert({ name: product.supplier, catalog: [] });
       }
 
       if (data) {
-        set((state: any) => ({ products: [...state.products, { ...product, id: data.id }] }));
+        set((state) => ({ products: [...state.products, { ...product, id: data.id }] }));
         toast.success("Producto agregado");
       }
-    } catch (error: any) {
-      toast.error("Error: " + error.message);
+    } catch (error: unknown) {
+      toast.error("Error: " + (error as Error).message);
     }
   },
 
   updateProduct: async (id: string, updates: Partial<Product>) => {
     try {
-      const dbUpdates: any = {};
+      const dbUpdates: Record<string, unknown> = {};
       if (updates.name !== undefined) dbUpdates.name = updates.name;
       if (updates.stock !== undefined) dbUpdates.stock = updates.stock;
       if (updates.cost !== undefined) dbUpdates.cost = updates.cost;
@@ -51,14 +52,14 @@ export const createProductSlice = (set: any, get: any) => ({
       if (error) throw error;
 
       if (updates.supplier && updates.supplier !== 'General') {
-        const existingSupplier = get().suppliers.find((s: any) => s.name.toLowerCase() === updates.supplier!.toLowerCase());
+        const existingSupplier = get().suppliers.find((s) => s.name.toLowerCase() === updates.supplier!.toLowerCase());
         if (!existingSupplier) await supabase.from('suppliers').insert({ name: updates.supplier, catalog: [] });
       }
 
-      set((state: any) => ({ products: state.products.map((p: any) => p.id === id ? { ...p, ...updates } : p) }));
+      set((state) => ({ products: state.products.map((p) => p.id === id ? { ...p, ...updates } : p) }));
       toast.success("Producto actualizado");
-    } catch (error: any) {
-      toast.error("Error al actualizar: " + error.message);
+    } catch (error: unknown) {
+      toast.error("Error al actualizar: " + (error as Error).message);
     }
   },
 
@@ -71,10 +72,10 @@ export const createProductSlice = (set: any, get: any) => ({
         }
         throw error;
       }
-      set((state: any) => ({ products: state.products.filter((p: any) => p.id !== id) }));
+      set((state) => ({ products: state.products.filter((p) => p.id !== id) }));
       toast.success("Producto eliminado");
-    } catch (error: any) {
-      toast.error(error.message, { duration: 6000 });
+    } catch (error: unknown) {
+      toast.error((error as Error).message, { duration: 6000 });
     }
   },
 });

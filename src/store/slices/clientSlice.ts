@@ -6,8 +6,9 @@
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { Client } from '../../types';
+import type { SetState, GetState } from '../types';
 
-export const createClientSlice = (set: any, get: any) => ({
+export const createClientSlice = (set: SetState, _get: GetState) => ({
 
   clients: [] as Client[],
 
@@ -19,11 +20,11 @@ export const createClientSlice = (set: any, get: any) => ({
       }).select().single();
       if (error) throw error;
       if (data) {
-        set((state: any) => ({ clients: [...state.clients, { ...client, id: data.id }] }));
+        set((state) => ({ clients: [...state.clients, { ...client, id: data.id }] }));
         toast.success("Cliente registrado");
       }
-    } catch (error: any) {
-      toast.error("Error: " + error.message);
+    } catch (error: unknown) {
+      toast.error("Error: " + (error as Error).message);
     }
   },
 
@@ -31,10 +32,10 @@ export const createClientSlice = (set: any, get: any) => ({
     try {
       const { error } = await supabase.from('clients').update(updates).eq('id', id);
       if (error) throw error;
-      set((state: any) => ({ clients: state.clients.map((c: any) => c.id === id ? { ...c, ...updates } : c) }));
+      set((state) => ({ clients: state.clients.map((c) => c.id === id ? { ...c, ...updates } : c) }));
       toast.success("Cliente actualizado");
-    } catch (error: any) {
-      toast.error("Error: " + error.message);
+    } catch (error: unknown) {
+      toast.error("Error: " + (error as Error).message);
     }
   },
 
@@ -42,10 +43,10 @@ export const createClientSlice = (set: any, get: any) => ({
     try {
       const { error } = await supabase.from('clients').delete().eq('id', id);
       if (error) throw error;
-      set((state: any) => ({ clients: state.clients.filter((c: any) => c.id !== id) }));
+      set((state) => ({ clients: state.clients.filter((c) => c.id !== id) }));
       toast.success("Cliente eliminado");
-    } catch (error: any) {
-      toast.error("Error: " + error.message);
+    } catch (error: unknown) {
+      toast.error("Error: " + (error as Error).message);
     }
   },
 });

@@ -11,6 +11,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { useStore } from './store/useStore';
 import { Sidebar } from './components/layout/Sidebar';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Páginas cargadas de inmediato (rutas principales)
 import { Login } from './pages/Login';
@@ -76,20 +77,22 @@ function App() {
               <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
                 <Sidebar />
                 <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 relative">
-                  <Suspense fallback={<PageLoader />}>
-                    <Routes>
-                      <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/pos" element={<POS />} />
-                      <Route path="/accounts-receivable" element={<AccountsReceivable />} />
-                      <Route path="/inventory" element={<Inventory />} />
-                      <Route path="/sales" element={<Sales />} />
-                      <Route path="/invoices" element={<Invoices />} />
-                      <Route path="/clients" element={<Clients />} />
-                      <Route path="/daily-close" element={<DailyClose />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                    </Routes>
-                  </Suspense>
+                  <ErrorBoundary>
+                    <Suspense fallback={<PageLoader />}>
+                      <Routes>
+                        <Route path="/dashboard" element={<Dashboard />} />
+                        <Route path="/pos" element={<POS />} />
+                        <Route path="/accounts-receivable" element={<AccountsReceivable />} />
+                        <Route path="/inventory" element={<Inventory />} />
+                        <Route path="/sales" element={<Sales />} />
+                        <Route path="/invoices" element={<Invoices />} />
+                        <Route path="/clients" element={<Clients />} />
+                        <Route path="/daily-close" element={<DailyClose />} />
+                        <Route path="/settings" element={<Settings />} />
+                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                      </Routes>
+                    </Suspense>
+                  </ErrorBoundary>
                 </main>
               </div>
             ) : (
