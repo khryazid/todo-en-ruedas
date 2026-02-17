@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
+import { usePermissions } from '../hooks/usePermissions';
 import { formatCurrency } from '../utils/pricing';
 import { printInvoice, printSalesList, sendToWhatsApp } from '../utils/ticketGenerator';
 import {
@@ -16,6 +17,7 @@ import type { Sale } from '../types';
 
 export const Sales = () => {
     const { sales, clients, annulSale, deleteSale } = useStore(); // <--- AÑADIDO deleteSale
+    const { isAdmin, isManager } = usePermissions(); // <--- NUEVO: Hook de permisos
 
     // Estados de Filtros y Selección
     const [searchTerm, setSearchTerm] = useState('');
@@ -154,12 +156,22 @@ export const Sales = () => {
                                             )}
                                         </td>
 
-                                        {/* ACCIONES (Detalle, Imprimir, Borrar) */}
+                                        {/* ACCIONES (Detalle, Imprimir, Anular, Borrar) */}
                                         <td className="px-6 py-4 text-center sticky right-0 bg-white group-hover:bg-gray-50 transition-colors shadow-[-5px_0_10px_rgba(0,0,0,0.02)]">
                                             <div className="flex justify-center gap-2">
                                                 <button onClick={() => setSelectedSale(sale)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Ver Detalle"><Eye size={18} /></button>
                                                 <button onClick={() => printInvoice(sale)} className="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition" title="Imprimir"><Printer size={18} /></button>
-                                                <button onClick={() => handleDelete(sale.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Borrar Prueba Definitivamente"><Trash2 size={18} /></button>
+
+                                                {/* Solo ADMIN y MANAGER pueden BORRAR ventas */}
+                                                {(isAdmin || isManager) && (
+                                                    <button
+                                                        onClick={() => handleDelete(sale.id)}
+                                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                                        title="Borrar Venta Definitivamente"
+                                                    >
+                                                        <Trash2 size={18} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>

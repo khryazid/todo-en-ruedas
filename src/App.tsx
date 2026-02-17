@@ -10,12 +10,14 @@ import { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useStore } from './store/useStore';
+import { useSetupCheck } from './hooks/useSetupCheck';
 import { Sidebar } from './components/layout/Sidebar';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Páginas cargadas de inmediato (rutas principales)
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
+import { Setup } from './pages/Setup';
 
 // Páginas con carga diferida (se descargan cuando el usuario navega)
 const POS = lazy(() => import('./pages/POS').then(m => ({ default: m.POS })));
@@ -26,6 +28,7 @@ const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.S
 const DailyClose = lazy(() => import('./pages/DailyClose').then(m => ({ default: m.DailyClose })));
 const Clients = lazy(() => import('./pages/Clients').then(m => ({ default: m.Clients })));
 const AccountsReceivable = lazy(() => import('./pages/AccountsReceivable').then(m => ({ default: m.AccountsReceivable })));
+const Users = lazy(() => import('./pages/Users').then(m => ({ default: m.Users })));
 
 // Spinner para la transición entre páginas
 const PageLoader = () => (
@@ -39,17 +42,19 @@ const PageLoader = () => (
 
 function App() {
   const { checkSession, user, isLoading } = useStore();
+  const { needsSetup, isChecking } = useSetupCheck();
 
   useEffect(() => {
     checkSession();
   }, []);
 
-  if (isLoading) {
+  // Mostrar loader mientras verifica sesión o setup
+  if (isLoading || isChecking) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-900">
         <div className="text-center">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-400 text-sm font-mono">Cargando sistema...</p>
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-brand-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-400 text-sm font-mono">Cargando aplicación...</p>
         </div>
       </div>
     );
@@ -68,12 +73,23 @@ function App() {
       />
 
       <Routes>
-        <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
-
-        <Route
-          path="/*"
-          element={
-            user ? (
+        {/* Ruta de Setup - Primera prioridad si necesita configuración */}
+        {needsSetup ? (
+          <>
+            <Route path="/setup" element={<Setup />} />
+            <Route path="*" element={<Navigate to="/setup" replace />} />
+          </>
+        ) : !user ? (
+          /* Ruta de Login - Si no necesita setup pero no está autenticado */
+          <>
+            <Route path="/login" element={<Login />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </>
+        ) : (
+          /* Rutas autenticadas - Si no necesita setup y está autenticado */
+          <Route
+            path="/*"
+            element={
               <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
                 <Sidebar />
                 <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 relative">
@@ -89,17 +105,16 @@ function App() {
                         <Route path="/clients" element={<Clients />} />
                         <Route path="/daily-close" element={<DailyClose />} />
                         <Route path="/settings" element={<Settings />} />
+                        <Route path="/users" element={<Users />} />
                         <Route path="*" element={<Navigate to="/dashboard" replace />} />
                       </Routes>
                     </Suspense>
                   </ErrorBoundary>
                 </main>
               </div>
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
+            }
+          />
+        )}
       </Routes>
     </Router>
   );

@@ -18,7 +18,22 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       set({ user: session.user });
-      await get().fetchInitialData();
+
+      // Actualizar last_login
+      await supabase
+        .from('users')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', session.user.id);
+
+      // CRÍTICO: Cargar datos del usuario actual primero
+      await get().fetchCurrentUserData();
+      // Luego intentar cargar datos iniciales (puede fallar si no hay settings)
+      try {
+        await get().fetchInitialData();
+      } catch (error) {
+        console.warn('Error al cargar datos iniciales (no crítico):', error);
+        set({ isLoading: false });
+      }
     } else {
       set({ user: null, isLoading: false });
     }
@@ -33,6 +48,15 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
       return false;
     }
     set({ user: data.user });
+
+    // Actualizar last_login en la base de datos
+    if (data.user) {
+      await supabase
+        .from('users')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', data.user.id);
+    }
+
     toast.success(`Bienvenido de nuevo 👋`);
     await get().fetchInitialData();
     return true;
@@ -40,7 +64,7 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
 
   logout: async () => {
     await supabase.auth.signOut();
-    set({ user: null, cart: [], products: [], sales: [] });
+    set({ user: null, cart: [], products: [], sales: [], currentUserData: null });
     toast.success("Sesión cerrada");
   },
 
@@ -48,6 +72,9 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     if (!get().user) return;
     set({ isLoading: true });
     try {
+      // Cargar datos del usuario actual
+      await get().fetchCurrentUserData();
+
       const { data: settingsData } = await supabase.from('settings').select('*').single();
       const { data: productsData } = await supabase.from('products').select('*');
       const { data: clientsData } = await supabase.from('clients').select('*');

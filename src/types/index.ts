@@ -13,10 +13,12 @@ export type PaymentMethodType = 'USD' | 'BS';
 export type CostType = 'BCV' | 'TH';
 export type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID';
 export type SaleStatus = 'COMPLETED' | 'CANCELLED' | 'PENDING' | 'PARTIAL';
-export type Role = 'ADMIN' | 'SELLER';
+export type UserRole = 'ADMIN' | 'MANAGER' | 'SELLER' | 'VIEWER';
+export type Role = UserRole; // Mantener compatibilidad
 export type RifType = 'J' | 'V' | 'E' | 'G' | 'P' | 'C';
 export type CurrencyView = 'USD' | 'BS';
 export type PaymentCurrency = 'USD' | 'BS';
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'CANCEL' | 'LOGIN' | 'LOGOUT';
 
 // --- INTERFACES DE NEGOCIO ---
 
@@ -133,4 +135,87 @@ export interface AppSettings {
   defaultVAT: number;
   printerCurrency: CurrencyView;
   lastCloseDate?: string;
+  companyLogo?: string; // URL del logo personalizado
+  brandColor?: string; // Color de marca personalizado
 }
+
+// --- SISTEMA DE USUARIOS ---
+
+export interface AppUser {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastLogin?: string;
+}
+
+export interface Permission {
+  canCreateSales: boolean;
+  canCancelSales: boolean;
+  canManageInventory: boolean;
+  canViewReports: boolean;
+  canManageUsers: boolean;
+  canEditSettings: boolean;
+  canManageInvoices: boolean;
+  canViewAuditLogs: boolean;
+}
+
+export interface AuditLog {
+  id: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  action: AuditAction;
+  entity: string;
+  entityId?: string;
+  changes?: Record<string, unknown>;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+// Mapeo de roles a permisos
+export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
+  ADMIN: {
+    canCreateSales: true,
+    canCancelSales: true,
+    canManageInventory: true,
+    canViewReports: true,
+    canManageUsers: true,
+    canEditSettings: true,
+    canManageInvoices: true,
+    canViewAuditLogs: true,
+  },
+  MANAGER: {
+    canCreateSales: true,
+    canCancelSales: true,
+    canManageInventory: true,
+    canViewReports: true,
+    canManageUsers: false,
+    canEditSettings: true,
+    canManageInvoices: true,
+    canViewAuditLogs: false,
+  },
+  SELLER: {
+    canCreateSales: true,
+    canCancelSales: false,
+    canManageInventory: false,
+    canViewReports: true,
+    canManageUsers: false,
+    canEditSettings: false,
+    canManageInvoices: false,
+    canViewAuditLogs: false,
+  },
+  VIEWER: {
+    canCreateSales: false,
+    canCancelSales: false,
+    canManageInventory: false,
+    canViewReports: true,
+    canManageUsers: false,
+    canEditSettings: false,
+    canManageInvoices: false,
+    canViewAuditLogs: false,
+  },
+};

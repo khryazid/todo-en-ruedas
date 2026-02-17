@@ -7,7 +7,7 @@
 import type { User } from '@supabase/supabase-js';
 import type {
   Product, CartItem, Sale, Invoice, Payment, AppSettings,
-  Supplier, PaymentMethod, Client
+  Supplier, PaymentMethod, Client, AppUser
 } from '../types';
 
 export type SetState = (partial: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void;
@@ -26,6 +26,8 @@ export interface StoreState {
   suppliers: Supplier[];
   clients: Client[];
   paymentMethods: PaymentMethod[];
+  users: AppUser[];
+  currentUserData: AppUser | null;
 
   // --- Auth ---
   checkSession: () => Promise<void>;
@@ -66,4 +68,14 @@ export interface StoreState {
   updateInvoice: (invoice: Invoice) => Promise<void>;
   deleteInvoice: (id: string) => Promise<void>;
   registerPayment: (invoiceId: string, payment: Payment) => Promise<void>;
+
+  // --- Users ---
+  fetchUsers: () => Promise<void>;
+  fetchCurrentUserData: () => Promise<void>;
+  setupFirstAdmin: (setupData: { companyName: string; fullName: string; email: string; password: string }) => Promise<boolean>;
+  createUser: (userData: { email: string; password: string; fullName: string; role: AppUser['role'] }) => Promise<boolean>;
+  updateUser: (userId: string, updates: Partial<AppUser>) => Promise<boolean>;
+  deactivateUser: (userId: string) => Promise<void>;
+  activateUser: (userId: string) => Promise<void>;
+  changeUserPassword: (userId: string, newPassword: string) => Promise<void>;
 }
