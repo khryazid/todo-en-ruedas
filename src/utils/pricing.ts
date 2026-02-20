@@ -13,28 +13,38 @@ export const formatCurrency = (amount: number, currency: 'USD' | 'BS') => {
 };
 
 export const calculatePrices = (product: Product, settings: AppSettings) => {
-  let costUSD = product.cost + (product.freight || 0);
+  const costUSD = product.cost + (product.freight || 0);
   const margin = product.customMargin ?? settings.defaultMargin;
   const vat = product.customVAT ?? settings.defaultVAT;
 
-  // 1. Calculamos el precio base (Costo + Margen + IVA) y redondeamos a 2 decimales (ej. 1.508 -> 1.51)
+  // 1. Precio base = Costo + Margen + IVA
   const basePrice = Math.round((costUSD * (1 + margin / 100) * (1 + vat / 100)) * 100) / 100;
 
-  // 2. LÓGICA DE LA ILUSIÓN (CAMUFLAJE BCV)
+  // 2. LÓGICA TH (CAMUFLAJE BCV)
   let finalPriceUSD = basePrice;
   if (product.costType === 'TH') {
-    // Si es TH, multiplicamos por TH para saber los Bs reales, y dividimos entre BCV para "inflar" el USD
-    finalPriceUSD = (basePrice * settings.tasaTH) / settings.tasaBCV;
+    const tasaTH = settings.tasaTH || 0;
+    const tasaBCV = settings.tasaBCV || 0;
+
+    if (tasaTH > 0 && tasaBCV > 0) {
+      // Convertir: precio TH en Bs / tasa BCV = precio equivalente en USD al BCV
+      finalPriceUSD = (basePrice * tasaTH) / tasaBCV;
+    }
+    // Si las tasas no están configuradas, finalPriceUSD = basePrice (sin ajuste)
   }
 
-  // Redondeamos el USD final a 2 decimales para mostrar en pantalla
+  // Redondear USD a 2 decimales
   finalPriceUSD = Math.round(finalPriceUSD * 100) / 100;
 
-  // 3. El precio en Bolívares SIEMPRE es el finalPriceUSD multiplicado estrictamente por BCV
-  const finalPriceVED = Math.round((finalPriceUSD * settings.tasaBCV) * 100) / 100;
+  // 3. Bs = USD × tasa BCV
+  const tasaBCV = settings.tasaBCV || 0;
+  const finalPriceVED = tasaBCV > 0
+    ? Math.round((finalPriceUSD * tasaBCV) * 100) / 100
+    : 0;
 
   return {
     baseCost: costUSD,
+    basePrice,      // Precio base antes de la conversión TH (útil para mostrar P.TH)
     finalPriceUSD,
     finalPriceVED,
     margin,

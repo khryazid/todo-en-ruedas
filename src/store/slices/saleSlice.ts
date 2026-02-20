@@ -13,7 +13,7 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
   sales: [] as Sale[],
 
   completeSale: async (paymentMethod: string, clientId?: string, initialPayment?: number) => {
-    const { cart, settings, products } = get();
+    const { cart, settings, products, currentUserData } = get();
     toast.dismiss();
 
     if (cart.length === 0) {
@@ -56,7 +56,10 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         status: status,
         paid_amount_usd: paidAmount,
         date: new Date().toISOString(),
-        is_credit: isCredit
+        is_credit: isCredit,
+        // ✅ FIX #8/#9: Registrar quién realizó la venta
+        user_id: currentUserData?.id || null,
+        seller_name: currentUserData?.fullName || null,
       }).select().single();
 
       if (saleError || !saleData) throw new Error(saleError?.message);
@@ -102,6 +105,9 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         status,
         paidAmountUSD: paidAmount,
         isCredit,
+        // ✅ FIX #8/#9: Incluir datos del vendedor en el objeto local
+        userId: currentUserData?.id,
+        sellerName: currentUserData?.fullName,
         items: cart.map((item) => ({
           sku: item.sku,
           name: item.name,
@@ -239,11 +245,11 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         sales: state.sales.map((s) =>
           s.id === saleId
             ? {
-                ...s,
-                paidAmountUSD: newPaid,
-                status: newStatus,
-                payments: [...s.payments, payment]
-              }
+              ...s,
+              paidAmountUSD: newPaid,
+              status: newStatus,
+              payments: [...s.payments, payment]
+            }
             : s
         )
       }));

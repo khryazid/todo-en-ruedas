@@ -24,25 +24,52 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
   updateSettings: async (newSettings: AppSettings) => {
     set({ settings: newSettings });
     try {
-      const settingsId = get().settingsId;
-
-      if (!settingsId) {
-        const { data } = await supabase.from('settings').select('id').single();
-        if (data) set({ settingsId: data.id });
-      }
-
-      const { error } = await supabase.from('settings').update({
+      const payload = {
         company_name: newSettings.companyName,
         rif: `${newSettings.rifType}-${newSettings.rif}`,
-        address: newSettings.address,
+        address: newSettings.address || '',
         tasa_bcv: newSettings.tasaBCV,
         tasa_monitor: newSettings.tasaTH,
         show_monitor_rate: newSettings.showMonitorRate,
-        printer_currency: newSettings.printerCurrency
-      }).eq('id', get().settingsId);
+        printer_currency: newSettings.printerCurrency,
+        default_margin: newSettings.defaultMargin,
+        default_vat: newSettings.defaultVAT,
+      };
+
+      // Intentar UPDATE primero (cuando ya existe una fila)
+      const settingsId = get().settingsId;
+      let error;
+      let affectedRows: { id: string }[] | null = null;
+
+      if (settingsId) {
+        const res = await supabase.from('settings').update(payload).eq('id', settingsId).select('id');
+        error = res.error;
+        affectedRows = res.data;
+      } else {
+        const res = await supabase.from('settings').update(payload)
+          .neq('id', '00000000-0000-0000-0000-000000000000').select('id');
+        error = res.error;
+        affectedRows = res.data;
+      }
 
       if (error) throw error;
-      toast.success("Configuración guardada");
+
+      // Si no había filas (tabla vacía), INSERT la primera fila
+      if (!affectedRows || affectedRows.length === 0) {
+        const { data: inserted, error: insertError } = await supabase
+          .from('settings')
+          .insert({
+            ...payload,
+            last_close_date: new Date(0).toISOString(),
+          })
+          .select('id')
+          .single();
+
+        if (insertError) throw insertError;
+        if (inserted) set({ settingsId: inserted.id });
+      }
+
+      toast.success("Configuración guardada ✅");
     } catch (error: unknown) {
       toast.error("Error al guardar: " + (error as Error).message);
     }

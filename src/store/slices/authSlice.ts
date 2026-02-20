@@ -96,7 +96,9 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
             tasaTH: settingsData.tasa_monitor,
             showMonitorRate: settingsData.show_monitor_rate,
             lastCloseDate: settingsData.last_close_date,
-            printerCurrency: settingsData.printer_currency
+            printerCurrency: settingsData.printer_currency,
+            defaultMargin: settingsData.default_margin ?? state.settings.defaultMargin,
+            defaultVAT: settingsData.default_vat ?? state.settings.defaultVAT,
           }
         }));
       }

@@ -16,8 +16,10 @@ import {
 import type { Sale } from '../types';
 
 export const Sales = () => {
-    const { sales, clients, annulSale, deleteSale } = useStore(); // <--- AÑADIDO deleteSale
-    const { isAdmin, isManager } = usePermissions(); // <--- NUEVO: Hook de permisos
+    const { sales, clients, annulSale, deleteSale } = useStore();
+    const { isAdmin, isManager, role } = usePermissions();
+    const currentUserData = useStore(s => s.currentUserData);
+    const isSeller = role === 'SELLER';
 
     // Estados de Filtros y Selección
     const [searchTerm, setSearchTerm] = useState('');
@@ -30,6 +32,9 @@ export const Sales = () => {
 
     // --- LÓGICA DE FILTRADO ---
     const filteredSales = sales.filter(sale => {
+        // ✅ FIX #8: SELLER solo ve sus propias ventas
+        if (isSeller && sale.userId !== currentUserData?.id) return false;
+
         // Buscamos el cliente asociado para filtrar por nombre
         const client = getClient(sale.clientId);
         const clientName = client?.name.toLowerCase() || '';
@@ -63,7 +68,9 @@ export const Sales = () => {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h2 className="text-2xl font-black text-gray-800 tracking-tight">Historial de Ventas</h2>
-                    <p className="text-gray-500 font-medium">Auditoría y control de operaciones</p>
+                    <p className="text-gray-500 font-medium">
+                        {isSeller ? 'Tus ventas registradas' : 'Auditoría y control de operaciones'}
+                    </p>
                 </div>
                 <button
                     onClick={handlePrintReport}
@@ -72,6 +79,16 @@ export const Sales = () => {
                     <Printer size={18} /> Imprimir Listado
                 </button>
             </div>
+
+            {/* Banner informativo para SELLER */}
+            {isSeller && (
+                <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <span className="text-green-600 text-lg">💼</span>
+                    <p className="text-green-800 text-sm font-medium">
+                        Solo ves tus ventas. El historial de otros vendedores no es visible para tu rol.
+                    </p>
+                </div>
+            )}
 
             {/* BARRA DE FILTROS */}
             <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col lg:flex-row gap-4 items-end">
@@ -110,6 +127,7 @@ export const Sales = () => {
                                 <th className="px-6 py-4">Cliente</th>
                                 <th className="px-6 py-4 text-center">Ítems</th>
                                 <th className="px-6 py-4">Método</th>
+                                {!isSeller && <th className="px-6 py-4">Vendedor</th>}
                                 <th className="px-6 py-4 text-right">Total ($)</th>
                                 <th className="px-6 py-4 text-right">Ref. (Bs)</th>
                                 <th className="px-6 py-4 text-center">Estado</th>
@@ -144,6 +162,14 @@ export const Sales = () => {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 font-medium text-gray-600">{sale.paymentMethod || 'Efectivo'}</td>
+                                        {/* ✅ FIX #9: Columna vendedor (oculta para SELLER, no necesita verse a sí mismo) */}
+                                        {!isSeller && (
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded-lg">
+                                                    {sale.sellerName || 'Admin'}
+                                                </span>
+                                            </td>
+                                        )}
                                         <td className="px-6 py-4 text-right font-black text-gray-800 text-base">{formatCurrency(sale.totalUSD, 'USD')}</td>
                                         <td className="px-6 py-4 text-right font-medium text-gray-500">Bs. {sale.totalVED.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</td>
                                         <td className="px-6 py-4 text-center">
@@ -177,7 +203,7 @@ export const Sales = () => {
                                     </tr>
                                 );
                             })}
-                            {filteredSales.length === 0 && <tr><td colSpan={8} className="p-10 text-center text-gray-400">No se encontraron ventas con estos filtros.</td></tr>}
+                            {filteredSales.length === 0 && <tr><td colSpan={isSeller ? 8 : 9} className="p-10 text-center text-gray-400">No se encontraron ventas con estos filtros.</td></tr>}
                         </tbody>
                     </table>
                 </div>

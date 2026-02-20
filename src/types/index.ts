@@ -80,6 +80,8 @@ export interface Sale {
   paidAmountUSD: number;
   payments: Payment[];
   isCredit: boolean; // ✅ FIX 3.3: Flag explícito para ventas a crédito
+  userId?: string;      // ✅ FIX: ID del usuario que realizó la venta
+  sellerName?: string;  // ✅ FIX: Snapshot del nombre del vendedor
 }
 
 export interface Supplier {

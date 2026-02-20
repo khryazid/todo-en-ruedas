@@ -160,7 +160,7 @@ export const Inventory = () => {
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 text-xs uppercase font-bold text-gray-400 tracking-wider">
-              <tr><th className="px-6 py-4">Producto</th><th className="px-6 py-4 text-center">Stock</th><th className="px-6 py-4 text-right">Costo ($)</th><th className="px-6 py-4 text-right">PVP ($)</th><th className="px-6 py-4 text-right">PVP (Bs)</th><th className="px-6 py-4 text-center">Acciones</th></tr>
+              <tr><th className="px-6 py-4">Producto</th><th className="px-6 py-4 text-center">Stock</th><th className="px-6 py-4 text-right">Costo ($)</th><th className="px-6 py-4 text-right text-orange-500" title="Precio base TH antes de la conversión">P. TH ($)</th><th className="px-6 py-4 text-right">PVP ($)</th><th className="px-6 py-4 text-right">PVP (Bs)</th><th className="px-6 py-4 text-center">Acciones</th></tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredProducts.map((product) => {
@@ -194,6 +194,16 @@ export const Inventory = () => {
                         <span className="font-medium">{formatCurrency(product.cost + (product.freight || 0), 'USD')}</span>
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 ${product.costType === 'BCV' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{product.costType}</span>
                       </div>
+                    </td>
+                    {/* Precio TH: solo para productos con tasa Monitor */}
+                    <td className="px-6 py-4 text-right">
+                      {product.costType === 'TH' ? (
+                        <span className="font-semibold text-orange-600" title="Precio base antes de conversión TH→BCV">
+                          {formatCurrency(prices.basePrice, 'USD')}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 text-sm">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-right font-black text-gray-800">{formatCurrency(prices.finalPriceUSD, 'USD')}</td>
                     <td className="px-6 py-4 text-right font-bold text-gray-500 group-hover:text-red-600 transition-colors">

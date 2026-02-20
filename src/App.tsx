@@ -1,9 +1,10 @@
 /**
  * @file App.tsx
- * @description Configuración de Rutas con Lazy Loading.
+ * @description Configuración de Rutas con Lazy Loading y Protección por Rol.
  *
  * ✅ SPRINT 6.1: Cada página se carga bajo demanda (code splitting).
- *    Solo Login + Dashboard cargan al inicio. El resto cuando se navega.
+ * ✅ FIX: Rutas protegidas con RoleRoute — SELLER/VIEWER no pueden acceder
+ *         por URL directa a rutas fuera de sus permisos.
  */
 
 import { useEffect, Suspense, lazy } from 'react';
@@ -13,6 +14,8 @@ import { useStore } from './store/useStore';
 import { useSetupCheck } from './hooks/useSetupCheck';
 import { Sidebar } from './components/layout/Sidebar';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { RoleRoute } from './components/RoleRoute';
+import { Permission } from './utils/permissions';
 
 // Páginas cargadas de inmediato (rutas principales)
 import { Login } from './pages/Login';
@@ -36,6 +39,20 @@ const PageLoader = () => (
     <div className="text-center">
       <div className="h-8 w-8 animate-spin rounded-full border-4 border-red-500 border-t-transparent mx-auto mb-3"></div>
       <p className="text-gray-400 text-xs font-mono">Cargando módulo...</p>
+    </div>
+  </div>
+);
+
+// Página 403 — Acceso Denegado
+const AccessDenied = () => (
+  <div className="flex items-center justify-center h-full w-full min-h-[60vh]">
+    <div className="text-center p-8">
+      <div className="text-6xl mb-4">🔒</div>
+      <h2 className="text-2xl font-black text-gray-800 mb-2">Acceso Denegado</h2>
+      <p className="text-gray-500 mb-6">No tienes permisos para ver esta sección.</p>
+      <a href="/sales" className="px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition">
+        Volver al Historial
+      </a>
     </div>
   </div>
 );
@@ -96,17 +113,83 @@ function App() {
                   <ErrorBoundary>
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
-                        <Route path="/dashboard" element={<Dashboard />} />
-                        <Route path="/pos" element={<POS />} />
-                        <Route path="/accounts-receivable" element={<AccountsReceivable />} />
-                        <Route path="/inventory" element={<Inventory />} />
-                        <Route path="/sales" element={<Sales />} />
-                        <Route path="/invoices" element={<Invoices />} />
-                        <Route path="/clients" element={<Clients />} />
-                        <Route path="/daily-close" element={<DailyClose />} />
-                        <Route path="/settings" element={<Settings />} />
-                        <Route path="/users" element={<Users />} />
-                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+                        {/* Dashboard: solo ADMIN y MANAGER */}
+                        <Route path="/dashboard" element={
+                          <RoleRoute allowedRoles={['ADMIN', 'MANAGER']} redirectTo="/sales">
+                            <Dashboard />
+                          </RoleRoute>
+                        } />
+
+                        {/* POS: quienes pueden crear ventas */}
+                        <Route path="/pos" element={
+                          <RoleRoute requiredPermission={Permission.CREATE_SALE} redirectTo="/sales">
+                            <POS />
+                          </RoleRoute>
+                        } />
+
+                        {/* Historial: quienes pueden ver ventas (propias o todas) */}
+                        <Route path="/sales" element={
+                          <RoleRoute requiredPermissions={[Permission.VIEW_OWN_SALES, Permission.VIEW_ALL_SALES]}>
+                            <Sales />
+                          </RoleRoute>
+                        } />
+
+                        {/* Inventario: solo ADMIN y MANAGER */}
+                        <Route path="/inventory" element={
+                          <RoleRoute allowedRoles={['ADMIN', 'MANAGER']} redirectTo="/sales">
+                            <Inventory />
+                          </RoleRoute>
+                        } />
+
+                        {/* Cuentas por Cobrar: quienes tienen permiso */}
+                        <Route path="/accounts-receivable" element={
+                          <RoleRoute requiredPermission={Permission.VIEW_RECEIVABLES} redirectTo="/sales">
+                            <AccountsReceivable />
+                          </RoleRoute>
+                        } />
+
+                        {/* Facturas/Ctas por Pagar: ADMIN, MANAGER, VIEWER */}
+                        <Route path="/invoices" element={
+                          <RoleRoute allowedRoles={['ADMIN', 'MANAGER', 'VIEWER']} redirectTo="/sales">
+                            <Invoices />
+                          </RoleRoute>
+                        } />
+
+                        {/* Clientes: quienes pueden ver clientes */}
+                        <Route path="/clients" element={
+                          <RoleRoute requiredPermission={Permission.VIEW_CLIENTS} redirectTo="/sales">
+                            <Clients />
+                          </RoleRoute>
+                        } />
+
+                        {/* Cierre de Caja: solo ADMIN y MANAGER */}
+                        <Route path="/daily-close" element={
+                          <RoleRoute requiredPermission={Permission.CLOSE_CASH} redirectTo="/sales">
+                            <DailyClose />
+                          </RoleRoute>
+                        } />
+
+                        {/* Configuración: ADMIN y MANAGER (VIEW_SETTINGS) */}
+                        <Route path="/settings" element={
+                          <RoleRoute requiredPermission={Permission.VIEW_SETTINGS} redirectTo="/sales">
+                            <Settings />
+                          </RoleRoute>
+                        } />
+
+                        {/* Usuarios: solo ADMIN y MANAGER */}
+                        <Route path="/users" element={
+                          <RoleRoute requiredPermission={Permission.VIEW_USERS} redirectTo="/sales">
+                            <Users />
+                          </RoleRoute>
+                        } />
+
+                        {/* Página de acceso denegado explícita */}
+                        <Route path="/access-denied" element={<AccessDenied />} />
+
+                        {/* Catch-all: redirige a /sales (funciona para todos los roles) */}
+                        <Route path="*" element={<Navigate to="/sales" replace />} />
+
                       </Routes>
                     </Suspense>
                   </ErrorBoundary>
