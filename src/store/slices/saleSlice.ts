@@ -146,6 +146,8 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
       toast.error(`Error crítico: ${(error as Error).message}`);
       return null;
     }
+    // ✅ FIX TypeScript: retorno explícito para garantizar Promise<Sale | null>
+    return null;
   },
 
   annulSale: async (saleId: string) => {

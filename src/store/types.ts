@@ -37,7 +37,7 @@ export interface StoreState {
 
   // --- Settings ---
   updateSettings: (settings: AppSettings) => Promise<void>;
-  performDailyClose: () => Promise<void>;
+  performDailyClose: (turnData?: { totalUSD: number; totalBs: number; txCount: number }) => Promise<void>;
   addPaymentMethod: (name: string, currency: 'USD' | 'BS') => Promise<void>;
   deletePaymentMethod: (id: string) => Promise<void>;
 

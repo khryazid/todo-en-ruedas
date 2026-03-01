@@ -66,8 +66,9 @@ export const Dashboard = () => {
 
   const totalSalesPeriodUSD = filteredSales.reduce((acc, s) => acc + s.totalUSD, 0);
 
-  // Comisión simplificada para SELLER (Ejemplo: 5% de sus ventas)
-  const sellerCommission = isSeller ? totalSalesPeriodUSD * 0.05 : 0;
+  // Comisión del SELLER: solo si el Admin la habilitó y está configurada
+  const commissionPct = settings.sellerCommissionPct ?? 5;
+  const sellerCommission = isSeller ? totalSalesPeriodUSD * (commissionPct / 100) : 0;
 
   // --- 4. KPIs GLOBALES ---
   const totalReceivable = sales
@@ -177,8 +178,8 @@ export const Dashboard = () => {
           <p className="text-sm text-gray-400 mt-1">{filteredSales.length} operaciones</p>
         </div>
 
-        {/* COMISIÓN ESTIMADA (Solo Seller) */}
-        {isSeller && (
+        {/* COMISIÓN ESTIMADA (Solo Seller y si el Admin la habilitó) */}
+        {isSeller && settings.showSellerCommission && (
           <div className="bg-green-50 p-6 rounded-2xl border border-green-100 flex flex-col justify-between relative overflow-hidden">
             <div className="absolute -right-4 -top-4 opacity-10 text-green-500"><Award size={100} /></div>
             <div className="relative z-10">

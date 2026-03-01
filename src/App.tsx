@@ -114,9 +114,9 @@ function App() {
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
 
-                        {/* Dashboard: solo ADMIN y MANAGER */}
+                        {/* Dashboard: ADMIN, MANAGER y SELLER (vista adaptada por rol) */}
                         <Route path="/dashboard" element={
-                          <RoleRoute allowedRoles={['ADMIN', 'MANAGER']} redirectTo="/sales">
+                          <RoleRoute allowedRoles={['ADMIN', 'MANAGER', 'SELLER']} redirectTo="/sales">
                             <Dashboard />
                           </RoleRoute>
                         } />

@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save, RefreshCw, Percent, Eye, EyeOff, Trash2,
-  CreditCard, Plus, Building2
+  CreditCard, Plus, Building2, Clock, Users, Award
 } from 'lucide-react';
 import type { RifType, CurrencyView, PaymentCurrency } from '../types';
 
@@ -192,6 +192,86 @@ export const Settings = () => {
               </div>
               <p className="text-[10px] text-gray-400 mt-2 leading-tight">Impuesto al Valor Agregado (Aplica general).</p>
             </div>
+          </div>
+        </div>
+
+        {/* 4. HORARIO DE TURNO */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 pb-4 border-b border-gray-50">
+            <Clock className="text-blue-500" /> Horario de Turno
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Hora de Apertura</label>
+              <input
+                type="time"
+                className="w-full border-2 border-blue-50 rounded-xl p-3 text-2xl font-black text-blue-700 outline-none focus:border-blue-300 transition"
+                value={formData.shiftStart || '08:00'}
+                onChange={e => setFormData({ ...formData, shiftStart: e.target.value })}
+              />
+              <p className="text-[10px] text-gray-400 mt-2 leading-tight">
+                Hora a la que inicia cada turno. Se muestra en Cierre de Caja como "Apertura del Turno".
+              </p>
+            </div>
+            <div className="bg-blue-50 rounded-xl p-3 flex items-center gap-3">
+              <Clock size={18} className="text-blue-500 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-blue-800">Horario configurado</p>
+                <p className="text-sm font-black text-blue-900">
+                  Apertura: {formData.shiftStart || '08:00'} hrs
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 5. VENDEDORES */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 pb-4 border-b border-gray-50">
+            <Users className="text-green-600" /> Vendedores
+          </h3>
+          <div className="space-y-5">
+            {/* Toggle comisión */}
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-bold text-gray-700">Mostrar Comisión Estimada</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  Activa la tarjeta de comisión en el Dashboard del vendedor.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, showSellerCommission: !formData.showSellerCommission })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${formData.showSellerCommission ? 'bg-green-500' : 'bg-gray-200'}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${formData.showSellerCommission ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {/* Porcentaje — visible solo si toggle ON */}
+            {formData.showSellerCommission && (
+              <div className="animate-in slide-in-from-top fade-in duration-200">
+                <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Porcentaje de Comisión</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    className="w-full border-2 border-green-100 rounded-xl p-3 text-xl font-black text-green-700 outline-none focus:border-green-400 transition"
+                    value={formData.sellerCommissionPct ?? 5}
+                    onChange={e => setFormData({ ...formData, sellerCommissionPct: parseFloat(e.target.value) || 0 })}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">%</span>
+                </div>
+                <div className="bg-green-50 rounded-xl p-3 flex items-center gap-2 mt-3">
+                  <Award size={16} className="text-green-500 flex-shrink-0" />
+                  <p className="text-xs text-green-700 font-medium">
+                    El vendedor verá su comisión estimada como <strong>{formData.sellerCommissionPct ?? 5}%</strong> de sus ventas del período.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

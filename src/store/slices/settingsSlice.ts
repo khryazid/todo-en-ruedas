@@ -15,8 +15,11 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
     rif: '', rifType: 'J', address: '',
     tasaBCV: 0, tasaTH: 0, showMonitorRate: true,
     lastUpdated: new Date().toISOString(),
-    lastCloseDate: new Date(0).toISOString(),
-    defaultMargin: 30, defaultVAT: 16, printerCurrency: 'BS'
+    lastCloseDate: undefined,
+    defaultMargin: 30, defaultVAT: 16, printerCurrency: 'BS',
+    shiftStart: '08:00',
+    showSellerCommission: false,
+    sellerCommissionPct: 5,
   } as AppSettings,
 
   paymentMethods: [] as PaymentMethod[],
@@ -34,6 +37,9 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
         printer_currency: newSettings.printerCurrency,
         default_margin: newSettings.defaultMargin,
         default_vat: newSettings.defaultVAT,
+        shift_start: newSettings.shiftStart || '08:00',
+        show_seller_commission: newSettings.showSellerCommission ?? false,
+        seller_commission_pct: newSettings.sellerCommissionPct ?? 5,
       };
 
       // Intentar UPDATE primero (cuando ya existe una fila)
@@ -114,19 +120,31 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
     }
   },
 
-  performDailyClose: async () => {
+  performDailyClose: async (turnData?: { totalUSD: number; totalBs: number; txCount: number }) => {
     const now = new Date().toISOString();
+    const { currentUserData, settingsId } = get();
     try {
-      const settingsId = get().settingsId;
+      // 1. Actualizar last_close_date en settings
       if (settingsId) {
         await supabase.from('settings').update({ last_close_date: now }).eq('id', settingsId);
       } else {
         await supabase.from('settings').update({ last_close_date: now }).neq('id', '00000000-0000-0000-0000-000000000000');
       }
+
+      // 2. ✅ Registrar en historial de cierres
+      await supabase.from('cash_closes').insert({
+        closed_at: now,
+        closed_by: currentUserData?.id || null,
+        seller_name: currentUserData?.fullName || null,
+        total_usd: turnData?.totalUSD ?? 0,
+        total_bs: turnData?.totalBs ?? 0,
+        tx_count: turnData?.txCount ?? 0,
+      });
+
       set((state) => ({ settings: { ...state.settings, lastCloseDate: now } }));
-      toast.success("Cierre de caja exitoso 🏁");
+      toast.success('Cierre de caja exitoso 🏁');
     } catch (error) {
-      toast.error("Error al cerrar caja");
+      toast.error('Error al cerrar caja');
     }
   },
 });

@@ -2,39 +2,75 @@
  * @file DailyClose.tsx
  * @description Módulo de Cierre de Caja (Reporte Z) REAL.
  * Calcula ventas desde el último cierre hasta el momento actual.
+ * ✅ FEAT: Historial de cierres Z desde tabla cash_closes.
+ * ✅ FEAT: performDailyClose recibe totales del turno.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import { printTicket } from '../utils/ticketGenerator';
-import { DollarSign, Printer, Lock, Clock, AlertTriangle } from 'lucide-react';
+import { supabase } from '../supabase/client';
+import { DollarSign, Printer, Lock, Clock, AlertTriangle, History, User } from 'lucide-react';
+import type { CashClose } from '../types';
 
 export const DailyClose = () => {
     const { sales, paymentMethods, settings, performDailyClose } = useStore();
     const [reportType, setReportType] = useState<'X' | 'Z'>('X');
+    const [closeHistory, setCloseHistory] = useState<CashClose[]>([]);
+
+    // --- FETCH HISTORIAL DE CIERRES ---
+    useEffect(() => {
+        const fetchHistory = async () => {
+            const { data } = await supabase
+                .from('cash_closes')
+                .select('*')
+                .order('closed_at', { ascending: false })
+                .limit(10);
+
+            if (data) {
+                setCloseHistory(data.map(r => ({
+                    id: r.id,
+                    closedAt: r.closed_at,
+                    closedBy: r.closed_by,
+                    sellerName: r.seller_name,
+                    totalUSD: r.total_usd,
+                    totalBs: r.total_bs,
+                    txCount: r.tx_count,
+                })));
+            }
+        };
+        fetchHistory();
+    }, [settings.lastCloseDate]); // Re-fetch cuando se hace un nuevo cierre
 
     // --- LÓGICA DE CORTE DE TURNO ---
-    // Obtenemos la fecha del último cierre guardado
-    const lastClose = useMemo(() => new Date(settings.lastCloseDate || 0), [settings.lastCloseDate]);
+    const lastClose = useMemo(() =>
+        settings.lastCloseDate ? new Date(settings.lastCloseDate) : null,
+        [settings.lastCloseDate]
+    );
 
-    // Filtramos: Ventas que NO están anuladas Y que ocurrieron DESPUÉS del último cierre
+    const shiftOpenTime = useMemo(() => {
+        if (!lastClose) return null;
+        const [hours, minutes] = (settings.shiftStart || '08:00').split(':').map(Number);
+        const openDate = new Date(lastClose);
+        openDate.setHours(hours, minutes, 0, 0);
+        return openDate;
+    }, [lastClose, settings.shiftStart]);
+
     const currentShiftSales = sales.filter(sale => {
-        const saleDate = new Date(sale.date);
-        return sale.status !== 'CANCELLED' && saleDate > lastClose;
+        if (sale.status === 'CANCELLED') return false;
+        if (!lastClose) return true;
+        return new Date(sale.date) > lastClose;
     });
 
     // --- CÁLCULOS DEL TURNO ACTUAL ---
     const totalUSD = currentShiftSales.reduce((acc, s) => acc + s.totalUSD, 0);
     const totalBs = currentShiftSales.reduce((acc, s) => acc + s.totalVED, 0);
 
-    // Desglose por Método de Pago
     const breakdown = useMemo(() => {
         const map: Record<string, number> = {};
         paymentMethods.forEach(pm => map[pm.name] = 0);
-
         currentShiftSales.forEach(sale => {
-            // Si hubo abono inicial (crédito) o pago total
             const paid = sale.paidAmountUSD;
             if (paid > 0) {
                 const method = sale.paymentMethod;
@@ -45,14 +81,15 @@ export const DailyClose = () => {
     }, [currentShiftSales, paymentMethods]);
 
     const handlePrint = () => {
-        if (currentShiftSales.length === 0) return alert("No hay movimientos para cerrar.");
+        if (reportType === 'X' && currentShiftSales.length === 0) {
+            return alert('No hay movimientos para imprimir.');
+        }
 
         const confirmMessage = reportType === 'Z'
-            ? "¿Estás seguro de realizar el CIERRE Z? Esto reiniciará los contadores a cero."
-            : "Imprimir Corte Parcial (X) no reinicia los contadores.";
+            ? `¿Estás seguro de realizar el CIERRE Z?${currentShiftSales.length === 0 ? ' (Turno en $0.00)' : ''} Esto reiniciará los contadores a cero.`
+            : 'Imprimir Corte Parcial (X) no reinicia los contadores.';
 
         if (window.confirm(confirmMessage)) {
-            // 1. Imprimir
             printTicket({
                 type: reportType,
                 date: new Date().toLocaleString('es-VE'),
@@ -64,11 +101,47 @@ export const DailyClose = () => {
                 paymentMethods
             });
 
-            // 2. Si es Z, ejecutar el corte (resetear contadores)
             if (reportType === 'Z') {
-                performDailyClose();
+                // ✅ Pasar totales del turno para el historial
+                performDailyClose({
+                    totalUSD,
+                    totalBs,
+                    txCount: currentShiftSales.length,
+                }).then(() => {
+                    // Refrescar historial después del cierre
+                    supabase
+                        .from('cash_closes')
+                        .select('*')
+                        .order('closed_at', { ascending: false })
+                        .limit(10)
+                        .then(({ data }) => {
+                            if (data) setCloseHistory(data.map(r => ({
+                                id: r.id,
+                                closedAt: r.closed_at,
+                                closedBy: r.closed_by,
+                                sellerName: r.seller_name,
+                                totalUSD: r.total_usd,
+                                totalBs: r.total_bs,
+                                txCount: r.tx_count,
+                            })));
+                        });
+                });
             }
         }
+    };
+
+    // Reimprimir un cierre histórico del historial
+    const handleReprintClose = (c: CashClose) => {
+        printTicket({
+            type: 'Z',
+            date: new Date(c.closedAt).toLocaleString('es-VE'),
+            totalUSD: c.totalUSD,
+            totalBs: c.totalBs,
+            itemsCount: c.txCount,
+            breakdown: { 'TOTAL (sin desglose)': c.totalUSD },
+            reportNumber: `REIMP-${c.id.slice(-6)}`,
+            paymentMethods,
+        });
     };
 
     return (
@@ -80,14 +153,33 @@ export const DailyClose = () => {
                     <h2 className="text-2xl font-black text-gray-800 tracking-tight">Cierre de Caja</h2>
                     <p className="text-gray-500 font-medium">Arqueo y reportes de turno</p>
                 </div>
-                <div className="bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm flex items-center gap-3">
-                    <Clock className="text-blue-500" size={20} />
-                    <div>
-                        <p className="text-[10px] text-gray-400 uppercase font-bold">Apertura del Turno</p>
-                        <p className="text-sm font-bold text-gray-800">
-                            {lastClose.getFullYear() === 1970 ? 'Inicio del Sistema' : lastClose.toLocaleString('es-VE')}
-                        </p>
+                {/* Chips de tiempo del turno */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                    {/* Apertura - hora configurada */}
+                    <div className="bg-white px-4 py-2 rounded-xl border border-green-100 shadow-sm flex items-center gap-3">
+                        <Clock className="text-green-500" size={18} />
+                        <div>
+                            <p className="text-[10px] text-gray-400 uppercase font-bold">Apertura del Turno</p>
+                            <p className="text-sm font-bold text-gray-800">
+                                {shiftOpenTime
+                                    ? shiftOpenTime.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' })
+                                    : 'Inicio del Sistema'
+                                }
+                            </p>
+                        </div>
                     </div>
+                    {/* Último Cierre Z - timestamp exacto */}
+                    {lastClose && (
+                        <div className="bg-white px-4 py-2 rounded-xl border border-red-100 shadow-sm flex items-center gap-3">
+                            <Lock className="text-red-400" size={18} />
+                            <div>
+                                <p className="text-[10px] text-gray-400 uppercase font-bold">Último Cierre Z</p>
+                                <p className="text-sm font-bold text-gray-800">
+                                    {lastClose.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' })}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -128,6 +220,51 @@ export const DailyClose = () => {
                             {Object.keys(breakdown).length === 0 && <p className="text-gray-400 text-sm p-2">Sin movimientos.</p>}
                         </div>
                     </div>
+
+                    {/* HISTORIAL DE CIERRES Z */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="p-4 border-b border-gray-50 bg-gray-50/50 flex items-center gap-2">
+                            <History size={16} className="text-gray-500" />
+                            <h3 className="font-bold text-gray-800 text-sm">Historial de Cierres Z</h3>
+                            <span className="ml-auto text-[10px] text-gray-400 font-medium">Últimos 10</span>
+                        </div>
+                        {closeHistory.length === 0 ? (
+                            <p className="text-center text-gray-400 text-xs py-8">No hay cierres registrados aún.</p>
+                        ) : (
+                            <div className="divide-y divide-gray-50">
+                                {closeHistory.map((c, i) => (
+                                    <div key={c.id} className={`flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition ${i === 0 ? 'bg-green-50/40' : ''}`}>
+                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0 ${i === 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                            Z
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-bold text-gray-700">
+                                                {new Date(c.closedAt).toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' })}
+                                                {i === 0 && <span className="ml-2 text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold">Último</span>}
+                                            </p>
+                                            {c.sellerName && (
+                                                <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
+                                                    <User size={10} /> {c.sellerName}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="text-right flex-shrink-0 mr-2">
+                                            <p className="text-xs font-black text-gray-800">{formatCurrency(c.totalUSD, 'USD')}</p>
+                                            <p className="text-[10px] text-gray-400">{c.txCount} tx</p>
+                                        </div>
+                                        {/* Botón reimprimir */}
+                                        <button
+                                            onClick={() => handleReprintClose(c)}
+                                            title="Reimprimir este cierre Z"
+                                            className="flex-shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition"
+                                        >
+                                            <Printer size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* PANEL DERECHO: ACCIONES */}
@@ -156,14 +293,11 @@ export const DailyClose = () => {
                             <div className="flex gap-2">
                                 <AlertTriangle size={18} className="flex-shrink-0" />
                                 <p>
-                                    {reportType === 'Z'
-                                        ? <strong>Advertencia:</strong>
-                                        : <strong>Información:</strong>
-                                    }
+                                    {reportType === 'Z' ? <strong>Advertencia:</strong> : <strong>Información:</strong>}
                                     <br />
                                     {reportType === 'Z'
-                                        ? "Al imprimir el Reporte Z, el sistema reiniciará los contadores a $0.00 para el próximo turno."
-                                        : "El Reporte X es solo informativo. No afecta los totales acumulados del día."
+                                        ? 'Al imprimir el Reporte Z, el sistema reiniciará los contadores a $0.00 para el próximo turno.'
+                                        : 'El Reporte X es solo informativo. No afecta los totales acumulados del día.'
                                     }
                                 </p>
                             </div>
@@ -171,7 +305,7 @@ export const DailyClose = () => {
 
                         <button
                             onClick={handlePrint}
-                            disabled={currentShiftSales.length === 0}
+                            disabled={reportType === 'X' && currentShiftSales.length === 0}
                             className={`w-full py-4 text-white font-bold rounded-xl shadow-lg transition transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${reportType === 'Z' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                         >
                             {reportType === 'Z' ? <Lock size={20} /> : <Printer size={20} />}

@@ -137,8 +137,21 @@ export interface AppSettings {
   defaultVAT: number;
   printerCurrency: CurrencyView;
   lastCloseDate?: string;
+  shiftStart?: string;  // Hora de apertura del turno, formato "HH:MM" (ej: "08:00")
+  showSellerCommission?: boolean; // Mostrar tarjeta comisión en Dashboard del SELLER
+  sellerCommissionPct?: number;   // Porcentaje de comisión (default 5)
   companyLogo?: string; // URL del logo personalizado
-  brandColor?: string; // Color de marca personalizado
+  brandColor?: string;  // Color de marca personalizado
+}
+
+export interface CashClose {
+  id: string;
+  closedAt: string;
+  closedBy?: string;
+  sellerName?: string;
+  totalUSD: number;
+  totalBs: number;
+  txCount: number;
 }
 
 // --- SISTEMA DE USUARIOS ---

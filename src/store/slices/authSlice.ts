@@ -95,10 +95,13 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
             tasaBCV: settingsData.tasa_bcv,
             tasaTH: settingsData.tasa_monitor,
             showMonitorRate: settingsData.show_monitor_rate,
-            lastCloseDate: settingsData.last_close_date,
+            lastCloseDate: settingsData.last_close_date || undefined,
             printerCurrency: settingsData.printer_currency,
             defaultMargin: settingsData.default_margin ?? state.settings.defaultMargin,
             defaultVAT: settingsData.default_vat ?? state.settings.defaultVAT,
+            shiftStart: settingsData.shift_start || '08:00',
+            showSellerCommission: settingsData.show_seller_commission ?? false,
+            sellerCommissionPct: settingsData.seller_commission_pct ?? 5,
           }
         }));
       }
@@ -151,6 +154,10 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
             status: s.status,
             paidAmountUSD: s.paid_amount_usd,
             isCredit: s.is_credit || false,
+            // ✅ FIX: Mapear datos del vendedor para que el Dashboard del SELLER
+            // pueda filtrar sus ventas propias correctamente
+            userId: s.user_id || undefined,
+            sellerName: s.seller_name || undefined,
             items: s.sale_items.map((i: Record<string, unknown>) => ({
               sku: i.sku || 'N/A',
               name: i.product_name_snapshot || 'Producto',

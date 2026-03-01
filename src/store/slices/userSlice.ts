@@ -150,7 +150,7 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
 
 
 
-            // 4. Ahora insertar en tabla users (con sesión activa)
+            // 4. Insertar en tabla users (con sesión activa)
 
             const { error: userError } = await supabase
                 .from('users')
@@ -163,12 +163,33 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                 });
 
             if (userError) {
-                // Si falla, debemos hacer signOut para no quedar en estado inconsistente
                 await supabase.auth.signOut();
                 throw userError;
             }
 
-            // 5. Actualizar estado con el usuario logueado
+            // 5. ✅ FIX CRÍTICO: Insertar en tabla settings (era el paso faltante)
+            // Sin este registro, useSetupCheck detecta 0 rows y vuelve a forzar /setup
+            const { error: settingsError } = await supabase
+                .from('settings')
+                .insert({
+                    company_name: setupData.companyName,
+                    rif: `${setupData.rifType}-${setupData.rif}`,
+                    address: setupData.address,
+                    tasa_bcv: 36.0,
+                    tasa_monitor: 38.0,
+                    show_monitor_rate: false,
+                    default_margin: 30,
+                    default_vat: 16,
+                    printer_currency: 'USD',
+                });
+
+            if (settingsError) {
+                // Settings falló: advertir pero no bloquear (el admin puede configurar más tarde)
+                console.error('⚠️ Error al guardar settings iniciales:', settingsError);
+                toast.error('Usuario creado, pero hubo un problema guardando la configuración inicial. Configúrala en Ajustes.');
+            }
+
+            // 6. Actualizar estado con el usuario logueado
 
             set({
                 user: loginData.user,
