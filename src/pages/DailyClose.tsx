@@ -9,9 +9,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
-import { printTicket } from '../utils/ticketGenerator';
+import { printTicket, printDailyCloseReport } from '../utils/ticketGenerator';
 import { supabase } from '../supabase/client';
-import { DollarSign, Printer, Lock, Clock, AlertTriangle, History, User } from 'lucide-react';
+import { DollarSign, Printer, Lock, Clock, AlertTriangle, History, User, FileText } from 'lucide-react';
 import type { CashClose } from '../types';
 
 export const DailyClose = () => {
@@ -141,6 +141,31 @@ export const DailyClose = () => {
             breakdown: { 'TOTAL (sin desglose)': c.totalUSD },
             reportNumber: `REIMP-${c.id.slice(-6)}`,
             paymentMethods,
+        });
+    };
+
+    // Reporte PDF del turno actual
+    const handlePrintPDF = () => {
+        // Desglose por vendedor
+        const sellerBreakdown: Record<string, { count: number; totalUSD: number }> = {};
+        currentShiftSales.forEach(s => {
+            const name = s.sellerName || 'Admin';
+            if (!sellerBreakdown[name]) sellerBreakdown[name] = { count: 0, totalUSD: 0 };
+            sellerBreakdown[name].count++;
+            sellerBreakdown[name].totalUSD += s.totalUSD;
+        });
+
+        printDailyCloseReport({
+            type: reportType,
+            date: new Date().toLocaleString('es-VE'),
+            totalUSD,
+            totalBs,
+            txCount: currentShiftSales.length,
+            breakdown,
+            sellerBreakdown,
+            companyName: settings.companyName || 'Todo en Ruedas',
+            reportNumber: Date.now().toString().slice(-6),
+            shiftOpenTime: shiftOpenTime?.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) || undefined,
         });
     };
 
@@ -310,6 +335,14 @@ export const DailyClose = () => {
                         >
                             {reportType === 'Z' ? <Lock size={20} /> : <Printer size={20} />}
                             {reportType === 'Z' ? 'CERRAR CAJA Y REINICIAR' : 'IMPRIMIR CORTE PARCIAL'}
+                        </button>
+
+                        <button
+                            onClick={handlePrintPDF}
+                            disabled={currentShiftSales.length === 0}
+                            className="w-full py-3 bg-white border-2 border-gray-200 text-gray-700 font-bold rounded-xl hover:bg-gray-50 hover:border-gray-300 transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <FileText size={18} /> Exportar Reporte PDF
                         </button>
                     </div>
                 </div>

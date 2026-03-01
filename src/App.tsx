@@ -12,7 +12,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { useStore } from './store/useStore';
 import { useSetupCheck } from './hooks/useSetupCheck';
-import { Sidebar } from './components/layout/Sidebar';
+import { TopBar } from './components/layout/TopBar';
+import { GlobalSearch } from './components/GlobalSearch';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { RoleRoute } from './components/RoleRoute';
 import { Permission } from './utils/permissions';
@@ -34,6 +35,7 @@ const AccountsReceivable = lazy(() => import('./pages/AccountsReceivable').then(
 const Users = lazy(() => import('./pages/Users').then(m => ({ default: m.Users })));
 const Audit = lazy(() => import('./pages/Audit').then(m => ({ default: m.Audit })));
 const Quotes = lazy(() => import('./pages/Quotes').then(m => ({ default: m.Quotes })));
+const Commissions = lazy(() => import('./pages/Commissions').then(m => ({ default: m.Commissions })));
 
 // Spinner para la transición entre páginas
 const PageLoader = () => (
@@ -109,9 +111,10 @@ function App() {
           <Route
             path="/*"
             element={
-              <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
-                <Sidebar />
-                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 relative">
+              <div className="flex flex-col h-screen bg-gray-50 font-sans text-gray-900">
+                <GlobalSearch />
+                <TopBar />
+                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 relative pt-14">
                   <ErrorBoundary>
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
@@ -197,6 +200,13 @@ function App() {
                         <Route path="/audit" element={
                           <RoleRoute requiredPermission={Permission.VIEW_AUDIT} redirectTo="/sales">
                             <Audit />
+                          </RoleRoute>
+                        } />
+
+                        {/* Comisiones: solo ADMIN y MANAGER */}
+                        <Route path="/commissions" element={
+                          <RoleRoute allowedRoles={['ADMIN', 'MANAGER']} redirectTo="/sales">
+                            <Commissions />
                           </RoleRoute>
                         } />
 

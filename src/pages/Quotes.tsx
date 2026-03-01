@@ -10,7 +10,7 @@ import { printMobileQuote } from '../utils/quoteGenerator';
 import {
     FileText, Plus, X, Save, Trash2, Search,
     CheckCircle, XCircle, Clock, Send, Eye, Printer,
-    AlertCircle, ChevronDown
+    AlertCircle, ChevronDown, ShoppingBag, MessageCircle
 } from 'lucide-react';
 import type { Quote, QuoteItem, QuoteStatus } from '../types';
 
@@ -26,12 +26,14 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; color: string; icon: R
 const STATUS_ORDER: QuoteStatus[] = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'];
 
 export const Quotes = () => {
-    const { quotes, products, clients, settings, addQuote, updateQuote, deleteQuote } = useStore();
+    const { quotes, products, clients, settings, addQuote, updateQuote, deleteQuote, convertQuoteToSale, paymentMethods } = useStore();
 
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [viewQuote, setViewQuote] = useState<Quote | null>(null);
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<QuoteStatus | 'ALL'>('ALL');
+    const [showConvertModal, setShowConvertModal] = useState(false);
+    const [convertPayMethod, setConvertPayMethod] = useState<string>('');
 
     // Formulario nuevo
     const [formClientId, setFormClientId] = useState('');
@@ -416,13 +418,74 @@ export const Quotes = () => {
                             </div>
                         </div>
 
-                        <div className="p-4 border-t bg-gray-50">
-                            <button
-                                onClick={() => printMobileQuote(viewQuote, settings)}
-                                className="w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black flex justify-center items-center gap-2 transition"
-                            >
-                                <Printer size={18} /> Imprimir Cotización
-                            </button>
+                        <div className="p-4 border-t bg-gray-50 space-y-2">
+                            {/* Botón Convertir a Venta */}
+                            {viewQuote.status !== 'ACCEPTED' && viewQuote.status !== 'REJECTED' && viewQuote.status !== 'EXPIRED' && (
+                                <>
+                                    {showConvertModal ? (
+                                        <div className="flex gap-2 animate-in fade-in">
+                                            <select
+                                                className="flex-1 border-2 border-blue-200 rounded-xl px-3 py-2 text-sm font-bold bg-white outline-none"
+                                                value={convertPayMethod}
+                                                onChange={e => setConvertPayMethod(e.target.value)}
+                                            >
+                                                {paymentMethods.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
+                                            </select>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!convertPayMethod && paymentMethods.length > 0) setConvertPayMethod(paymentMethods[0].name);
+                                                    const method = convertPayMethod || paymentMethods[0]?.name || 'Efectivo';
+                                                    const ok = await convertQuoteToSale(viewQuote.id, method);
+                                                    if (ok) { setViewQuote(null); setShowConvertModal(false); }
+                                                }}
+                                                className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition"
+                                            >
+                                                ✓ Confirmar
+                                            </button>
+                                            <button onClick={() => setShowConvertModal(false)} className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-gray-500 font-bold text-sm hover:bg-gray-50 transition">✕</button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => { setConvertPayMethod(paymentMethods[0]?.name || 'Efectivo'); setShowConvertModal(true); }}
+                                            className="w-full py-2.5 bg-blue-50 border border-blue-200 text-blue-700 font-bold rounded-xl hover:bg-blue-100 flex justify-center items-center gap-2 transition text-sm"
+                                        >
+                                            <ShoppingBag size={16} /> Convertir en Venta
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        const items = viewQuote.items.map(i => `  • ${i.name} x${i.quantity} = $${(i.priceFinalUSD * i.quantity).toFixed(2)}`).join('\n');
+                                        const msg = [
+                                            `*COTIZACIÓN ${viewQuote.number}*`,
+                                            `_${settings.companyName}_`,
+                                            '',
+                                            viewQuote.clientName ? `Cliente: ${viewQuote.clientName}` : '',
+                                            `Fecha: ${new Date(viewQuote.date).toLocaleDateString('es-VE')}`,
+                                            `Válida hasta: ${new Date(viewQuote.validUntil).toLocaleDateString('es-VE')}`,
+                                            '',
+                                            '*Productos:*',
+                                            items,
+                                            '',
+                                            `*TOTAL: $${viewQuote.totalUSD.toFixed(2)}*`,
+                                            `_(Ref. Bs ${viewQuote.totalBs.toFixed(2)} @ ${settings.tasaBCV})_`,
+                                            viewQuote.notes ? `\n_${viewQuote.notes}_` : '',
+                                        ].filter(Boolean).join('\n');
+                                        window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                                    }}
+                                    className="flex-1 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 flex justify-center items-center gap-2 shadow-lg shadow-green-100 transition"
+                                >
+                                    <MessageCircle size={18} /> WhatsApp
+                                </button>
+                                <button
+                                    onClick={() => printMobileQuote(viewQuote, settings)}
+                                    className="flex-1 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black flex justify-center items-center gap-2 transition"
+                                >
+                                    <Printer size={18} /> Imprimir
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

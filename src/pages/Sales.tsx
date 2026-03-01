@@ -9,14 +9,15 @@ import { useStore } from '../store/useStore';
 import { usePermissions } from '../hooks/usePermissions';
 import { formatCurrency } from '../utils/pricing';
 import { printInvoice, printSalesList, sendToWhatsApp } from '../utils/ticketGenerator';
+import { exportToCSV } from '../utils/exportCSV';
 import {
     Eye, Search, Printer, Ban,
-    X, ShoppingBag, User, Phone, MapPin, MessageCircle, Trash2
+    X, ShoppingBag, User, Phone, MapPin, MessageCircle, Trash2, Download, RotateCcw
 } from 'lucide-react';
 import type { Sale } from '../types';
 
 export const Sales = () => {
-    const { sales, clients, annulSale, deleteSale } = useStore();
+    const { sales, clients, annulSale, deleteSale, addReturn, products } = useStore();
     const { isAdmin, isManager, role } = usePermissions();
     const currentUserData = useStore(s => s.currentUserData);
     const isSeller = role === 'SELLER';
@@ -26,6 +27,13 @@ export const Sales = () => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+
+    // Estados modal de Devolución
+    const [returnSale, setReturnSale] = useState<Sale | null>(null);
+    const [returnType, setReturnType] = useState<'PARTIAL' | 'FULL'>('PARTIAL');
+    const [returnReason, setReturnReason] = useState('');
+    // Cantidades a devolver por item (indexadas por índice del item en la venta)
+    const [returnQtys, setReturnQtys] = useState<Record<number, number>>({});
 
     // Helper para obtener cliente
     const getClient = (clientId?: string) => clients.find(c => c.id === clientId);
@@ -54,11 +62,91 @@ export const Sales = () => {
         printSalesList(filteredSales, startDate, endDate);
     };
 
+    const handleExportCSV = () => {
+        exportToCSV(
+            filteredSales.map(s => ({
+                fecha: new Date(s.date).toLocaleString('es-VE'),
+                ticket: s.id.slice(-6),
+                cliente: clients.find(c => c.id === s.clientId)?.name || 'Anónimo',
+                vendedor: s.sellerName || 'Admin',
+                metodo: s.paymentMethod,
+                items: s.items.length,
+                total_usd: s.totalUSD,
+                total_bs: s.totalVED,
+                estado: s.status,
+            })),
+            'ventas',
+            [
+                { key: 'fecha', label: 'Fecha' },
+                { key: 'ticket', label: 'Ticket' },
+                { key: 'cliente', label: 'Cliente' },
+                { key: 'vendedor', label: 'Vendedor' },
+                { key: 'metodo', label: 'Método Pago' },
+                { key: 'items', label: 'Ítems' },
+                { key: 'total_usd', label: 'Total USD' },
+                { key: 'total_bs', label: 'Total Bs' },
+                { key: 'estado', label: 'Estado' },
+            ]
+        );
+    };
+
     // --- NUEVA FUNCIÓN DE BORRADO ---
     const handleDelete = (id: string) => {
         if (window.confirm('🚨 ¿Seguro que deseas BORRAR DEFINITIVAMENTE esta venta? \nEsta acción es irreversible y NO restaurará el stock de inventario.')) {
             deleteSale(id);
         }
+    };
+
+    // --- ABRIR MODAL DE DEVOLUCIÓN ---
+    const openReturn = (sale: Sale) => {
+        setReturnSale(sale);
+        setReturnType('PARTIAL');
+        setReturnReason('');
+        // Inicializar cantidades a 0
+        const qtys: Record<number, number> = {};
+        sale.items.forEach((_, i) => { qtys[i] = 0; });
+        setReturnQtys(qtys);
+        setSelectedSale(null); // cerrar modal de detalle
+    };
+
+    // --- PROCESAR DEVOLUCIÓN ---
+    const handleReturn = async () => {
+        if (!returnSale) return;
+
+        const itemsToReturn = returnType === 'FULL'
+            ? returnSale.items.map((item, i) => ({
+                productId: products.find(p => p.sku === item.sku)?.id,
+                sku: item.sku,
+                name: item.name,
+                quantity: item.quantity,
+                priceUSD: item.priceFinalUSD,
+            }))
+            : returnSale.items
+                .map((item, i) => ({
+                    productId: products.find(p => p.sku === item.sku)?.id,
+                    sku: item.sku,
+                    name: item.name,
+                    quantity: returnQtys[i] || 0,
+                    priceUSD: item.priceFinalUSD,
+                }))
+                .filter(item => item.quantity > 0);
+
+        if (itemsToReturn.length === 0) {
+            alert('Selecciona al menos 1 unidad para devolver.');
+            return;
+        }
+
+        const refundAmount = itemsToReturn.reduce((acc, item) => acc + item.priceUSD * item.quantity, 0);
+
+        const ok = await addReturn({
+            saleId: returnSale.id,
+            reason: returnReason,
+            refundAmountUSD: Math.round(refundAmount * 100) / 100,
+            type: returnType,
+            items: itemsToReturn,
+        });
+
+        if (ok) setReturnSale(null);
     };
 
     return (
@@ -72,12 +160,20 @@ export const Sales = () => {
                         {isSeller ? 'Tus ventas registradas' : 'Auditoría y control de operaciones'}
                     </p>
                 </div>
-                <button
-                    onClick={handlePrintReport}
-                    className="w-full md:w-auto bg-gray-900 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-black transition shadow-lg active:scale-95"
-                >
-                    <Printer size={18} /> Imprimir Listado
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleExportCSV}
+                        className="w-full md:w-auto bg-green-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-green-700 transition shadow-lg active:scale-95"
+                    >
+                        <Download size={18} /> Exportar CSV
+                    </button>
+                    <button
+                        onClick={handlePrintReport}
+                        className="w-full md:w-auto bg-gray-900 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-black transition shadow-lg active:scale-95"
+                    >
+                        <Printer size={18} /> Imprimir Listado
+                    </button>
+                </div>
             </div>
 
             {/* Banner informativo para SELLER */}
@@ -182,13 +278,23 @@ export const Sales = () => {
                                             )}
                                         </td>
 
-                                        {/* ACCIONES (Detalle, Imprimir, Anular, Borrar) */}
+                                        {/* ACCIONES (Detalle, Imprimir, Devolver, Borrar) */}
                                         <td className="px-6 py-4 text-center sticky right-0 bg-white group-hover:bg-gray-50 transition-colors shadow-[-5px_0_10px_rgba(0,0,0,0.02)]">
                                             <div className="flex justify-center gap-2">
                                                 <button onClick={() => setSelectedSale(sale)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition" title="Ver Detalle"><Eye size={18} /></button>
                                                 <button onClick={() => printInvoice(sale)} className="p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition" title="Imprimir"><Printer size={18} /></button>
 
-                                                {/* Solo ADMIN y MANAGER pueden BORRAR ventas */}
+                                                {/* Solo ADMIN y MANAGER pueden hacer DEVOLUCIONES */}
+                                                {(isAdmin || isManager) && !isCancelled && (
+                                                    <button
+                                                        onClick={() => openReturn(sale)}
+                                                        className="p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition"
+                                                        title="Registrar Devolución"
+                                                    >
+                                                        <RotateCcw size={18} />
+                                                    </button>
+                                                )}
+
                                                 {(isAdmin || isManager) && (
                                                     <button
                                                         onClick={() => handleDelete(sale.id)}
@@ -312,6 +418,17 @@ export const Sales = () => {
                             </div>
 
                             <div className="flex gap-3">
+                                {/* BOTÓN DEVOLUCIÓN */}
+                                {selectedSale.status !== 'CANCELLED' && (isAdmin || isManager) && (
+                                    <button
+                                        onClick={() => openReturn(selectedSale)}
+                                        className="px-4 py-3 bg-white border border-orange-200 text-orange-600 font-bold rounded-xl hover:bg-orange-50 flex items-center justify-center gap-2 transition"
+                                        title="Registrar Devolución"
+                                    >
+                                        <RotateCcw size={20} />
+                                    </button>
+                                )}
+
                                 {/* BOTÓN ANULAR */}
                                 {selectedSale.status !== 'CANCELLED' && (
                                     <button
@@ -345,6 +462,106 @@ export const Sales = () => {
                                     <Printer size={20} /> REIMPRIMIR TICKET
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* --- MODAL DE DEVOLUCIÓN --- */}
+            {returnSale && (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+                    <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden">
+                        <div className="p-5 bg-orange-50 border-b border-orange-100 flex justify-between items-center">
+                            <div>
+                                <h3 className="font-bold text-xl text-orange-800 flex items-center gap-2"><RotateCcw size={20} /> Registrar Devolución</h3>
+                                <p className="text-sm text-orange-500 font-mono">Ticket #{returnSale.id.slice(-6)}</p>
+                            </div>
+                            <button onClick={() => setReturnSale(null)} className="bg-white p-2 rounded-full text-gray-400 hover:text-red-500 transition shadow-sm"><X size={20} /></button>
+                        </div>
+
+                        <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+                            {/* Tipo de devolución */}
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => setReturnType('PARTIAL')}
+                                    className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition border-2 ${returnType === 'PARTIAL'
+                                            ? 'bg-orange-500 text-white border-orange-500'
+                                            : 'bg-white text-gray-600 border-gray-200 hover:border-orange-200'
+                                        }`}
+                                >
+                                    Parcial (items)
+                                </button>
+                                <button
+                                    onClick={() => setReturnType('FULL')}
+                                    className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition border-2 ${returnType === 'FULL'
+                                            ? 'bg-red-500 text-white border-red-500'
+                                            : 'bg-white text-gray-600 border-gray-200 hover:border-red-200'
+                                        }`}
+                                >
+                                    Total (anular)
+                                </button>
+                            </div>
+
+                            {/* Selección de items (solo si es parcial) */}
+                            {returnType === 'PARTIAL' && (
+                                <div className="space-y-2">
+                                    <p className="text-xs font-bold text-gray-500 uppercase">Cantidades a Devolver</p>
+                                    {returnSale.items.map((item, i) => (
+                                        <div key={i} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-gray-700 truncate">{item.name}</p>
+                                                <p className="text-xs text-gray-400">{formatCurrency(item.priceFinalUSD, 'USD')} / u — Vendidos: {item.quantity}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2 ml-4">
+                                                <button
+                                                    onClick={() => setReturnQtys(q => ({ ...q, [i]: Math.max(0, (q[i] || 0) - 1) }))}
+                                                    className="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 font-black text-gray-700 flex items-center justify-center transition"
+                                                >−</button>
+                                                <span className="w-6 text-center font-black text-gray-800">{returnQtys[i] || 0}</span>
+                                                <button
+                                                    onClick={() => setReturnQtys(q => ({ ...q, [i]: Math.min(item.quantity, (q[i] || 0) + 1) }))}
+                                                    className="w-7 h-7 rounded-full bg-orange-100 hover:bg-orange-200 font-black text-orange-700 flex items-center justify-center transition"
+                                                >+</button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Resumen monto */}
+                            <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
+                                <p className="text-xs font-bold text-orange-500 uppercase mb-1">Monto a Reembolsar</p>
+                                <p className="text-2xl font-black text-orange-700">
+                                    {returnType === 'FULL'
+                                        ? formatCurrency(returnSale.totalUSD, 'USD')
+                                        : formatCurrency(
+                                            returnSale.items.reduce((acc, item, i) => acc + item.priceFinalUSD * (returnQtys[i] || 0), 0),
+                                            'USD'
+                                        )
+                                    }
+                                </p>
+                            </div>
+
+                            {/* Motivo */}
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Motivo (Opcional)</label>
+                                <input
+                                    className="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-orange-400 outline-none"
+                                    placeholder="Ej: Producto defectuoso, error en pedido..."
+                                    value={returnReason}
+                                    onChange={e => setReturnReason(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="p-5 border-t bg-gray-50 flex gap-3">
+                            <button onClick={() => setReturnSale(null)} className="flex-1 py-3 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition">Cancelar</button>
+                            <button
+                                onClick={handleReturn}
+                                className={`flex-1 py-3 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition ${returnType === 'FULL' ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-500 hover:bg-orange-600'
+                                    }`}
+                            >
+                                <RotateCcw size={18} /> Confirmar Devolución
+                            </button>
                         </div>
                     </div>
                 </div>

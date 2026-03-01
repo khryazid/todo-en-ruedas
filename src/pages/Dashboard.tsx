@@ -11,6 +11,10 @@ import {
   TrendingUp, TrendingDown, DollarSign, Package,
   AlertTriangle, Wallet, Users, BarChart3, ArrowUpRight, ArrowDownRight, AlertOctagon, Award
 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend
+} from 'recharts';
 
 export const Dashboard = () => {
   const { sales, products, invoices, clients, settings, currentUserData } = useStore();
@@ -139,6 +143,38 @@ export const Dashboard = () => {
       }));
   }, [filteredSales, clients]);
 
+  // --- 9. DATOS PARA GRÁFICAS (solo Admin/Manager) ---
+  const chartData = useMemo(() => {
+    if (!isAdminOrManager) return [];
+    const days: { label: string; total: number; date: string }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayTotal = sales
+        .filter(s => s.status !== 'CANCELLED' && s.date.startsWith(dateStr))
+        .reduce((acc, s) => acc + s.totalUSD, 0);
+      days.push({
+        label: d.toLocaleDateString('es-VE', { weekday: 'short', day: 'numeric' }),
+        total: Math.round(dayTotal * 100) / 100,
+        date: dateStr,
+      });
+    }
+    return days;
+  }, [sales, isAdminOrManager]);
+
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+
+  const paymentData = useMemo(() => {
+    if (!isAdminOrManager) return [];
+    const methodMap: Record<string, number> = {};
+    filteredSales.forEach(s => {
+      const m = s.paymentMethod || 'Efectivo';
+      methodMap[m] = (methodMap[m] || 0) + s.totalUSD;
+    });
+    return Object.entries(methodMap).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
+  }, [filteredSales, isAdminOrManager]);
+
   return (
     <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen animate-in fade-in duration-300">
 
@@ -238,6 +274,60 @@ export const Dashboard = () => {
               <p className="text-blue-100 text-xs uppercase font-bold mb-1">Total Venta Potencial</p>
               <p className="text-4xl font-black drop-shadow-md">{formatCurrency(inventoryStats.revenue, 'USD')}</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- FILA 2.5: GRÁFICAS (Solo Admin/Manager) --- */}
+      {isAdminOrManager && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* GRÁFICA DE BARRAS: Ventas últimos 7 días */}
+          <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg"><BarChart3 size={16} /></div>
+              <h4 className="font-bold text-gray-800 text-sm">Ventas — Últimos 7 Días</h4>
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9ca3af', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
+                <Tooltip
+                  formatter={(value) => [`$${value}`, 'Total USD']}
+                  contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }}
+                />
+                <Bar dataKey="total" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={48} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* GRÁFICA DONA: Métodos de Pago */}
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-1.5 bg-green-100 text-green-700 rounded-lg"><DollarSign size={16} /></div>
+              <h4 className="font-bold text-gray-800 text-sm">Por Método de Pago</h4>
+            </div>
+            {paymentData.length === 0 ? (
+              <div className="h-[200px] flex items-center justify-center text-gray-400 text-xs">Sin ventas en el periodo.</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie
+                    data={paymentData}
+                    cx="50%" cy="50%"
+                    innerRadius={50} outerRadius={80}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {paymentData.map((_, index) => (
+                      <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [`$${value}`, '']} contentStyle={{ borderRadius: 12, border: 'none', fontSize: 11, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       )}

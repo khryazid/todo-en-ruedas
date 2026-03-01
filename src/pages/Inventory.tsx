@@ -4,18 +4,20 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
+import { exportToCSV } from '../utils/exportCSV';
 import {
   Search, Plus, Package, Edit, Trash2, FileText, X, CheckCircle,
-  Truck, History, AlertTriangle, AlertOctagon, Save, Filter
+  Truck, History, AlertTriangle, AlertOctagon, Save, Filter, Download, Upload
 } from 'lucide-react';
 import type { Product, Invoice, IncomingItem, CostType, PaymentStatus } from '../types';
 
 export const Inventory = () => {
-  const { products, updateProduct, deleteProduct, addInvoice, settings, suppliers } = useStore();
+  const { products, updateProduct, deleteProduct, addInvoice, addProduct, settings, suppliers } = useStore();
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [csvPreview, setCsvPreview] = useState<Partial<typeof products[0]>[] | null>(null);
 
   // --- FILTROS DOBLES ---
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
@@ -115,19 +117,142 @@ export const Inventory = () => {
   const handleDelete = (id: string) => { if (window.confirm('¿Borrar producto del sistema?')) deleteProduct(id); };
   const handleSkuBlur = () => { const existing = products.find(p => p.sku === tempItem.sku); if (existing) { setTempItem({ ...tempItem, name: existing.name, cost: existing.cost, minStock: existing.minStock }); } };
 
+  const handleExportCSV = () => {
+    exportToCSV(
+      filteredProducts.map(p => {
+        const prices = calculatePrices(p, settings);
+        return {
+          sku: p.sku,
+          nombre: p.name,
+          categoria: p.category || 'General',
+          proveedor: p.supplier || 'General',
+          stock: p.stock,
+          stock_min: p.minStock,
+          costo_usd: p.cost + (p.freight || 0),
+          pvp_usd: prices.finalPriceUSD,
+          pvp_bs: prices.finalPriceVED,
+          tipo_tasa: p.costType,
+        };
+      }),
+      'inventario',
+      [
+        { key: 'sku', label: 'SKU' },
+        { key: 'nombre', label: 'Nombre' },
+        { key: 'categoria', label: 'Categoría' },
+        { key: 'proveedor', label: 'Proveedor' },
+        { key: 'stock', label: 'Stock Actual' },
+        { key: 'stock_min', label: 'Stock Mínimo' },
+        { key: 'costo_usd', label: 'Costo USD' },
+        { key: 'pvp_usd', label: 'PVP USD' },
+        { key: 'pvp_bs', label: 'PVP Bs' },
+        { key: 'tipo_tasa', label: 'Tasa' },
+      ]
+    );
+  };
+
+  // #7 Importar productos desde CSV
+  const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const lines = text.replace(/\r/g, '').split('\n').filter(Boolean);
+      if (lines.length < 2) return alert('El CSV debe tener encabezados y al menos una fila.');
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const preview = lines.slice(1).map(line => {
+        const vals = line.split(',');
+        const row: Record<string, string> = {};
+        headers.forEach((h, i) => { row[h] = (vals[i] || '').trim(); });
+        return {
+          sku: row.sku || row.codigo || '',
+          name: row.nombre || row.name || '',
+          category: row.categoria || row.category || 'General',
+          supplier: row.proveedor || row.supplier || '',
+          stock: Number(row.stock) || 0,
+          minStock: Number(row.stock_min || row.minstock || row.min_stock) || 5,
+          cost: Number(row.costo_usd || row.cost || row.costo) || 0,
+          freight: 0,
+          costType: 'BCV' as const,
+        };
+      }).filter(r => r.sku && r.name);
+      if (preview.length === 0) return alert('No se encontraron filas válidas (SKU y nombre son obligatorios).');
+      setCsvPreview(preview);
+    };
+    reader.readAsText(file, 'UTF-8');
+    e.target.value = '';
+  };
+
+  const confirmImport = async () => {
+    if (!csvPreview) return;
+    for (const p of csvPreview) {
+      await addProduct({ ...p, id: crypto.randomUUID(), customMargin: undefined, customVAT: undefined } as typeof products[0]);
+    }
+    setCsvPreview(null);
+    alert(`✅ ${csvPreview.length} producto(s) importados exitosamente.`);
+  };
+
+  const lowStock = products.filter(p => p.stock > 0 && p.stock <= (p.minStock || 5));
+  const outOfStock = products.filter(p => p.stock <= 0);
+
   return (
     <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen w-full animate-in fade-in duration-300">
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div><h2 className="text-2xl font-black text-gray-800 tracking-tight">Inventario</h2><p className="text-gray-500 font-medium">Gestión de existencias y costos</p></div>
-        <div className="w-full md:w-auto">
+        <div>
+          <h2 className="text-2xl font-black text-gray-800 tracking-tight">Inventario</h2>
+          <p className="text-gray-500 font-medium">Gestión de existencias y costos</p>
+        </div>
+        <div className="flex gap-2 w-full md:w-auto">
+          <label
+            className="px-4 py-3 bg-white border-2 border-dashed border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-bold flex justify-center items-center gap-2 transition cursor-pointer"
+            title="Importar productos desde CSV"
+          >
+            <Upload size={18} /> Importar
+            <input type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
+          </label>
+          <button
+            onClick={handleExportCSV}
+            className="px-5 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-bold flex justify-center items-center gap-2 shadow-lg transition active:scale-95"
+          >
+            <Download size={18} /> Exportar CSV
+          </button>
           <button
             onClick={() => { setIsInvoiceModalOpen(true); setIsAddingSupplierInvoice(false); }}
-            className="w-full md:w-auto px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold flex justify-center items-center gap-2 shadow-lg hover:shadow-red-200 transition transform active:scale-95"
+            className="px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold flex justify-center items-center gap-2 shadow-lg hover:shadow-red-200 transition active:scale-95"
           >
             <FileText size={20} /> Cargar Compra
           </button>
         </div>
       </div>
+
+      {/* ALERTAS DE STOCK */}
+      {(outOfStock.length > 0 || lowStock.length > 0) && (
+        <div className="flex flex-wrap gap-3">
+          {outOfStock.length > 0 && (
+            <button
+              onClick={() => { setSearchTerm(''); setSelectedCategory('Todas'); setSelectedSupplier('Todos'); }}
+              className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-red-100 transition shadow-sm"
+            >
+              <AlertOctagon size={16} className="flex-shrink-0" />
+              <span><strong>{outOfStock.length}</strong> producto{outOfStock.length !== 1 ? 's' : ''} agotado{outOfStock.length !== 1 ? 's' : ''}</span>
+            </button>
+          )}
+          {lowStock.length > 0 && (
+            <button
+              onClick={() => { setSearchTerm(''); setSelectedCategory('Todas'); setSelectedSupplier('Todos'); }}
+              className="flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 px-4 py-2.5 rounded-xl font-bold text-sm hover:bg-orange-100 transition shadow-sm"
+            >
+              <AlertTriangle size={16} className="flex-shrink-0" />
+              <span><strong>{lowStock.length}</strong> producto{lowStock.length !== 1 ? 's' : ''} con stock bajo</span>
+            </button>
+          )}
+          <div className="flex-1 bg-white border border-gray-100 rounded-xl px-4 py-2.5 text-xs text-gray-400 font-medium flex items-center">
+            {outOfStock.map(p => p.name).concat(lowStock.map(p => p.name)).slice(0, 5).join(' • ')}
+            {(outOfStock.length + lowStock.length) > 5 && ` … y ${(outOfStock.length + lowStock.length) - 5} más`}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
@@ -431,6 +556,49 @@ export const Inventory = () => {
             <div className="p-5 border-t bg-white flex justify-end gap-3">
               <button onClick={() => setIsInvoiceModalOpen(false)} className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition">Cancelar</button>
               <button onClick={handleInvoiceSubmit} className="px-8 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 flex items-center gap-2 transition active:scale-95"><CheckCircle size={20} /> Procesar Compra</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PREVIEW IMPORTAR CSV */}
+      {csvPreview && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden">
+            <div className="p-5 bg-blue-50 border-b border-blue-100 flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-xl text-blue-800 flex items-center gap-2"><Upload size={20} /> Preview de Importación</h3>
+                <p className="text-sm text-blue-500">{csvPreview.length} producto(s) encontrados en el CSV</p>
+              </div>
+              <button onClick={() => setCsvPreview(null)} className="bg-white p-2 rounded-full text-gray-400 hover:text-red-500 transition shadow-sm"><X size={20} /></button>
+            </div>
+            <div className="max-h-[50vh] overflow-y-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-gray-50 text-[10px] uppercase font-bold text-gray-500 sticky top-0">
+                  <tr>
+                    <th className="px-4 py-3">SKU</th>
+                    <th className="px-4 py-3">Nombre</th>
+                    <th className="px-4 py-3 text-center">Stock</th>
+                    <th className="px-4 py-3 text-right">Costo USD</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {csvPreview.map((p, i) => (
+                    <tr key={i} className="hover:bg-blue-50">
+                      <td className="px-4 py-2 font-mono text-gray-500">{p.sku}</td>
+                      <td className="px-4 py-2 font-bold text-gray-800">{p.name}</td>
+                      <td className="px-4 py-2 text-center">{p.stock}</td>
+                      <td className="px-4 py-2 text-right font-bold text-green-600">${Number(p.cost).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-5 border-t bg-gray-50 flex gap-3">
+              <button onClick={() => setCsvPreview(null)} className="flex-1 py-3 bg-white border border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition">Cancelar</button>
+              <button onClick={confirmImport} className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 flex items-center justify-center gap-2 transition">
+                <CheckCircle size={18} /> Confirmar e Importar
+              </button>
             </div>
           </div>
         </div>

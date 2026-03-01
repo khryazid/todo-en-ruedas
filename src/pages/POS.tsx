@@ -76,6 +76,7 @@ export const POS = () => {
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(paymentMethods.length > 0 ? paymentMethods[0].name : 'Efectivo');
     const [isCreditSale, setIsCreditSale] = useState(false);
     const [initialPayment, setInitialPayment] = useState('');
+    const [discountPct, setDiscountPct] = useState(0); // #3 Descuento global %
 
     const [clientSearch, setClientSearch] = useState('');
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -165,14 +166,17 @@ export const POS = () => {
         addToCart(product);
     }, [addToCart]);
 
-    // Totales
-    const totalUSD = Math.round(cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0) * 100) / 100;
+    // Totales con descuento (#3)
+    const subtotalUSD = Math.round(cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0) * 100) / 100;
+    const discountAmount = Math.round(subtotalUSD * (discountPct / 100) * 100) / 100;
+    const totalUSD = Math.round((subtotalUSD - discountAmount) * 100) / 100;
     const totalBs = Math.round((totalUSD * settings.tasaBCV) * 100) / 100;
 
     useEffect(() => {
         if (!isCheckoutModalOpen && !completedSale) {
             setIsCreditSale(false);
             setInitialPayment('');
+            setDiscountPct(0);
         }
     }, [isCheckoutModalOpen, completedSale]);
 
@@ -196,7 +200,7 @@ export const POS = () => {
     }, [isCreditSale, selectedClient, totalUSD, initialPayment, selectedPaymentMethod, completeSale, clearClient]);
 
     return (
-        <div className="flex flex-col md:flex-row h-[calc(100vh-5rem)] md:h-screen bg-gray-100 w-full overflow-hidden">
+        <div className="flex flex-col md:flex-row h-[calc(100vh-3.5rem)] bg-gray-100 w-full overflow-hidden">
             {/* IZQUIERDA: CATÁLOGO */}
             <div className="flex-1 flex flex-col min-h-0">
                 <div className="p-3 bg-white border-b border-gray-200 shadow-sm z-10">
@@ -302,6 +306,25 @@ export const POS = () => {
                 </div>
 
                 <div className="p-4 bg-white border-t border-gray-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+                    {/* Campo de descuento */}
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Desc. %</span>
+                        <div className="flex items-center border-2 border-dashed border-gray-200 rounded-lg overflow-hidden flex-1">
+                            <button onClick={() => setDiscountPct(d => Math.max(0, d - 5))} className="px-2 py-1 text-gray-500 hover:bg-gray-100 font-black text-sm transition">−</button>
+                            <input
+                                type="number" min="0" max="100" step="1"
+                                value={discountPct || ''}
+                                onChange={e => setDiscountPct(Math.min(100, Math.max(0, Number(e.target.value))))}
+                                placeholder="0"
+                                className="w-12 text-center font-black text-sm bg-transparent outline-none"
+                            />
+                            <span className="text-gray-400 text-xs font-bold pr-1">%</span>
+                            <button onClick={() => setDiscountPct(d => Math.min(100, d + 5))} className="px-2 py-1 text-gray-500 hover:bg-gray-100 font-black text-sm transition">+</button>
+                        </div>
+                        {discountPct > 0 && (
+                            <span className="text-xs font-black text-red-500 whitespace-nowrap">-{formatCurrency(discountAmount, 'USD')}</span>
+                        )}
+                    </div>
                     <div className="flex justify-between items-end pt-1 mb-4">
                         <div className="text-left">
                             <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Total a Pagar</p>

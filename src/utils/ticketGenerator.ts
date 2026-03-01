@@ -268,3 +268,122 @@ export const sendToWhatsApp = (sale: Sale, directClient?: Client) => {
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
 };
+
+// --- REPORTE CIERRE DE CAJA (Formato A4 / PDF) ---
+export interface DailyCloseReportData {
+    type: 'X' | 'Z';
+    date: string;
+    totalUSD: number;
+    totalBs: number;
+    txCount: number;
+    breakdown: Record<string, number>;
+    sellerBreakdown?: Record<string, { count: number; totalUSD: number }>;
+    companyName: string;
+    reportNumber: string;
+    shiftOpenTime?: string;
+}
+
+export const printDailyCloseReport = (data: DailyCloseReportData) => {
+    const methodRows = Object.entries(data.breakdown)
+        .filter(([, v]) => v > 0)
+        .map(([method, amount]) => `
+            <tr>
+                <td style="padding:8px 12px;font-weight:600;color:#374151;">${method}</td>
+                <td style="padding:8px 12px;text-align:right;font-weight:700;color:#111827;">$${amount.toFixed(2)}</td>
+            </tr>
+        `).join('');
+
+    const sellerRows = data.sellerBreakdown
+        ? Object.entries(data.sellerBreakdown).map(([seller, { count, totalUSD }]) => `
+            <tr>
+                <td style="padding:8px 12px;color:#374151;">${seller}</td>
+                <td style="padding:8px 12px;text-align:center;color:#6b7280;">${count} op.</td>
+                <td style="padding:8px 12px;text-align:right;font-weight:700;color:#111827;">$${totalUSD.toFixed(2)}</td>
+            </tr>
+        `).join('')
+        : '';
+
+    const isZ = data.type === 'Z';
+    const html = `
+        <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:700px;margin:0 auto;padding:32px;color:#111;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e5e7eb;">
+                <div>
+                    <h1 style="margin:0;font-size:20px;font-weight:900;color:#111;">${data.companyName}</h1>
+                    <p style="margin:4px 0 0;color:#6b7280;font-size:12px;">REPORTE DE ${isZ ? 'CIERRE Z — DEFINITIVO' : 'CORTE X — PARCIAL'}</p>
+                </div>
+                <div style="text-align:right;">
+                    <span style="display:inline-block;padding:6px 16px;border-radius:20px;font-weight:900;font-size:13px;background:${isZ ? '#fee2e2' : '#dbeafe'};color:${isZ ? '#b91c1c' : '#1d4ed8'};">
+                        ${isZ ? '🔒 CIERRE Z' : '📊 CORTE X'}
+                    </span>
+                    <p style="margin:6px 0 0;font-size:11px;color:#9ca3af;">N° ${data.reportNumber}</p>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px;">
+                <div style="background:#f9fafb;border-radius:10px;padding:14px;border:1px solid #e5e7eb;">
+                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;">Fecha Cierre</p>
+                    <p style="margin:0;font-size:13px;font-weight:700;color:#111;">${data.date}</p>
+                </div>
+                ${data.shiftOpenTime ? `
+                <div style="background:#f0fdf4;border-radius:10px;padding:14px;border:1px solid #bbf7d0;">
+                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#22c55e;">Apertura</p>
+                    <p style="margin:0;font-size:13px;font-weight:700;color:#111;">${data.shiftOpenTime}</p>
+                </div>` : '<div></div>'}
+                <div style="background:#f9fafb;border-radius:10px;padding:14px;border:1px solid #e5e7eb;">
+                    <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;">Operaciones</p>
+                    <p style="margin:0;font-size:24px;font-weight:900;color:#111;">${data.txCount}</p>
+                </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+                <div style="background:${isZ ? '#111827' : '#1e3a5f'};color:white;border-radius:12px;padding:20px;">
+                    <p style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;opacity:0.6;">TOTAL USD</p>
+                    <p style="margin:0;font-size:32px;font-weight:900;">$${data.totalUSD.toFixed(2)}</p>
+                </div>
+                <div style="background:#f9fafb;border-radius:12px;padding:20px;border:1px solid #e5e7eb;">
+                    <p style="margin:0 0 6px;font-size:11px;font-weight:700;text-transform:uppercase;color:#9ca3af;">TOTAL Bs.</p>
+                    <p style="margin:0;font-size:28px;font-weight:900;color:#374151;">Bs. ${data.totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                </div>
+            </div>
+
+            <div style="margin-bottom:24px;">
+                <h3 style="margin:0 0 10px;font-size:13px;font-weight:800;text-transform:uppercase;color:#374151;letter-spacing:0.04em;">💳 Desglose por Método de Pago</h3>
+                <table style="width:100%;border-collapse:collapse;background:white;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;">
+                    <thead><tr style="background:#f3f4f6;">
+                        <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#9ca3af;">Método</th>
+                        <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#9ca3af;">Monto</th>
+                    </tr></thead>
+                    <tbody>${methodRows}</tbody>
+                </table>
+            </div>
+
+            ${sellerRows ? `
+            <div style="margin-bottom:24px;">
+                <h3 style="margin:0 0 10px;font-size:13px;font-weight:800;text-transform:uppercase;color:#374151;letter-spacing:0.04em;">👥 Desglose por Vendedor</h3>
+                <table style="width:100%;border-collapse:collapse;background:white;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;">
+                    <thead><tr style="background:#f3f4f6;">
+                        <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;color:#9ca3af;">Vendedor</th>
+                        <th style="padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;color:#9ca3af;">Ops.</th>
+                        <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;color:#9ca3af;">Total USD</th>
+                    </tr></thead>
+                    <tbody>${sellerRows}</tbody>
+                </table>
+            </div>` : ''}
+
+            <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
+                <p style="margin:0;font-size:11px;color:#9ca3af;">Generado el ${new Date().toLocaleString('es-VE')} • ${data.companyName} • Sistema POS Todo en Ruedas</p>
+                ${isZ ? '<p style="margin:4px 0 0;font-size:11px;font-weight:700;color:#b91c1c;">⚠ Este es un documento de CIERRE DEFINITIVO — Los contadores han sido reiniciados.</p>' : ''}
+            </div>
+        </div>
+    `;
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Reporte ${data.type} — ${data.date}</title>
+        <style>@page{margin:20px;}body{margin:0;padding:0;background:white;}</style>
+    </head><body>${html}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+};
+

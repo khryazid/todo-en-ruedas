@@ -13,12 +13,25 @@ export type PaymentMethodType = 'USD' | 'BS';
 export type CostType = 'BCV' | 'TH';
 export type PaymentStatus = 'PENDING' | 'PARTIAL' | 'PAID';
 export type SaleStatus = 'COMPLETED' | 'CANCELLED' | 'PENDING' | 'PARTIAL';
+export type ReturnType = 'PARTIAL' | 'FULL';
 export type UserRole = 'ADMIN' | 'MANAGER' | 'SELLER' | 'VIEWER';
-export type Role = UserRole; // Mantener compatibilidad
+export type Role = UserRole;
 export type RifType = 'J' | 'V' | 'E' | 'G' | 'P' | 'C';
 export type CurrencyView = 'USD' | 'BS';
 export type PaymentCurrency = 'USD' | 'BS';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'CANCEL' | 'LOGIN' | 'LOGOUT';
+
+export interface SaleReturn {
+  id: string;
+  saleId: string;
+  date: string;
+  reason?: string;
+  refundAmountUSD: number;
+  type: ReturnType;
+  userId?: string;
+  sellerName?: string;
+  items: { productId?: string; sku: string; name: string; quantity: number; priceUSD: number }[];
+}
 
 // --- INTERFACES DE NEGOCIO ---
 

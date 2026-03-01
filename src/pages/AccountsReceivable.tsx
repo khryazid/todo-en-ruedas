@@ -9,8 +9,9 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
+import { exportToCSV } from '../utils/exportCSV';
 import {
-    Search, TrendingUp, Wallet, X, CheckCircle, History, AlertCircle, MessageCircle
+    Search, TrendingUp, Wallet, X, CheckCircle, History, AlertCircle, MessageCircle, Download
 } from 'lucide-react';
 import type { Payment } from '../types';
 import { sendToWhatsApp } from '../utils/ticketGenerator';
@@ -95,6 +96,30 @@ export const AccountsReceivable = () => {
         return clients.find(c => c.id === id)?.name || 'Cliente Anónimo';
     };
 
+    const handleExportCSV = () => {
+        exportToCSV(
+            filteredSales.map(s => ({
+                cliente: getClientName(s.clientId),
+                ticket: s.id.slice(-6),
+                fecha: new Date(s.date).toLocaleDateString('es-VE'),
+                total_usd: s.totalUSD,
+                pagado_usd: s.paidAmountUSD,
+                saldo_usd: (s.totalUSD - s.paidAmountUSD).toFixed(2),
+                estado: s.status,
+            })),
+            `cuentas_${activeTab.toLowerCase()}`,
+            [
+                { key: 'cliente', label: 'Cliente' },
+                { key: 'ticket', label: 'Ticket' },
+                { key: 'fecha', label: 'Fecha' },
+                { key: 'total_usd', label: 'Total USD' },
+                { key: 'pagado_usd', label: 'Pagado USD' },
+                { key: 'saldo_usd', label: 'Saldo USD' },
+                { key: 'estado', label: 'Estado' },
+            ]
+        );
+    };
+
     return (
         <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen animate-in fade-in duration-300">
 
@@ -104,11 +129,19 @@ export const AccountsReceivable = () => {
                     <h2 className="text-2xl font-black text-gray-800 tracking-tight">Cuentas por Cobrar</h2>
                     <p className="text-gray-500 font-medium">Gestión de créditos y fiados</p>
                 </div>
-                <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
-                    <div className="bg-orange-50 p-2 rounded-lg text-orange-600"><TrendingUp size={20} /></div>
-                    <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase">Total en Calle</p>
-                        <p className="text-xl font-black text-orange-600">{formatCurrency(totalReceivable, 'USD')}</p>
+                <div className="flex gap-3 items-center">
+                    <button
+                        onClick={handleExportCSV}
+                        className="px-5 py-3 bg-green-600 text-white rounded-xl font-bold flex items-center gap-2 hover:bg-green-700 shadow-lg transition active:scale-95"
+                    >
+                        <Download size={18} /> Exportar CSV
+                    </button>
+                    <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
+                        <div className="bg-orange-50 p-2 rounded-lg text-orange-600"><TrendingUp size={20} /></div>
+                        <div>
+                            <p className="text-xs font-bold text-gray-400 uppercase">Total en Calle</p>
+                            <p className="text-xl font-black text-orange-600">{formatCurrency(totalReceivable, 'USD')}</p>
+                        </div>
                     </div>
                 </div>
             </div>

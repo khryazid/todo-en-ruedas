@@ -11,7 +11,7 @@
  *   - Móvil: sigue usando overlay como antes
  */
 
-import { useState, memo, useEffect } from 'react';
+import { useState, memo, useEffect, useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useStore } from '../../store/useStore';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -19,7 +19,7 @@ import { Permission } from '../../utils/permissions';
 import {
   LayoutDashboard, ShoppingCart, Package, FileText,
   Settings, LogOut, Menu, X, History, PieChart, Users, Wallet,
-  ChevronsLeft, ChevronsRight, Shield, ClipboardList
+  ChevronsLeft, ChevronsRight, Shield, ClipboardList, Award
 } from 'lucide-react';
 
 import type { PermissionType } from '../../utils/permissions';
@@ -99,6 +99,12 @@ const menuItems: MenuItem[] = [
     requiredPermissions: [Permission.VIEW_AUDIT]
   },
   {
+    icon: Award,
+    label: 'Comisiones',
+    path: '/commissions',
+    allowedRoles: ['ADMIN', 'MANAGER']
+  },
+  {
     icon: Settings,
     label: 'Configuración',
     path: '/settings',
@@ -121,7 +127,20 @@ export const Sidebar = memo(() => {
 
   const logout = useStore(s => s.logout);
   const currentUserData = useStore(s => s.currentUserData);
+  const products = useStore(s => s.products);
   const { canAny, role } = usePermissions();
+
+  // Conteo de productos con stock bajo (stock <= minStock pero > 0)
+  const lowStockCount = useMemo(() =>
+    products.filter(p => p.stock > 0 && p.stock <= (p.minStock || 5)).length
+    , [products]);
+
+  // Agotados
+  const outOfStockCount = useMemo(() =>
+    products.filter(p => p.stock <= 0).length
+    , [products]);
+
+  const alertCount = lowStockCount + outOfStockCount;
 
   // Filtrar items del menú según permisos
   const visibleMenuItems = menuItems.filter(item => {
@@ -200,38 +219,55 @@ export const Sidebar = memo(() => {
 
         {/* NAVEGACIÓN */}
         <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1 custom-scrollbar">
-          {visibleMenuItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={() => setIsMobileOpen(false)}
-              title={isCollapsed ? item.label : undefined}
-              className={({ isActive }) => `
+          {visibleMenuItems.map((item) => {
+            const isInventory = item.path === '/inventory';
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => setIsMobileOpen(false)}
+                title={isCollapsed ? item.label : undefined}
+                className={({ isActive }) => `
                 relative flex items-center rounded-xl transition-all duration-200 group font-medium
                 ${isCollapsed ? 'justify-center px-0 py-3' : 'gap-3 px-4 py-3'}
                 ${isActive
-                  ? 'bg-red-600 text-white shadow-lg shadow-red-900/50'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-                }
+                    ? 'bg-red-600 text-white shadow-lg shadow-red-900/50'
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  }
               `}
-            >
-              <item.icon size={20} className="flex-shrink-0 group-hover:scale-110 transition-transform" />
-              {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
+              >
+                <div className="relative flex-shrink-0">
+                  <item.icon size={20} className="group-hover:scale-110 transition-transform" />
+                  {/* Badge de alerta en Inventario */}
+                  {isInventory && alertCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center shadow-md leading-none">
+                      {alertCount > 9 ? '9+' : alertCount}
+                    </span>
+                  )}
+                </div>
+                {!isCollapsed && <span className="whitespace-nowrap flex-1">{item.label}</span>}
+                {/* Badge numérico expandido */}
+                {!isCollapsed && isInventory && alertCount > 0 && (
+                  <span className="ml-auto bg-orange-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full leading-none">
+                    {alertCount}
+                  </span>
+                )}
 
-              {/* Tooltip en modo colapsado */}
-              {isCollapsed && (
-                <div className="
+                {/* Tooltip en modo colapsado */}
+                {isCollapsed && (
+                  <div className="
                   absolute left-full ml-3 px-3 py-1.5 bg-gray-800 text-white text-xs font-bold
                   rounded-lg shadow-lg whitespace-nowrap opacity-0 invisible
                   group-hover:opacity-100 group-hover:visible transition-all duration-200
                   pointer-events-none z-50
                 ">
-                  {item.label}
-                  <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-800 rotate-45"></div>
-                </div>
-              )}
-            </NavLink>
-          ))}
+                    {item.label}{isInventory && alertCount > 0 ? ` (${alertCount} alertas)` : ''}
+                    <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-2 h-2 bg-gray-800 rotate-45"></div>
+                  </div>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
 
         {/* FOOTER */}
