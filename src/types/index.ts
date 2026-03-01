@@ -52,6 +52,34 @@ export interface CartItem extends Product {
   priceFinalUSD: number;
 }
 
+// ─── COTIZACIONES ────────────────────────────────────────────────────────────
+export type QuoteStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+
+export interface QuoteItem {
+  productId: string;
+  sku: string;
+  name: string;
+  quantity: number;
+  priceFinalUSD: number;
+}
+
+export interface Quote {
+  id: string;
+  number: string;
+  date: string;
+  validUntil: string;
+  clientId?: string;
+  clientName?: string;
+  items: QuoteItem[];
+  totalUSD: number;
+  totalBs: number;
+  notes?: string;
+  status: QuoteStatus;
+  userId?: string;
+  sellerName?: string;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export interface SaleItem {
   sku: string;
   name: string;

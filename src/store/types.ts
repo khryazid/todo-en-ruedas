@@ -7,7 +7,7 @@
 import type { User } from '@supabase/supabase-js';
 import type {
   Product, CartItem, Sale, Invoice, Payment, AppSettings,
-  Supplier, PaymentMethod, Client, AppUser
+  Supplier, PaymentMethod, Client, AppUser, Quote
 } from '../types';
 
 export type SetState = (partial: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void;
@@ -27,6 +27,7 @@ export interface StoreState {
   clients: Client[];
   paymentMethods: PaymentMethod[];
   users: AppUser[];
+  quotes: Quote[];
   currentUserData: AppUser | null;
 
   // --- Auth ---
@@ -40,6 +41,12 @@ export interface StoreState {
   performDailyClose: (turnData?: { totalUSD: number; totalBs: number; txCount: number }) => Promise<void>;
   addPaymentMethod: (name: string, currency: 'USD' | 'BS') => Promise<void>;
   deletePaymentMethod: (id: string) => Promise<void>;
+
+  // --- Quotes ---
+  fetchQuotes: () => Promise<void>;
+  addQuote: (quote: Quote) => Promise<void>;
+  updateQuote: (id: string, updates: Partial<Quote>) => Promise<void>;
+  deleteQuote: (id: string) => Promise<void>;
 
   // --- Products ---
   addProduct: (product: Product) => Promise<void>;

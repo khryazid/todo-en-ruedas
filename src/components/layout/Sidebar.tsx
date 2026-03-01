@@ -19,7 +19,7 @@ import { Permission } from '../../utils/permissions';
 import {
   LayoutDashboard, ShoppingCart, Package, FileText,
   Settings, LogOut, Menu, X, History, PieChart, Users, Wallet,
-  ChevronsLeft, ChevronsRight, Shield
+  ChevronsLeft, ChevronsRight, Shield, ClipboardList
 } from 'lucide-react';
 
 import type { PermissionType } from '../../utils/permissions';
@@ -49,6 +49,12 @@ const menuItems: MenuItem[] = [
     label: 'Historial',
     path: '/sales',
     requiredPermissions: [Permission.VIEW_OWN_SALES, Permission.VIEW_ALL_SALES]
+  },
+  {
+    icon: FileText,
+    label: 'Cotizaciones',
+    path: '/quotes',
+    requiredPermissions: [Permission.VIEW_QUOTES]
   },
   {
     icon: PieChart,
@@ -85,6 +91,12 @@ const menuItems: MenuItem[] = [
     label: 'Usuarios',
     path: '/users',
     requiredPermissions: [Permission.VIEW_USERS]
+  },
+  {
+    icon: ClipboardList,
+    label: 'Auditoría',
+    path: '/audit',
+    requiredPermissions: [Permission.VIEW_AUDIT]
   },
   {
     icon: Settings,

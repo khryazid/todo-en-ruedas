@@ -32,6 +32,8 @@ const DailyClose = lazy(() => import('./pages/DailyClose').then(m => ({ default:
 const Clients = lazy(() => import('./pages/Clients').then(m => ({ default: m.Clients })));
 const AccountsReceivable = lazy(() => import('./pages/AccountsReceivable').then(m => ({ default: m.AccountsReceivable })));
 const Users = lazy(() => import('./pages/Users').then(m => ({ default: m.Users })));
+const Audit = lazy(() => import('./pages/Audit').then(m => ({ default: m.Audit })));
+const Quotes = lazy(() => import('./pages/Quotes').then(m => ({ default: m.Quotes })));
 
 // Spinner para la transición entre páginas
 const PageLoader = () => (
@@ -135,6 +137,13 @@ function App() {
                           </RoleRoute>
                         } />
 
+                        {/* Cotizaciones: quienes pueden crear cotizaciones */}
+                        <Route path="/quotes" element={
+                          <RoleRoute requiredPermission={Permission.VIEW_QUOTES} redirectTo="/sales">
+                            <Quotes />
+                          </RoleRoute>
+                        } />
+
                         {/* Inventario: solo ADMIN y MANAGER */}
                         <Route path="/inventory" element={
                           <RoleRoute allowedRoles={['ADMIN', 'MANAGER']} redirectTo="/sales">
@@ -181,6 +190,13 @@ function App() {
                         <Route path="/users" element={
                           <RoleRoute requiredPermission={Permission.VIEW_USERS} redirectTo="/sales">
                             <Users />
+                          </RoleRoute>
+                        } />
+
+                        {/* Auditoría: solo ADMIN y MANAGER */}
+                        <Route path="/audit" element={
+                          <RoleRoute requiredPermission={Permission.VIEW_AUDIT} redirectTo="/sales">
+                            <Audit />
                           </RoleRoute>
                         } />
 

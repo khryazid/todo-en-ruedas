@@ -13,7 +13,7 @@ import {
     Users, Search, Plus, Edit, Trash2,
     Phone, Mail, MapPin, X, Save,
     ShoppingBag, Calendar, TrendingUp, Award, Clock,
-    Eye, Printer, Ban, MessageCircle, User
+    Eye, Printer, Ban, MessageCircle, User, AlertTriangle
 } from 'lucide-react';
 import type { Client, Sale } from '../types';
 
@@ -47,7 +47,10 @@ export const Clients = () => {
         const totalSpent = clientSales.reduce((acc, s) => acc + s.totalUSD, 0);
         const visitCount = clientSales.length;
 
-        // Calcular nivel de fidelidad (Ejemplo simple)
+        // Deuda pendiente: ventas a crédito no saldadas
+        const pendingSales = clientSales.filter(s => s.status === 'PENDING' || s.status === 'PARTIAL');
+        const totalDebt = pendingSales.reduce((acc, s) => acc + (s.totalUSD - s.paidAmountUSD), 0);
+
         let tier = { label: 'NUEVO', color: 'bg-gray-100 text-gray-500', icon: Users };
         if (totalSpent > 1000) tier = { label: 'VIP ORO', color: 'bg-yellow-100 text-yellow-700', icon: Award };
         else if (totalSpent > 500) tier = { label: 'PLATA', color: 'bg-gray-200 text-gray-700', icon: Award };
@@ -57,7 +60,7 @@ export const Clients = () => {
             ? new Date(Math.max(...clientSales.map(s => new Date(s.date).getTime()))).toLocaleDateString()
             : 'Nunca';
 
-        return { totalSpent, visitCount, tier, lastVisit, history: sales.filter(s => s.clientId === clientId) };
+        return { totalSpent, visitCount, tier, lastVisit, totalDebt, pendingCount: pendingSales.length, history: sales.filter(s => s.clientId === clientId) };
     };
 
     // --- HANDLERS ---
@@ -134,11 +137,13 @@ export const Clients = () => {
                     const TierIcon = metrics.tier.icon;
 
                     return (
-                        <div key={client.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition group flex flex-col justify-between h-full">
+                        <div key={client.id} className={`bg-white p-5 rounded-2xl border shadow-sm hover:shadow-md transition group flex flex-col justify-between h-full ${metrics.totalDebt > 0 ? 'border-orange-200 ring-1 ring-orange-100' : 'border-gray-100'
+                            }`}>
                             <div>
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-3">
-                                        <div className="bg-gray-100 text-gray-500 p-3 rounded-full font-black text-lg">
+                                        <div className={`p-3 rounded-full font-black text-lg ${metrics.totalDebt > 0 ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'
+                                            }`}>
                                             {client.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div>
@@ -151,7 +156,21 @@ export const Clients = () => {
                                     </span>
                                 </div>
 
-                                <div className="space-y-2 text-sm text-gray-600 mt-4 mb-4">
+                                {/* Badge de deuda — visible solo si hay saldo pendiente */}
+                                {metrics.totalDebt > 0 && (
+                                    <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 mb-3">
+                                        <AlertTriangle size={14} className="text-orange-500 flex-shrink-0" />
+                                        <div className="flex-1">
+                                            <p className="text-[10px] text-orange-500 font-bold uppercase">Saldo Pendiente</p>
+                                            <p className="text-sm font-black text-orange-700">{formatCurrency(metrics.totalDebt, 'USD')}</p>
+                                        </div>
+                                        <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold">
+                                            {metrics.pendingCount} venta{metrics.pendingCount !== 1 ? 's' : ''}
+                                        </span>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2 text-sm text-gray-600 mt-2 mb-4">
                                     {client.phone && (
                                         <div className="flex items-center gap-2"><Phone size={14} className="text-gray-400" /><span>{client.phone}</span></div>
                                     )}

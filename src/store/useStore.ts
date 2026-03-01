@@ -29,6 +29,7 @@ import { createInvoiceSlice } from './slices/invoiceSlice';
 import { createClientSlice } from './slices/clientSlice';
 import { createSettingsSlice } from './slices/settingsSlice';
 import { createUserSlice } from './slices/userSlice';
+import { createQuoteSlice } from './slices/quoteSlice';
 
 export const useStore = create<StoreState>((set, get) => ({
   ...createAuthSlice(set, get),
@@ -39,4 +40,5 @@ export const useStore = create<StoreState>((set, get) => ({
   ...createSaleSlice(set, get),
   ...createInvoiceSlice(set, get),
   ...createClientSlice(set, get),
+  ...createQuoteSlice(set, get),
 }));
