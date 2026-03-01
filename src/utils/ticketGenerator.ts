@@ -4,7 +4,7 @@
  * OPTIMIZADO V2: Usa Inyección CSS para evitar páginas en blanco en móviles.
  */
 
-import type { Sale, AppSettings, PaymentMethod } from '../types';
+import type { Sale, AppSettings, PaymentMethod, Client } from '../types';
 import { useStore } from '../store/useStore';
 
 // --- 1. FUNCIÓN MAESTRA DE IMPRESIÓN (CSS INJECTION) ---
@@ -76,9 +76,9 @@ const printMobileFriendly = (content: string) => {
 
 
 // --- 2. IMPRIMIR FACTURA DE VENTA (TICKET) ---
-export const printInvoice = (sale: Sale) => {
+export const printInvoice = (sale: Sale, directClient?: Client) => {
     const { settings, clients } = useStore.getState();
-    const client = clients.find(c => c.id === sale.clientId);
+    const client = directClient || clients.find(c => c.id === sale.clientId);
 
     const date = new Date(sale.date).toLocaleString('es-VE');
     const currency = settings.printerCurrency || 'BS';
@@ -240,9 +240,9 @@ export const printSalesList = (sales: Sale[], start: string, end: string) => {
 };
 
 // --- 5. GENERAR ENLACE DE WHATSAPP ---
-export const sendToWhatsApp = (sale: Sale) => {
+export const sendToWhatsApp = (sale: Sale, directClient?: Client) => {
     const { settings, clients } = useStore.getState();
-    const client = clients.find(c => c.id === sale.clientId);
+    const client = directClient || clients.find(c => c.id === sale.clientId);
     const phone = client?.phone ? client.phone.replace(/\D/g, '') : '';
 
     let message = `*${settings.companyName}*\n`;

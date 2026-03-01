@@ -16,6 +16,9 @@ export const Setup = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         companyName: '',
+        rif: '',
+        rifType: 'J' as 'J' | 'V' | 'E' | 'G' | 'P' | 'C',
+        address: '',
         fullName: '',
         email: '',
         password: '',
@@ -36,11 +39,19 @@ export const Setup = () => {
             return;
         }
 
+        if (!formData.rif || !formData.address) {
+            toast.error('Por favor completa todos los datos de la empresa');
+            return;
+        }
+
         setIsLoading(true);
 
         try {
             const success = await setupFirstAdmin({
                 companyName: formData.companyName,
+                rif: formData.rif,
+                rifType: formData.rifType,
+                address: formData.address,
                 fullName: formData.fullName,
                 email: formData.email,
                 password: formData.password
@@ -101,6 +112,52 @@ export const Setup = () => {
                                     onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
                                     className="w-full pl-11 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
                                     placeholder="Ej: Mi Empresa C.A."
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* RIF */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-200 mb-2">
+                                RIF del Negocio
+                            </label>
+                            <div className="flex gap-2">
+                                <select
+                                    value={formData.rifType}
+                                    onChange={(e) => setFormData({ ...formData, rifType: e.target.value as any })}
+                                    className="w-1/4 px-3 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                                >
+                                    <option value="J" className="text-gray-900">J</option>
+                                    <option value="V" className="text-gray-900">V</option>
+                                    <option value="E" className="text-gray-900">E</option>
+                                    <option value="G" className="text-gray-900">G</option>
+                                    <option value="P" className="text-gray-900">P</option>
+                                    <option value="C" className="text-gray-900">C</option>
+                                </select>
+                                <input
+                                    type="text"
+                                    value={formData.rif}
+                                    onChange={(e) => setFormData({ ...formData, rif: e.target.value })}
+                                    className="w-3/4 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition"
+                                    placeholder="Ej: 12345678-9"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        {/* Address */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-200 mb-2">
+                                Dirección de la Empresa
+                            </label>
+                            <div className="relative">
+                                <Building2 className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                                <textarea
+                                    value={formData.address}
+                                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                    className="w-full pl-11 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition resize-none h-24"
+                                    placeholder="Ej: Av. Principal, Local 1..."
                                     required
                                 />
                             </div>

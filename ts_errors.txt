@@ -1,0 +1,5 @@
+src/store/useStore.ts(33,58): error TS2322: Type '{ clients: Client[]; addClient: (client: Client) => Promise<void>; updateClient: (id: string, updates: Partial<Client>) => Promise<...>; ... 43 more ...; fetchInitialData: () => Promise<...>; }' is not assignable to type 'StoreState'.
+  The types returned by 'completeSale(...)' are incompatible between these types.
+    Type 'Promise<Sale | null | undefined>' is not assignable to type 'Promise<Sale | null>'.
+      Type 'Sale | null | undefined' is not assignable to type 'Sale | null'.
+        Type 'undefined' is not assignable to type 'Sale | null'.

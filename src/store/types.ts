@@ -58,7 +58,7 @@ export interface StoreState {
   clearCart: () => void;
 
   // --- Sales ---
-  completeSale: (paymentMethod: string, clientId?: string, initialPayment?: number) => Promise<void>;
+  completeSale: (paymentMethod: string, clientId?: string, initialPayment?: number) => Promise<Sale | null>;
   annulSale: (saleId: string) => Promise<void>;
   deleteSale: (saleId: string) => Promise<void>;
   registerSalePayment: (saleId: string, payment: Payment) => Promise<void>;
@@ -72,7 +72,7 @@ export interface StoreState {
   // --- Users ---
   fetchUsers: () => Promise<void>;
   fetchCurrentUserData: () => Promise<void>;
-  setupFirstAdmin: (setupData: { companyName: string; fullName: string; email: string; password: string }) => Promise<boolean>;
+  setupFirstAdmin: (setupData: { companyName: string; rif: string; rifType: 'J' | 'V' | 'E' | 'G' | 'P' | 'C'; address: string; fullName: string; email: string; password: string }) => Promise<boolean>;
   createUser: (userData: { email: string; password: string; fullName: string; role: AppUser['role'] }) => Promise<boolean>;
   updateUser: (userId: string, updates: Partial<AppUser>) => Promise<boolean>;
   deactivateUser: (userId: string) => Promise<void>;

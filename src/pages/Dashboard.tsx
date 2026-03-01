@@ -9,11 +9,14 @@ import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { Link } from 'react-router-dom';
 import {
   TrendingUp, TrendingDown, DollarSign, Package,
-  AlertTriangle, Wallet, Users, BarChart3, ArrowUpRight, ArrowDownRight, AlertOctagon
+  AlertTriangle, Wallet, Users, BarChart3, ArrowUpRight, ArrowDownRight, AlertOctagon, Award
 } from 'lucide-react';
 
 export const Dashboard = () => {
-  const { sales, products, invoices, clients, settings } = useStore();
+  const { sales, products, invoices, clients, settings, currentUserData } = useStore();
+  const userRole = currentUserData?.role || 'VIEWER';
+  const isSeller = userRole === 'SELLER';
+  const isAdminOrManager = userRole === 'ADMIN' || userRole === 'MANAGER';
 
   // --- 1. FILTROS DE TIEMPO ---
   const [filterType, setFilterType] = useState<'today' | 'week' | 'month' | 'custom'>('today');
@@ -54,8 +57,17 @@ export const Dashboard = () => {
   };
 
   // --- 3. DATOS FILTRADOS ---
-  const filteredSales = sales.filter(s => s.status !== 'CANCELLED' && isDateInScope(s.date));
+  // Si es SELLER, solo ve SUS ventas. Si no, las ve todas.
+  const filteredSales = sales.filter(s => {
+    const dateOk = s.status !== 'CANCELLED' && isDateInScope(s.date);
+    if (isSeller) return dateOk && s.userId === currentUserData?.id;
+    return dateOk;
+  });
+
   const totalSalesPeriodUSD = filteredSales.reduce((acc, s) => acc + s.totalUSD, 0);
+
+  // Comisión simplificada para SELLER (Ejemplo: 5% de sus ventas)
+  const sellerCommission = isSeller ? totalSalesPeriodUSD * 0.05 : 0;
 
   // --- 4. KPIs GLOBALES ---
   const totalReceivable = sales
@@ -157,24 +169,42 @@ export const Dashboard = () => {
 
       {/* --- FILA 1: KPIs FINANCIEROS --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* VENTA TOTAL (Todos lo ven, pero Seller ve su propio total) */}
         <div className="bg-gray-900 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10"><DollarSign size={80} /></div>
-          <p className="text-xs text-gray-400 uppercase font-bold mb-1">Ventas ({filterType === 'today' ? 'Hoy' : filterType})</p>
+          <p className="text-xs text-gray-400 uppercase font-bold mb-1">{isSeller ? 'Mis Ventas' : 'Ventas Totales'} ({filterType === 'today' ? 'Hoy' : filterType})</p>
           <h3 className="text-3xl font-black">{formatCurrency(totalSalesPeriodUSD, 'USD')}</h3>
           <p className="text-sm text-gray-400 mt-1">{filteredSales.length} operaciones</p>
         </div>
-        <Link to="/accounts-receivable" className="bg-white p-6 rounded-2xl border border-orange-100 shadow-sm hover:shadow-md transition group relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10 text-orange-500 group-hover:scale-110 transition"><Wallet size={80} /></div>
-          <p className="text-xs text-orange-500 uppercase font-bold mb-1 flex items-center gap-1"><AlertTriangle size={12} /> Por Cobrar</p>
-          <h3 className="text-3xl font-black text-gray-800">{formatCurrency(totalReceivable, 'USD')}</h3>
-          <p className="text-xs text-gray-400 mt-1">Dinero pendiente</p>
-        </Link>
-        <Link to="/invoices" className="bg-white p-6 rounded-2xl border border-red-100 shadow-sm hover:shadow-md transition group relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10 text-red-500 group-hover:scale-110 transition"><TrendingDown size={80} /></div>
-          <p className="text-xs text-red-500 uppercase font-bold mb-1">Por Pagar</p>
-          <h3 className="text-3xl font-black text-gray-800">{formatCurrency(totalPayable, 'USD')}</h3>
-          <p className="text-xs text-gray-400 mt-1">Deuda a Proveedores</p>
-        </Link>
+
+        {/* COMISIÓN ESTIMADA (Solo Seller) */}
+        {isSeller && (
+          <div className="bg-green-50 p-6 rounded-2xl border border-green-100 flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute -right-4 -top-4 opacity-10 text-green-500"><Award size={100} /></div>
+            <div className="relative z-10">
+              <p className="text-xs text-green-600 uppercase font-bold mb-1">Comisión Estimada (5%)</p>
+              <h3 className="text-3xl font-black text-green-700">{formatCurrency(sellerCommission, 'USD')}</h3>
+            </div>
+          </div>
+        )}
+
+        {/* POR COBRAR y POR PAGAR (Solo Admin/Manager/Viewer) */}
+        {!isSeller && (
+          <>
+            <Link to="/accounts-receivable" className="bg-white p-6 rounded-2xl border border-orange-100 shadow-sm hover:shadow-md transition group relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10 text-orange-500 group-hover:scale-110 transition"><Wallet size={80} /></div>
+              <p className="text-xs text-orange-500 uppercase font-bold mb-1 flex items-center gap-1"><AlertTriangle size={12} /> Por Cobrar</p>
+              <h3 className="text-3xl font-black text-gray-800">{formatCurrency(totalReceivable, 'USD')}</h3>
+              <p className="text-xs text-gray-400 mt-1">Dinero pendiente</p>
+            </Link>
+            <Link to="/invoices" className="bg-white p-6 rounded-2xl border border-red-100 shadow-sm hover:shadow-md transition group relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-10 text-red-500 group-hover:scale-110 transition"><TrendingDown size={80} /></div>
+              <p className="text-xs text-red-500 uppercase font-bold mb-1">Por Pagar</p>
+              <h3 className="text-3xl font-black text-gray-800">{formatCurrency(totalPayable, 'USD')}</h3>
+              <p className="text-xs text-gray-400 mt-1">Deuda a Proveedores</p>
+            </Link>
+          </>
+        )}
 
         {/* Top Cliente */}
         <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 flex flex-col justify-between relative overflow-hidden">
@@ -191,52 +221,56 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* --- FILA 2: PROYECCIÓN INVENTARIO (Azul) --- */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="absolute -right-10 -top-10 opacity-10"><Package size={200} /></div>
-        <div className="relative z-10 flex flex-col md:flex-row justify-between gap-8">
-          <div>
-            <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><BarChart3 /> Proyección de Inventario</h3>
-            <div className="flex gap-8">
-              <div><p className="text-blue-200 text-xs uppercase font-bold mb-1">Costo Invertido</p><p className="text-2xl font-black">{formatCurrency(inventoryStats.invested, 'USD')}</p></div>
-              <div><p className="text-green-300 text-xs uppercase font-bold mb-1">Ganancia Estimada</p><p className="text-2xl font-black text-green-300">+{formatCurrency(inventoryStats.profit, 'USD')}</p></div>
+      {/* --- FILA 2: PROYECCIÓN INVENTARIO (Azul) - Solo Admin/Manager/Viewer --- */}
+      {!isSeller && (
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
+          <div className="absolute -right-10 -top-10 opacity-10"><Package size={200} /></div>
+          <div className="relative z-10 flex flex-col md:flex-row justify-between gap-8">
+            <div>
+              <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><BarChart3 /> Proyección de Inventario</h3>
+              <div className="flex gap-8">
+                <div><p className="text-blue-200 text-xs uppercase font-bold mb-1">Costo Invertido</p><p className="text-2xl font-black">{formatCurrency(inventoryStats.invested, 'USD')}</p></div>
+                <div><p className="text-green-300 text-xs uppercase font-bold mb-1">Ganancia Estimada</p><p className="text-2xl font-black text-green-300">+{formatCurrency(inventoryStats.profit, 'USD')}</p></div>
+              </div>
+            </div>
+            <div className="bg-white/10 rounded-2xl p-6 border border-white/10 min-w-[200px] text-center flex flex-col justify-center shadow-inner">
+              <p className="text-blue-100 text-xs uppercase font-bold mb-1">Total Venta Potencial</p>
+              <p className="text-4xl font-black drop-shadow-md">{formatCurrency(inventoryStats.revenue, 'USD')}</p>
             </div>
           </div>
-          <div className="bg-white/10 rounded-2xl p-6 border border-white/10 min-w-[200px] text-center flex flex-col justify-center shadow-inner">
-            <p className="text-blue-100 text-xs uppercase font-bold mb-1">Total Venta Potencial</p>
-            <p className="text-4xl font-black drop-shadow-md">{formatCurrency(inventoryStats.revenue, 'USD')}</p>
-          </div>
         </div>
-      </div>
+      )}
 
       {/* --- FILA 3: ALERTAS, PRODUCTOS Y CLIENTES --- */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
-        {/* COLUMNA 1: ALERTAS DE STOCK */}
-        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full ring-2 ring-red-50">
-          <div className="p-4 border-b border-red-50 bg-red-50/30 flex items-center justify-between">
-            <h4 className="font-bold text-red-800 text-sm flex items-center gap-2"><AlertOctagon size={16} /> Atención Inmediata</h4>
-            <Link to="/inventory" className="text-[10px] font-bold text-red-600 hover:underline">Gestionar</Link>
+        {/* COLUMNA 1: ALERTAS DE STOCK (Solo Admin/Manager/Viewer) */}
+        {!isSeller && (
+          <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full ring-2 ring-red-50">
+            <div className="p-4 border-b border-red-50 bg-red-50/30 flex items-center justify-between">
+              <h4 className="font-bold text-red-800 text-sm flex items-center gap-2"><AlertOctagon size={16} /> Atención Inmediata</h4>
+              <Link to="/inventory" className="text-[10px] font-bold text-red-600 hover:underline">Gestionar</Link>
+            </div>
+            <div className="flex-1 p-0 overflow-y-auto max-h-[300px] custom-scrollbar">
+              {outOfStock.length === 0 && lowStock.length === 0 ? (
+                <p className="text-center text-gray-400 text-xs py-10">¡Todo en orden! Inventario saludable.</p>
+              ) : (
+                <>
+                  {outOfStock.map(p => (
+                    <div key={p.id} className="flex justify-between items-center p-3 border-b border-gray-50 bg-red-50/10">
+                      <div className="min-w-0 pr-2"><p className="text-xs font-bold text-gray-700 truncate">{p.name}</p><p className="text-[10px] text-red-500 font-bold">AGOTADO</p></div><span className="text-xs font-mono text-gray-400">{p.sku}</span>
+                    </div>
+                  ))}
+                  {lowStock.map(p => (
+                    <div key={p.id} className="flex justify-between items-center p-3 border-b border-gray-50 hover:bg-gray-50">
+                      <div className="min-w-0 pr-2"><p className="text-xs font-bold text-gray-700 truncate">{p.name}</p><p className="text-[10px] text-orange-500 font-bold">Quedan: {p.stock}</p></div><div className="text-right"><span className="block text-[10px] text-gray-400">Min: {p.minStock}</span></div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
           </div>
-          <div className="flex-1 p-0 overflow-y-auto max-h-[300px] custom-scrollbar">
-            {outOfStock.length === 0 && lowStock.length === 0 ? (
-              <p className="text-center text-gray-400 text-xs py-10">¡Todo en orden! Inventario saludable.</p>
-            ) : (
-              <>
-                {outOfStock.map(p => (
-                  <div key={p.id} className="flex justify-between items-center p-3 border-b border-gray-50 bg-red-50/10">
-                    <div className="min-w-0 pr-2"><p className="text-xs font-bold text-gray-700 truncate">{p.name}</p><p className="text-[10px] text-red-500 font-bold">AGOTADO</p></div><span className="text-xs font-mono text-gray-400">{p.sku}</span>
-                  </div>
-                ))}
-                {lowStock.map(p => (
-                  <div key={p.id} className="flex justify-between items-center p-3 border-b border-gray-50 hover:bg-gray-50">
-                    <div className="min-w-0 pr-2"><p className="text-xs font-bold text-gray-700 truncate">{p.name}</p><p className="text-[10px] text-orange-500 font-bold">Quedan: {p.stock}</p></div><div className="text-right"><span className="block text-[10px] text-gray-400">Min: {p.minStock}</span></div>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* COLUMNA 2: TOP CLIENTES */}
         <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col h-full">

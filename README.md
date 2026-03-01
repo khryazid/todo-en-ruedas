@@ -1,146 +1,89 @@
-# 🛒 Todo en Ruedas - Sistema ERP & POS (PWA)
+# 🚗 Todo en Ruedas - Sistema Administrativo y POS
 
-![Status](https://img.shields.io/badge/Estado-Producción_Local-green)
-![Version](https://img.shields.io/badge/Versión-1.0.0-blue)
-![Stack](https://img.shields.io/badge/Tech-React_|_TypeScript_|_Zustand-informational)
-
-Sistema integral de Planificación de Recursos Empresariales (ERP) y Punto de Venta (POS) diseñado específicamente para el mercado venezolano, con manejo avanzado de **Inventario Multimoneda** y **Facturación Híbrida**.
-
-## 🧠 Lógica de Negocio y Características
-
-El sistema resuelve la complejidad de operar con dos monedas (Bolívares y Dólares) simultáneamente:
-
-### 1. 💱 Motor de Precios Dinámico (Dual Currency)
-A diferencia de los POS tradicionales, este sistema maneja costos indexados según su origen:
-* **Costo BCV vs. Monitor:** Al cargar una factura de proveedor, se define si la mercancía se pagó a tasa oficial (BCV) o paralela.
-* **Cálculo Automático:** El sistema normaliza internamente todos los costos a una base estándar en USD para calcular márgenes de ganancia reales, pero proyecta los precios finales en Bs según la tasa del día configurada.
-* **Actualización en Vivo:** Al cambiar la tasa en `Configuración`, todos los precios en Bolívares del inventario se recalculan instantáneamente sin modificar los costos base en divisas.
-
-### 2. 📦 Gestión de Inventario Inteligente
-* **Carga de Facturas (Compras):** Ingreso de mercancía detallada con cálculo de *Costo + Flete Prorrateado*.
-* **Historial de Proveedores:** El sistema "recuerda" el último costo de compra de cada producto por proveedor.
-* **Alertas de Stock:** Indicadores visuales para productos agotados (Rojo) o por debajo del mínimo (Naranja).
-
-### 3. 🏪 Punto de Venta (POS)
-* **Interfaz Optimizada:** Diseño de alto contraste (Rojo/Blanco) para lectura rápida.
-* **Venta Rápida:** Búsqueda por SKU o Nombre con validación de stock en tiempo real.
-* **Tickets Térmicos:** Generación de comprobantes de 80mm optimizados para impresoras térmicas (X/Z y Factura de Venta).
-    * *Nota Técnica:* Usa una estrategia híbrida (Iframe en PC / Popup en Móvil) para garantizar la impresión correcta.
-
-### 4. 💼 Finanzas y Cuentas por Pagar
-* **Gestión de Deuda:** Rastreo de facturas de proveedores pendientes (`PENDING`) con fechas de vencimiento.
-* **Abonos Parciales:** Registro de pagos a cuenta sobre facturas de crédito.
-* **Cierre de Caja:** Arqueo diario con desglose por método de pago (Efectivo, Zelle, Pago Móvil, etc.).
+Sistema completo de Punto de Venta (POS), Inventario, Control de Caja y Facturación diseñado para la administración eficiente de negocios. Construido con **React**, **TypeScript**, **Zustand** y potenciado por **Supabase** para una gestión de datos rápida, segura y en tiempo real.
 
 ---
 
-## 🛠️ Stack Tecnológico
+## 🚀 Características Principales
 
-El proyecto está construido priorizando la velocidad, el tipado estricto y la persistencia local.
+### 🛒 **Punto de Venta (POS) Integrado**
+- Interfaz fluida y diseñada para uso rápido (búsqueda de clientes y productos veloz).
+- Soporte para **Ventas al Contado y Ventas a Crédito (Fiado)**.
+- Integración inmediata para el **Envío de Recibos por WhatsApp** o impresión térmica (formato 80mm).
+- Manejo inteligente de conversiones automáticas de moneda ($ USD a Bs.) mediante la Tasa de Cambio (BCV).
 
-| Tecnología | Propósito |
-|------------|-----------|
-| **React 18** | Biblioteca de UI basada en componentes. |
-| **TypeScript** | Seguridad de tipos para evitar errores de cálculo financiero (Interfaces en `src/types`). |
-| **Vite** | Empaquetador de módulos ultrarrápido. |
-| **Zustand** | Gestión de Estado Global. Reemplaza a Redux/Context por su simplicidad. |
-| **Zustand Persist** | **Persistencia de Datos:** Guarda automáticamente todo el estado (`store`) en `localStorage`. Esto permite que la app funcione **Offline** y mantenga los datos al cerrar el navegador. |
-| **Tailwind CSS** | Estilizado utilitario para diseño responsivo rápido. |
-| **Lucide React** | Iconografía ligera y moderna. |
+### 📦 **Gestión de Inventario**
+- Control detallado de stock y actualización en tiempo real al concretarse ventas.
+- Costeo de productos (Precio de Compra) y sugerencia de Precio de Venta (PVP).
+- Soporte para categorías y marcas, facilitando reportes detallados y búsquedas.
 
----
+### 👥 **Roles y Permisos Múltiples (RBAC)**
+- **ADMIN**: Acceso ilimitado al sistema, configuraciones globales y creación de usuarios.
+- **MANAGER**: Puede modificar inventario, gestionar clientes, procesar ventas y ver historial general. 
+- **SELLER (Vendedor)**: Modo restringido. Solo evalúa sus propias ventas, comisiones (dashboard adaptado) y gestiona el POS temporalmente. No ve costos.
+- **VIEWER (Contabilidad)**: Modo solo lectura para fines de auditoría, balances y Cuentas por Cobrar.
 
-## 📂 Estructura del Proyecto
+### 💵 **Control Financiero y Caja**
+- Tablero de Cuentas por Cobrar interactivo: Filtros de deudores, abonos parciales, remisión directa de recibos de deuda a WhatsApp y control de cartera morosa.
+- Cierres de Caja (Corte X / Z) minuciosos y desglose por método de pago.
+- Sistema multicaja y registro histórico de turnos operativos, sincronizado al instante con la base de datos de flujo de caja.
 
-La arquitectura sigue un patrón modular para facilitar la escalabilidad:
-
-```text
-src/
-├── components/       # Componentes de UI reutilizables
-│   └── layout/       # Elementos estructurales (Sidebar, Layout)
-├── pages/            # Vistas principales (Rutas de la App)
-│   ├── Dashboard.tsx # KPIs y Analítica
-│   ├── POS.tsx       # Caja y Ventas
-│   ├── Inventory.tsx # Gestión de Productos
-│   └── ...
-├── store/            # Lógica de Estado (El "Cerebro")
-│   └── useStore.ts   # Store de Zustand (Acciones y Estado)
-├── types/            # Definiciones de Tipos (TypeScript)
-│   └── index.ts      # Interfaces centrales (Product, Sale, Invoice)
-├── utils/            # Funciones Puras Auxiliares
-│   ├── pricing.ts    # Fórmulas de cálculo de precios e impuestos
-│   └── ticketGenerator.ts # Generación de HTML para impresión
-├── App.tsx           # Configuración de Rutas
-└── main.tsx          # Punto de entrada
-```
-## 🚀 Instalación y Despliegue
-
-Sigue estos pasos para correr el proyecto en tu computadora:
-
-### Requisitos Previos
-* **Node.js** (Versión 16 o superior)
-* **npm** (viene con Node.js) o **yarn**
-
-### Pasos para Ejecutar Localmente
-
-1.  **Clonar el repositorio:**
-    ```bash
-    git clone [https://github.com/tu-usuario/todo-en-ruedas.git](https://github.com/tu-usuario/todo-en-ruedas.git)
-    cd todo-en-ruedas
-    ```
-
-2.  **Instalar dependencias:**
-    Descarga las librerías necesarias (React, Vite, Tailwind, etc.).
-    ```bash
-    npm install
-    ```
-
-3.  **Iniciar en modo desarrollo:**
-    Esto abrirá la app en `http://localhost:5173` para que puedas programar y ver cambios en vivo.
-    ```bash
-    npm run dev
-    ```
-
-4.  **Compilar para Producción:**
-    Cuando quieras subir la app a un hosting (como Vercel o Netlify), ejecuta:
-    ```bash
-    npm run build
-    ```
-    Esto creará una carpeta `/dist` optimizada y ligera.
+### ⚙️ **Configuración Avanzada**
+- Sincronización continua con **Supabase**, utilizando políticas de seguridad estricta RLS (*Row Level Security*) por tenant/compañía (en arquitecturas preparadas).
+- Tasas de cambio configurables e historia de parámetros tributarios (IVA, Monedas base).
 
 ---
 
-## 💾 Copias de Seguridad (Backup)
+## 🛠️ Tecnologías Utilizadas
 
-⚠️ **IMPORTANTE:** Esta aplicación es **"Local-First"**.
-Esto significa que los datos (ventas, inventario, configuración) se guardan en el **Navegador (LocalStorage)** de la computadora donde se usa. **NO** hay una base de datos en la nube (por ahora).
-
-**Protocolo de Seguridad:**
-1.  Ve a la sección **Configuración** (`/settings`).
-2.  Haz clic en **"Descargar Respaldo"**.
-3.  Guarda el archivo `.json` en un pendrive o en la nube (Google Drive/Dropbox) diariamente.
-4.  Si cambias de computadora o se borra el caché, usa **"Restaurar Copia"** con ese archivo.
+- **Frontend Core:** React 18, TypeScript, Vite.
+- **Estado Global:** Zustand (store modular).
+- **Estilos y UI:** Tailwind CSS, Lucide React (Íconos).
+- **Backend y BD:** Supabase (Auth, PostgreSQL, Row Level Security - RLS).
+- **Alertas y Utilidades:** React Hot Toast, utilidades personalizadas de impresión DOM-CSS y generación WhatsApp.
 
 ---
 
-## 📄 Licencia y Derechos
+## 📦 Instalación y Despliegue Local
 
-Este proyecto es software propietario desarrollado exclusivamente para **Todo en Ruedas C.A.**
+1. **Clonar el repositorio:**
+   ```bash
+   git clone <repository_url>
+   cd todo-en-ruedas
+   ```
 
-* **Desarrollador:** Khristian Ali
-* **Año:** 2025
-* **Uso:** Prohibida su distribución o venta sin autorización.
+2. **Instalar Dependencias:**
+   Asegúrate de tener [Node.js](https://nodejs.org/) instalado.
+   ```bash
+   npm install
+   ```
+
+3. **Configuración de Variables de Entorno (Supabase):**
+   Crea un archivo `.env` en la raíz del proyecto y agrega tus credenciales del panel de Supabase:
+   ```env
+   VITE_SUPABASE_URL=tu_url_de_supabase
+   VITE_SUPABASE_ANON_KEY=tu_anon_key_de_supabase
+   ```
+
+4. **Despliegue Local (Desarrollo):**
+   ```bash
+   npm run dev
+   ```
+   El entorno se levantará en `http://localhost:5173`. Para compilar usa `npm run build`.
 
 ---
 
-### 🐜 Solución de Problemas (Troubleshooting)
+## 🔒 Estructura y Estándares Críticos
 
-**Error: "Pantalla Blanca" al imprimir en celular**
-* **Solución:** Asegúrate de tener habilitadas las "Ventanas Emergentes" (Pop-ups) en el navegador de tu móvil. El sistema usa una pestaña nueva temporal para garantizar que el ticket se renderice correctamente antes de imprimir.
+El sistema se enfoca en estricto tipado estático para garantizar la integridad de los datos financieros. Todo cambio en utilidades, stores (`useStore`) o hooks globales está sometido a una validación profunda de Typescript (`tsc -b && vite build`) impidiendo _silent-bugs_ en el POS o historial:
 
-**Error: `npm run build` falla por variables no usadas**
-* **Solución:** Revisa tu archivo `tsconfig.json` y asegúrate de tener estas reglas en `compilerOptions`:
-    ```json
-    "noUnusedLocals": false,
-    "noUnusedParameters": false
-    ```
+- **src/store**: División en **Slices** lógicos (`authSlice`, `saleSlice`, `inventorySlice`, `cashRegisterSlice`) inyectados en un store consolidado para escalabilidad suprema. Los tipos unificados se hallan en `types.ts`.
+- **src/pages**: Contenedores principales (POS, Cuentas por Cobrar, Dashboard, Inventario) con protección Role-Based (RoleRoute).
+- **Supabase RLS**: Los privilegios se resuelven de forma cruzada (Frontend → `role` de `users` local, Backend → `auth.users` y triggers de RLS postgresql).
+
+---
+
+## 📝 Script de Cierre Diario
+El proyecto está facultado tanto para emitir Facturación física local para tickets, cómo para exportar resúmenes por turnos, facilitando la auditoría de ventas separada de Abonos a cartera vencida (Cuentas por Cobrar separadas del flujo de venta de inventario para no reportar doble ganancia real).
+
+*© [Año Actual] Todo en Ruedas POS. Todos los derechos reservados.*

@@ -101,6 +101,9 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
      */
     setupFirstAdmin: async (setupData: {
         companyName: string;
+        rif: string;
+        rifType: 'J' | 'V' | 'E' | 'G' | 'P' | 'C';
+        address: string;
         fullName: string;
         email: string;
         password: string;
@@ -160,14 +163,10 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                 });
 
             if (userError) {
-                console.error('❌ Error al insertar en tabla users:', userError);
+                // Si falla, debemos hacer signOut para no quedar en estado inconsistente
+                await supabase.auth.signOut();
                 throw userError;
             }
-
-
-
-            // Nota: No creamos settings aquí porque la tabla tiene un schema diferente
-            // El usuario puede configurar settings después desde la página de Settings
 
             // 5. Actualizar estado con el usuario logueado
 

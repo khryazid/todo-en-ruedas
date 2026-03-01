@@ -18,7 +18,7 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
 
     if (cart.length === 0) {
       toast.error("El carrito está vacío 🛒");
-      return;
+      return null;
     }
 
     const invalidItem = cart.find((item) => {
@@ -33,7 +33,7 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         `⛔ STOCK INSUFICIENTE\n${invalidItem.name}\nSolicitas: ${invalidItem.quantity}\nDisponible: ${currentStock}`,
         { duration: 5000, style: { border: '2px solid red' } }
       );
-      return;
+      return null;
     }
 
     const loadingToast = toast.loading('Procesando venta...');
@@ -139,9 +139,12 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
       toast.dismiss(loadingToast);
       toast.success(`✅ Venta Registrada\nTicket #${saleData.id.slice(-6)}`);
 
+      return newSale;
+
     } catch (error: unknown) {
       toast.dismiss(loadingToast);
       toast.error(`Error crítico: ${(error as Error).message}`);
+      return null;
     }
   },
 

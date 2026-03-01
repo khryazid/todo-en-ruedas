@@ -10,9 +10,10 @@ import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import {
-    Search, TrendingUp, Wallet, X, CheckCircle, History, AlertCircle
+    Search, TrendingUp, Wallet, X, CheckCircle, History, AlertCircle, MessageCircle
 } from 'lucide-react';
 import type { Payment } from '../types';
+import { sendToWhatsApp } from '../utils/ticketGenerator';
 
 export const AccountsReceivable = () => {
     const { sales, clients, paymentMethods, registerSalePayment } = useStore();
@@ -190,14 +191,24 @@ export const AccountsReceivable = () => {
                                 </div>
                             </div>
 
-                            {!isPaid && (
+                            <div className="flex gap-2">
+                                {!isPaid && (
+                                    <button
+                                        onClick={() => openPaymentModal(sale.id)}
+                                        className="flex-1 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black shadow-lg flex items-center justify-center gap-2 transition active:scale-95 text-sm"
+                                        title="Registrar Abono"
+                                    >
+                                        <Wallet size={18} /> ABONO
+                                    </button>
+                                )}
                                 <button
-                                    onClick={() => openPaymentModal(sale.id)}
-                                    className="w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black shadow-lg flex items-center justify-center gap-2 transition active:scale-95 text-sm"
+                                    onClick={() => sendToWhatsApp(sale)}
+                                    className="px-4 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 shadow-lg shadow-green-200 transition flex items-center justify-center gap-2 active:scale-95"
+                                    title="Enviar Notificación por WhatsApp"
                                 >
-                                    <Wallet size={18} /> REGISTRAR ABONO
+                                    <MessageCircle size={18} />
                                 </button>
-                            )}
+                            </div>
                         </div>
                     );
                 })}
