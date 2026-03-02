@@ -1,96 +1,155 @@
-# 🚗 Todo en Ruedas - Sistema POS e Inventario
-
-Sistema de Punto de Venta (POS), control de inventario y facturación diseñado para un entorno bimonetario (USD / VES) con soporte para diferentes tasas de cambio, gestión de usuarios basada en roles (RBAC) y control de márgenes de ganancia.
-
-## 🛠 Stack Tecnológico
-
-*   **Frontend:** React 18, TypeScript, Vite
-*   **Estilos:** Tailwind CSS, Lucide React (Iconos)
-*   **Enrutamiento:** React Router DOM v6
-*   **Gestión de Estado:** Zustand (para manejo global de sesión, configuración, ventas, etc.)
-*   **Backend / Base de Datos:** Supabase (PostgreSQL) con Row Level Security (RLS)
-*   **Autenticación:** Supabase Auth
+# 🤖 Guía para Desarrolladores / AI — Todo en Ruedas
+> **Actualizado:** 2026-03-01 | Para humanos y modelos de IA que trabajan en este proyecto.
 
 ---
 
-## 🏗 Arquitectura del Frontend (`/src`)
+## 1. Qué es esto
 
-El código está estructurado en un patrón modular y centralizado:
-
-*   `/components`: Componentes UI reutilizables.
-    *   `/layout/Sidebar.tsx`: Navegación principal, renderizada dinámicamente según los permisos del rol.
-    *   `RoleRoute.tsx`: Componente de orden superior (HOC) que protege las rutas de React Router basándose en el rol del usuario conectado.
-*   `/hooks`: Hooks personalizados (ej. `usePermissions.ts` para evaluar qué puede hacer el usuario actual).
-*   `/pages`: Vistas completas de la aplicación (Dashboard, POS, Inventario, Configuración, etc.). Funciona con Lazy Loading (`React.lazy`) desde `App.tsx` para code-splitting.
-*   `/store`: Gestión de estado con **Zustand**. Dividido en "slices" lógicos que se combinan en `useStore.ts`:
-    *   `authSlice.ts`, `cartSlice.ts`, `saleSlice.ts`, `settingsSlice.ts`, etc.
-*   `/types`: Interfaces de TypeScript. **Toda la app usa `index.ts` como única fuente de verdad para los tipos.**
-*   `/utils`: Utilidades puras y de negocio.
-    *   `pricing.ts`: Lógica matemática de cálculo de precios (muy importante, ver sección de "Lógica de Negocio").
-    *   `permissions.ts`: Matriz de permisos por rol.
-    *   `ticketGenerator.ts`: Generación de recibos PDF/Impresión.
+Sistema POS + Inventario + Cotizaciones + Gastos para negocio venezolano bimonetario (USD/VES). En producción activa. El dueño habla español.
 
 ---
 
-## 🔐 Sistema de Roles (RBAC)
+## 2. Reglas de Oro
 
-El sistema utiliza una matriz de permisos dura definida en `src/utils/permissions.ts` combinada con políticas RLS (Row Level Security) en Supabase para proteger los datos de forma redundante (Frontend + Backend).
-
-### Roles Existentes:
-1.  **ADMIN:** Acceso total. Creado automáticamente la primera vez que se accede a `/setup`. Puede crear otros administradores. Modifica toda la configuración general.
-2.  **MANAGER (Gerente):** Operaciones diarias, inventario, reportes, auditoría y control de vendedores. No puede acceder a modificar configuraciones base.
-3.  **SELLER (Vendedor):** Operador del POS. 
-    *   Solo ve sus propias ventas (no las de otros).
-    *   Limitado estrictamente a crear ventas, cotizaciones puntuales y agregar clientes orgánicamente.
-    *   No tiene acceso a métricas de la empresa ni inventario profundo.
-4.  **VIEWER (Auditor/Contable):** Rol de solo lectura para contadores o personal externo. Solo puede ver reportes y ventas/facturas, sin capacidad de modificar nada en el sistema.
+| Regla | Detalle |
+|---|---|
+| **TSC limpio** | Siempre correr `npx tsc --noEmit` antes de declarar algo listo |
+| **Tipos en `types/index.ts`** | No crear tipos locales en páginas. Un solo archivo de tipos |
+| **Fetch en `fetchInitialData`** | Todo slice nuevo con tabla Supabase → agregar su `fetchXxx()` al final de `authSlice.fetchInitialData()` |
+| **No tocar `App.tsx` a ciegas** | Las rutas están protegidas con `<RoleRoute>`. Agregar rutas nuevas con su `allowedRoles` |
+| **RLS es la barrera final** | El frontend muestra/oculta botones por rol, pero Supabase RLS bloquea en el backend. Ambas capas deben estar alineadas |
 
 ---
 
-## 🧮 Lógica de Negocio Central (Bimonetaria)
+## 3. Lógica Bimonetaria (CRÍTICO)
 
-La característica más crítica del sistema es el manejo simultáneo de dos tasas de conversión de la moneda local (VES):
-*   **Tasa BCV:** Tasa oficial y legal del banco central.
-*   **Tasa TH (Monitor/Mercado):** Tasa paralela.
+`src/utils/pricing.ts` → `calculatePrices(product, settings)`
 
-### El "Camuflaje" del Precio (Pricing Engine)
-Implementado en `src/utils/pricing.ts`. Los productos se configuran en el inventario bajo uno de dos regímenes: `BCV` o `TH`.
+```
+// Producto BCV
+PVP_USD = Costo + Margen% + IVA%
+PVP_BS  = PVP_USD × tasaBCV
 
-1.  **Producto BCV:**
-    *   **PVP ($) =** `Costo` + `Margen %` + `IVA %`.
-    *   **PVP (Bs) =** PVP ($) × `Tasa BCV`.
-2.  **Producto TH (La Ilusión):**
-    El objetivo es cobrar el precio base al valor de la **Tasa TH**, pero reflejar en el recibo legal que el cobro se hizo a **Tasa BCV**, inflando el precio en USD para cuadrar la contabilidad.
-    *   **Base:** `Costo` + `Margen %` + `IVA %`.
-    *   **PVP (Bs) =** Base × `Tasa TH` (Este es el monto real que el usuario paga).
-    *   **PVP ($) a mostrar =** PVP (Bs) / `Tasa BCV`. 
-
-Esta lógica garantiza que la rentabilidad de reposición siempre está cubierta sin importar el tipo de cambio oficial del día, mientras se mantienen recibos legalmente coherentes.
+// Producto TH ("El Camuflaje")
+// Cobra a tasa paralela pero el recibo dice BCV
+Base    = Costo + Margen% + IVA%
+PVP_BS  = Base × tasaTH          ← lo que el cliente paga
+PVP_USD = PVP_BS / tasaBCV        ← USD inflado para el recibo legal
+```
 
 ---
 
-## 🗄 Modelo de Datos (Supabase PostgreSQL)
+## 4. Store Zustand
 
-Tablas principales en la base de datos:
+`src/store/useStore.ts` combina slices. El hydration ocurre en `authSlice.fetchInitialData()`.
 
-*   `users`: Mapeo extendido de `auth.users` de Supabase. Almacena el rol (`ADMIN`, `MANAGER`, etc.).
-*   `products`: Catálogo central. Posee triggers asociados a su ID para relacionarlo en ventas e históricos de compras.
-*   `sales`: Transacciones del POS. Tiene relaciones con la tabla `users` (columna `user_id` y `seller_name` para auditar quién hizo la venta, esencial para que el SELLER solo vea las propias). Un registro en estado `COMPLETED` afecta automáticamente el stock del producto.
-*   `clients`, `suppliers`, `invoices` (cuentas por pagar/compras de mercancía).
-*   `settings`: **Tabla "Singleton"**. Un único registro (`id != ''`) que mantiene los datos de la empresa, logo, márgenes por defecto y las Tasas de Cambio (`tasa_bcv`, `tasa_monitor`) utilizadas globalmente por Zustand.
-*   `audit_logs`: Trazabilidad inamovible de las acciones delicadas realizadas en la aplicación, generada por Triggers a nivel de BD o insersiones desde el frontend en casos específicos.
+```
+authSlice       → login/logout + fetchInitialData
+userSlice       → gestión usuarios del sistema
+settingsSlice   → config empresa, tasas, métodos de pago, cierre
+productSlice    → CRUD inventario
+cartSlice       → carrito POS (en memoria)
+saleSlice       → ventas, abonos, anulaciones
+invoiceSlice    → facturas de compra
+clientSlice     → clientes + credit_limit
+quoteSlice      → cotizaciones + convertQuoteToSale
+returnSlice     → devoluciones
+expenseSlice    → gastos (currency, amountBS, isRecurring)
+```
 
 ---
 
-## 🚀 Flujo de Arranque ("The Cold Boot")
+## 5. Sistema de Roles
 
-1.  **Setup Inicial:** Si la base de datos no tiene una empresa registrada en `settings`, la app redirige a `/setup` de forma obligatoria. El primer usuario en pasar este flujo obtiene el rol `ADMIN` automáticamente.
-2.  **Store Hydration (`fetchInitialData`):** Al hacer login exitoso, `authSlice.ts` lanza una cascada de SELECTs a la base de datos para pre-cargar las tasas de cambio, inventario y configuración base en memoria del navegador usando Zustand. Todas las vistas operan con estos datos en memoria reaccionando increíblemente rápido; las sincronizaciones de guardado operan asincrónicamente con la DB.
+`src/utils/permissions.ts`
+
+```
+ADMIN   → Todo
+MANAGER → Operación + inventario + gastos + cotizaciones (no config base)
+SELLER  → Solo POS + sus ventas/cotizaciones + agregar clientes
+VIEWER  → Solo lectura: ventas, facturas, reportes
+```
 
 ---
 
-## 📋 Nota para Modelos IA
+## 6. Schema Supabase (estado actual)
 
-*   **Evitar modificaciones a lo ciego en `App.tsx`**: Las rutas están meticulosamente cubiertas con `<RoleRoute>` para evitar Bypass.
-*   **Si cambias el Schema de la BD**: Deberás actualizar obligatoriamente `src/types/index.ts`.
-*   **Políticas de RLS**: Las políticas RLS en Supabase (como aquellas que obligan a un seller a solo ver sus ventas) deben sincronizarse mentalmente con el renderizado condicional de los botones (ej. En `Sales.tsx`, el botón de anular no se muestra si eres Seller). El frontend es un espejo "User-Friendly", pero la RLS es la barrera final (El Backend mandará Error si hace 'hack' JS al DOM).
+| Tabla | Campos clave |
+|---|---|
+| `settings` | company_name, rif, address, tasa_bcv, tasa_monitor, last_close_date, shift_start, default_margin, default_vat, printer_currency, seller_commission_pct |
+| `products` | sku, name, category, stock, min_stock, cost, cost_type (BCV/TH), freight, supplier |
+| `clients` | name, rif, phone, address, email, notes, **credit_limit** |
+| `sales` | client_id, total_usd, total_ved, payment_method, status, paid_amount_usd, is_credit, user_id, seller_name |
+| `sale_items` | sale_id, product_id, quantity, unit_price_usd, cost_unit_usd, product_name_snapshot, sku |
+| `payments` | sale_id, amount_usd, method, note |
+| `quotes` | number, date, valid_until, client_id, client_name, items (JSONB), total_usd, total_bs, status, user_id, seller_name |
+| `expenses` | date, description, amount_usd, **currency** (USD/BS), **amount_bs**, category, payment_method, user_id, seller_name, **is_recurring**, **recurring_id** |
+| `users` | id, full_name, email, role, is_active, last_login |
+| `suppliers` | name, rif, phone, email, address |
+| `invoices` | supplier_id, date_issue, date_due, status, subtotal_usd, total_usd, paid_amount_usd |
+| `payment_methods` | name, currency |
+| `audit_logs` | action, entity, entity_id, user_id, details (JSONB) |
+
+### ⚠️ Migración pendiente de ejecutar en Supabase
+
+```sql
+ALTER TABLE expenses
+  ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'USD',
+  ADD COLUMN IF NOT EXISTS amount_bs NUMERIC,
+  ADD COLUMN IF NOT EXISTS is_recurring BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS recurring_id TEXT;
+```
+
+---
+
+## 7. Archivos Clave
+
+| Archivo | Propósito |
+|---|---|
+| `src/types/index.ts` | ÚNICA fuente de tipos. Siempre actualizar aquí |
+| `src/store/slices/authSlice.ts` | fetchInitialData — el arranque de todo |
+| `src/utils/pricing.ts` | Motor bimonetario de precios |
+| `src/utils/permissions.ts` | Matriz de permisos por rol |
+| `src/utils/ticketGenerator.ts` | PDF tickets + `printQuoteReport()` (PDF A4 cotización) |
+| `src/components/layout/TopBar.tsx` | Navbar, dark mode toggle, personalización |
+| `src/hooks/useDarkMode.ts` | Hook dark mode (localStorage + clase HTML) |
+| `src/index.css` | Tailwind + CSS variables dark mode globales |
+| `tailwind.config.js` | `darkMode: 'class'` activo |
+
+---
+
+## 8. Features por Módulo (estado actual)
+
+### ✅ Completado
+- **POS** — carrito, checkout, crédito con límite, tickets WhatsApp/impresión
+- **Inventario** — CRUD, alertas stock mínimo
+- **Ventas** — historial, abonos crédito, anulación, filtros por vendedor
+- **Clientes** — CRM, credit_limit, historial
+- **Cotizaciones** — CRUD, estados, descuento por ítem, PDF A4, convertir a venta, autor
+- **Gastos** — moneda USD/BS, categorías libres, recurrentes, autor
+- **Cierre Turno** — DailyClose con gastos + utilidad neta
+- **Comisiones** — cálculo por vendedor
+- **Cuentas por Cobrar** — abonos, deudores, WhatsApp
+- **Dark Mode** — CSS variables globales, toggle TopBar
+- **Personalización TopBar** — ítems pinados por usuario (localStorage)
+
+### 🔴 Pendiente
+- Indicador visual límite de crédito en POS (barra deuda/límite)
+- Notificación al login de gastos recurrentes del día
+- Filtro por vendedor en Sales y Expenses
+- Gráfico Gastos vs Ventas en Dashboard
+- Categorías de gastos persistidas en Supabase
+
+---
+
+## 9. Cómo agregar un módulo nuevo
+
+1. Crear el tipo en `src/types/index.ts`
+2. Crear tabla en Supabase
+3. Crear `src/store/slices/nuevoSlice.ts` con `fetchNuevo`, `addNuevo`, `updateNuevo`, `deleteNuevo`
+4. Importar y spreadsear en `src/store/useStore.ts`
+5. Agregar `await get().fetchNuevo()` al final de `fetchInitialData` en `authSlice.ts`
+6. Crear `src/pages/Nuevo.tsx`
+7. Agregar ruta en `App.tsx` con `<RoleRoute>`
+8. Agregar ítem en `TopBar.tsx`
+9. Correr `npx tsc --noEmit`

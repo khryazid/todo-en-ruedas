@@ -1,89 +1,161 @@
-# 🚗 Todo en Ruedas - Sistema Administrativo y POS
+# 🚗 Todo en Ruedas — Sistema POS & Administrativo
 
-Sistema completo de Punto de Venta (POS), Inventario, Control de Caja y Facturación diseñado para la administración eficiente de negocios. Construido con **React**, **TypeScript**, **Zustand** y potenciado por **Supabase** para una gestión de datos rápida, segura y en tiempo real.
+> Sistema de Punto de Venta, Inventario, Cotizaciones y Control Financiero diseñado para negocios venezolanos que operan en ambiente **bimonetario (USD / VES)**.
 
----
-
-## 🚀 Características Principales
-
-### 🛒 **Punto de Venta (POS) Integrado**
-- Interfaz fluida y diseñada para uso rápido (búsqueda de clientes y productos veloz).
-- Soporte para **Ventas al Contado y Ventas a Crédito (Fiado)**.
-- Integración inmediata para el **Envío de Recibos por WhatsApp** o impresión térmica (formato 80mm).
-- Manejo inteligente de conversiones automáticas de moneda ($ USD a Bs.) mediante la Tasa de Cambio (BCV).
-
-### 📦 **Gestión de Inventario**
-- Control detallado de stock y actualización en tiempo real al concretarse ventas.
-- Costeo de productos (Precio de Compra) y sugerencia de Precio de Venta (PVP).
-- Soporte para categorías y marcas, facilitando reportes detallados y búsquedas.
-
-### 👥 **Roles y Permisos Múltiples (RBAC)**
-- **ADMIN**: Acceso ilimitado al sistema, configuraciones globales y creación de usuarios.
-- **MANAGER**: Puede modificar inventario, gestionar clientes, procesar ventas y ver historial general. 
-- **SELLER (Vendedor)**: Modo restringido. Solo evalúa sus propias ventas, comisiones (dashboard adaptado) y gestiona el POS temporalmente. No ve costos.
-- **VIEWER (Contabilidad)**: Modo solo lectura para fines de auditoría, balances y Cuentas por Cobrar.
-
-### 💵 **Control Financiero y Caja**
-- Tablero de Cuentas por Cobrar interactivo: Filtros de deudores, abonos parciales, remisión directa de recibos de deuda a WhatsApp y control de cartera morosa.
-- Cierres de Caja (Corte X / Z) minuciosos y desglose por método de pago.
-- Sistema multicaja y registro histórico de turnos operativos, sincronizado al instante con la base de datos de flujo de caja.
-
-### ⚙️ **Configuración Avanzada**
-- Sincronización continua con **Supabase**, utilizando políticas de seguridad estricta RLS (*Row Level Security*) por tenant/compañía (en arquitecturas preparadas).
-- Tasas de cambio configurables e historia de parámetros tributarios (IVA, Monedas base).
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase)](https://supabase.com/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
 
 ---
 
-## 🛠️ Tecnologías Utilizadas
+## ✨ Características
 
-- **Frontend Core:** React 18, TypeScript, Vite.
-- **Estado Global:** Zustand (store modular).
-- **Estilos y UI:** Tailwind CSS, Lucide React (Íconos).
-- **Backend y BD:** Supabase (Auth, PostgreSQL, Row Level Security - RLS).
-- **Alertas y Utilidades:** React Hot Toast, utilidades personalizadas de impresión DOM-CSS y generación WhatsApp.
+### 🛒 Punto de Venta (POS)
+- Búsqueda rápida de productos y clientes
+- Ventas al contado y **a crédito** con validación de límite de crédito
+- Envío de recibo por **WhatsApp** o impresión térmica 80mm
+- Descuentos y métodos de pago múltiples
+- Conversión automática USD ↔ Bs según tasa BCV/Monitor
+
+### 📦 Inventario
+- CRUD de productos con SKU, costo, márgenes y stock
+- Alertas de stock mínimo
+- Dos regímenes de precio: **BCV** y **TH (Monitor)** — ver [Lógica Bimonetaria](#-lógica-bimonetaria)
+- Control de proveedores y facturas de compra
+
+### 📋 Cotizaciones
+- Crear cotizaciones con descuento por ítem
+- Estados: Borrador → Enviada → Aceptada / Rechazada / Vencida
+- **PDF A4 profesional** + ticket móvil
+- **Convertir cotización en venta** con un clic
+- Autor registrado en cada cotización
+
+### � Gastos y Egresos
+- Moneda seleccionable: **USD o Bs** (conversión automática)
+- Categorías base + **categorías personalizadas** de texto libre
+- **Plantillas de gastos recurrentes** (Alquiler, Luz, Agua, Internet…) — registrar con 1 clic
+- Autor del gasto + exportar CSV
+
+### 📊 Reportes y Cierre de Turno
+- Cierre X / Z con desglose por método de pago
+- **Gastos del turno** y **Utilidad Neta** integrados en el cierre
+- Dashboard adaptado por rol (ADMIN/MANAGER/SELLER)
+- Comisiones de vendedores
+
+### 👥 Control de Clientes y Cuentas por Cobrar
+- CRM de clientes con campo **límite de crédito**
+- Historial de compras por cliente
+- Tabla de deudores con abonos parciales y remisión por WhatsApp
+
+### 🔐 Roles y Permisos (RBAC)
+| Rol | Acceso |
+|---|---|
+| **ADMIN** | Control total — configuración, usuarios, reportes completos |
+| **MANAGER** | Operación diaria, inventario, gastos, reportes |
+| **SELLER** | Solo POS y sus propias ventas / cotizaciones |
+| **VIEWER** | Solo lectura — reportes y facturas |
+
+### 🌙 Dark Mode
+- Toggle en la barra de navegación (persiste en `localStorage`)
 
 ---
 
-## 📦 Instalación y Despliegue Local
+## 🧮 Lógica Bimonetaria
 
-1. **Clonar el repositorio:**
-   ```bash
-   git clone <repository_url>
-   cd todo-en-ruedas
-   ```
+El motor de precios en `src/utils/pricing.ts` soporta dos regímenes:
 
-2. **Instalar Dependencias:**
-   Asegúrate de tener [Node.js](https://nodejs.org/) instalado.
-   ```bash
-   npm install
-   ```
+**Producto BCV:** `PVP_BS = (Costo + Margen + IVA) × tasaBCV`
 
-3. **Configuración de Variables de Entorno (Supabase):**
-   Crea un archivo `.env` en la raíz del proyecto y agrega tus credenciales del panel de Supabase:
-   ```env
-   VITE_SUPABASE_URL=tu_url_de_supabase
-   VITE_SUPABASE_ANON_KEY=tu_anon_key_de_supabase
-   ```
-
-4. **Despliegue Local (Desarrollo):**
-   ```bash
-   npm run dev
-   ```
-   El entorno se levantará en `http://localhost:5173`. Para compilar usa `npm run build`.
+**Producto TH (Monitor):** El negocio cobra al valor de la tasa paralela pero el recibo refleja la tasa oficial — garantizando rentabilidad de reposición sin contradecir la contabilidad legal.
 
 ---
 
-## 🔒 Estructura y Estándares Críticos
+## 🛠️ Stack Tecnológico
 
-El sistema se enfoca en estricto tipado estático para garantizar la integridad de los datos financieros. Todo cambio en utilidades, stores (`useStore`) o hooks globales está sometido a una validación profunda de Typescript (`tsc -b && vite build`) impidiendo _silent-bugs_ en el POS o historial:
-
-- **src/store**: División en **Slices** lógicos (`authSlice`, `saleSlice`, `inventorySlice`, `cashRegisterSlice`) inyectados en un store consolidado para escalabilidad suprema. Los tipos unificados se hallan en `types.ts`.
-- **src/pages**: Contenedores principales (POS, Cuentas por Cobrar, Dashboard, Inventario) con protección Role-Based (RoleRoute).
-- **Supabase RLS**: Los privilegios se resuelven de forma cruzada (Frontend → `role` de `users` local, Backend → `auth.users` y triggers de RLS postgresql).
+| Capa | Tecnología |
+|---|---|
+| Frontend | React 19 + TypeScript + Vite |
+| Estado | Zustand 5 (store modular con slices) |
+| Estilos | Tailwind CSS 3 + CSS variables dark mode |
+| Backend | Supabase (PostgreSQL + Auth + RLS) |
+| Routing | React Router DOM 7 |
+| Iconos | Lucide React |
+| Gráficos | Recharts |
 
 ---
 
-## 📝 Script de Cierre Diario
-El proyecto está facultado tanto para emitir Facturación física local para tickets, cómo para exportar resúmenes por turnos, facilitando la auditoría de ventas separada de Abonos a cartera vencida (Cuentas por Cobrar separadas del flujo de venta de inventario para no reportar doble ganancia real).
+## � Instalación Local
 
-*© [Año Actual] Todo en Ruedas POS. Todos los derechos reservados.*
+### Prerrequisitos
+- Node.js 18+
+- Proyecto en [Supabase](https://supabase.com/) con las tablas configuradas
+
+### Pasos
+
+```bash
+# 1. Clonar
+git clone <repository_url>
+cd todo-en-ruedas
+
+# 2. Instalar dependencias
+npm install
+
+# 3. Variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales de Supabase:
+# VITE_SUPABASE_URL=https://xxxx.supabase.co
+# VITE_SUPABASE_ANON_KEY=tu_anon_key
+
+# 4. Levantar en desarrollo
+npm run dev
+# → http://localhost:5173
+
+# 5. Build producción
+npm run build
+```
+
+### Primera vez (Setup)
+Si la base de datos está vacía, la app redirige automáticamente a `/setup` donde se registra la empresa y se crea el primer usuario `ADMIN`.
+
+---
+
+## � Estructura del Proyecto
+
+```
+src/
+├── App.tsx              ← Rutas con lazy loading + RoleRoute
+├── index.css            ← Tailwind + CSS variables dark mode
+├── types/index.ts       ← Única fuente de tipos TypeScript
+├── store/
+│   ├── useStore.ts      ← Zustand: combina todos los slices
+│   └── slices/          ← authSlice, saleSlice, quoteSlice, expenseSlice…
+├── pages/               ← POS, Dashboard, Inventory, Clients, Quotes, Expenses…
+├── components/
+│   └── layout/TopBar.tsx← Navbar (dark mode, menú usuario, búsqueda global)
+├── hooks/               ← useDarkMode, usePermissions, useSetupCheck
+└── utils/
+    ├── pricing.ts       ← Motor bimonetario de cálculo de precios
+    ├── permissions.ts   ← Matriz de permisos por rol
+    └── ticketGenerator.ts ← PDF tickets + cotizaciones A4
+```
+
+---
+
+## 🗄️ Tablas Supabase
+
+`settings` · `products` · `clients` · `sales` · `sale_items` · `payments` · `quotes` · `expenses` · `users` · `suppliers` · `invoices` · `payment_methods` · `audit_logs`
+
+---
+
+## 📝 Convenciones
+
+- **Tipos:** siempre en `src/types/index.ts`
+- **Typecheck:** `npx tsc --noEmit` antes de cada commit
+- **Iconos:** solo de `lucide-react`
+- **Notificaciones:** `react-hot-toast`
+- **Rutas nuevas:** agregar en `App.tsx` + `TopBar.tsx`
+
+---
+
+*© 2025–2026 Todo en Ruedas. Todos los derechos reservados.*
