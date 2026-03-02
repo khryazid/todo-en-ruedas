@@ -26,6 +26,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
         items: invoice.items,
         subtotal_usd: invoice.subtotalUSD,
         freight_total_usd: invoice.freightTotalUSD,
+        tax_total_usd: invoice.taxTotalUSD,
         total_usd: invoice.totalUSD,
         paid_amount_usd: invoice.paidAmountUSD,
         payments: invoice.payments || []
@@ -34,8 +35,9 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
       if (error) throw error;
 
       const totalItemsQuantity = invoice.items.reduce((acc, item) => acc + item.quantity, 0);
+      const totalLogisticsUSD = invoice.freightTotalUSD + (invoice.taxTotalUSD || 0);
       const unitFreight = totalItemsQuantity > 0
-        ? Math.round((invoice.freightTotalUSD / totalItemsQuantity) * 100) / 100
+        ? Math.round((totalLogisticsUSD / totalItemsQuantity) * 100) / 100
         : 0;
 
       // Track product updates for incremental state update
@@ -150,6 +152,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
         items: invoice.items,
         subtotal_usd: invoice.subtotalUSD,
         freight_total_usd: invoice.freightTotalUSD,
+        tax_total_usd: invoice.taxTotalUSD,
         total_usd: invoice.totalUSD,
         paid_amount_usd: invoice.paidAmountUSD,
         payments: invoice.payments

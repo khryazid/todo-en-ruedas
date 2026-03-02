@@ -132,7 +132,7 @@ export const Sidebar = memo(() => {
 
   // Conteo de productos con stock bajo (stock <= minStock pero > 0)
   const lowStockCount = useMemo(() =>
-    products.filter(p => p.stock > 0 && p.stock <= (p.minStock || 5)).length
+    products.filter(p => p.stock > 0 && p.stock <= (p.minStock || 0)).length
     , [products]);
 
   // Agotados

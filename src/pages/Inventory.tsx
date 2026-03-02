@@ -5,11 +5,14 @@ import { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { exportToCSV } from '../utils/exportCSV';
+import { supabase } from '../supabase/client';
+import { printInventoryReportA4 } from '../utils/ticketGenerator';
+import toast from 'react-hot-toast';
 import {
   Search, Plus, Package, Edit, Trash2, FileText, X, CheckCircle,
-  Truck, History, AlertTriangle, AlertOctagon, Save, Filter, Download, Upload
+  Truck, History, AlertTriangle, AlertOctagon, Save, Filter, Download, Upload, Zap, Printer
 } from 'lucide-react';
-import type { Product, Invoice, IncomingItem, CostType, PaymentStatus } from '../types';
+import type { Product, IncomingItem, Invoice, CostType, PaymentStatus } from '../types';
 
 export const Inventory = () => {
   const { products, updateProduct, deleteProduct, addInvoice, addProduct, settings, suppliers } = useStore();
@@ -18,6 +21,7 @@ export const Inventory = () => {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [csvPreview, setCsvPreview] = useState<Partial<typeof products[0]>[] | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
 
   // --- FILTROS DOBLES ---
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
@@ -32,15 +36,15 @@ export const Inventory = () => {
 
   const initialInvoiceState = {
     number: '', supplier: '', dateIssue: new Date().toISOString().split('T')[0],
-    dateDue: new Date().toISOString().split('T')[0], freight: 0, costType: 'BCV' as CostType,
+    dateDue: new Date().toISOString().split('T')[0], freight: 0, tax: 0, costType: 'BCV' as CostType,
     status: 'PENDING' as PaymentStatus, initialPayment: 0
   };
   const [invoiceHeader, setInvoiceHeader] = useState(initialInvoiceState);
   const [invoiceItems, setInvoiceItems] = useState<IncomingItem[]>([]);
-  const [tempItem, setTempItem] = useState({ sku: '', name: '', quantity: 1, cost: 0, minStock: 5 });
+  const [tempItem, setTempItem] = useState({ sku: '', name: '', quantity: 1, cost: 0, minStock: 0 });
 
   const initialProductState: Product = {
-    id: '', sku: '', name: '', category: 'General', stock: 0, minStock: 5,
+    id: '', sku: '', name: '', category: 'General', stock: 0, minStock: 0,
     cost: 0, freight: 0, costType: 'BCV', supplier: 'General'
   };
   const [productForm, setProductForm] = useState<Product>(initialProductState);
@@ -65,13 +69,72 @@ export const Inventory = () => {
     return supplier ? (supplier.catalog || []) : [];
   }, [invoiceHeader.supplier, suppliers]);
 
+  const handleScanInvoice = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    const loadingToast = toast.loading("Analizando factura con Inteligencia Artificial...");
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        try {
+          const base64Str = (reader.result as string).split(',')[1];
+          const mimeType = file.type;
+
+          const { data, error } = await supabase.functions.invoke('process-invoice', {
+            body: { imageBase64: base64Str, mimeType }
+          });
+
+          if (error) throw error;
+          if (!data?.success) throw new Error(data?.error || "Error desconocido en el servidor");
+
+          const invoiceData = data.data;
+
+          setInvoiceHeader({
+            ...invoiceHeader,
+            number: invoiceData.number || '',
+            supplier: invoiceData.supplierName || '',
+            dateIssue: invoiceData.dateIssue || new Date().toISOString().split('T')[0],
+            freight: invoiceData.freightTotalUSD || 0,
+            tax: invoiceData.taxTotalUSD || 0
+          });
+
+          setInvoiceItems(invoiceData.items.map((item: any) => ({
+            id: Date.now().toString() + Math.random(),
+            sku: item.sku || '',
+            name: item.name || '',
+            quantity: typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity) || 1,
+            costUnitUSD: typeof item.costUnitUSD === 'number' ? item.costUnitUSD : parseFloat(item.costUnitUSD) || 0,
+            minStock: 0
+          })));
+
+          toast.success("¡Factura extraída con éxito! ✨ Revisa los datos.");
+        } catch (innerError: any) {
+          toast.error("Error del modelo: " + innerError.message);
+        } finally {
+          setIsScanning(false);
+          toast.dismiss(loadingToast);
+        }
+      };
+    } catch (err: any) {
+      toast.error("Error al procesar archivo: " + err.message);
+      setIsScanning(false);
+      toast.dismiss(loadingToast);
+    } finally {
+      e.target.value = ''; // clear input
+    }
+  };
+
   const handleInvoiceSubmit = async () => {
     if (!invoiceHeader.number || !invoiceHeader.supplier || invoiceItems.length === 0) {
       return alert("⚠️ Faltan datos obligatorios (Proveedor, Número o Productos).");
     }
 
     const subtotal = invoiceItems.reduce((acc, i) => acc + (i.quantity * i.costUnitUSD), 0);
-    const total = subtotal + invoiceHeader.freight;
+    const total = subtotal + invoiceHeader.freight + invoiceHeader.tax;
     let finalStatus: PaymentStatus = 'PENDING';
     const finalPaidAmount = invoiceHeader.initialPayment;
 
@@ -81,7 +144,7 @@ export const Inventory = () => {
     const newInvoice: Invoice = {
       id: `inv-${Date.now()}`, number: invoiceHeader.number, supplier: invoiceHeader.supplier,
       dateIssue: invoiceHeader.dateIssue, dateDue: invoiceHeader.status === 'PAID' ? invoiceHeader.dateIssue : invoiceHeader.dateDue,
-      status: finalStatus, costType: invoiceHeader.costType, items: invoiceItems, subtotalUSD: subtotal, freightTotalUSD: invoiceHeader.freight, totalUSD: total, paidAmountUSD: invoiceHeader.status === 'PAID' ? total : finalPaidAmount,
+      status: finalStatus, costType: invoiceHeader.costType, items: invoiceItems, subtotalUSD: subtotal, freightTotalUSD: invoiceHeader.freight, taxTotalUSD: invoiceHeader.tax, totalUSD: total, paidAmountUSD: invoiceHeader.status === 'PAID' ? total : finalPaidAmount,
       payments: (invoiceHeader.status === 'PAID' || finalPaidAmount > 0) ? [{ id: Date.now().toString(), date: invoiceHeader.dateIssue, amountUSD: invoiceHeader.status === 'PAID' ? total : finalPaidAmount, method: 'Inicial', note: invoiceHeader.status === 'PAID' ? 'Pago de Contado' : 'Abono carga inicial' }] : []
     };
 
@@ -94,7 +157,13 @@ export const Inventory = () => {
     setInvoiceItems([...invoiceItems, {
       id: Date.now().toString() + Math.random(), sku: tempItem.sku, name: tempItem.name, quantity: tempItem.quantity, costUnitUSD: tempItem.cost, minStock: tempItem.minStock
     }]);
-    setTempItem({ sku: '', name: '', quantity: 1, cost: 0, minStock: 5 });
+    setTempItem({ sku: '', name: '', quantity: 1, cost: 0, minStock: 0 });
+  };
+
+  const handleInvoiceItemChange = (index: number, field: keyof IncomingItem, value: any) => {
+    const newItems = [...invoiceItems];
+    newItems[index] = { ...newItems[index], [field]: value };
+    setInvoiceItems(newItems);
   };
 
   const openEdit = (product: Product) => {
@@ -170,7 +239,7 @@ export const Inventory = () => {
           category: row.categoria || row.category || 'General',
           supplier: row.proveedor || row.supplier || '',
           stock: Number(row.stock) || 0,
-          minStock: Number(row.stock_min || row.minstock || row.min_stock) || 5,
+          minStock: Number(row.stock_min || row.minstock || row.min_stock) || 0,
           cost: Number(row.costo_usd || row.cost || row.costo) || 0,
           freight: 0,
           costType: 'BCV' as const,
@@ -192,7 +261,7 @@ export const Inventory = () => {
     alert(`✅ ${csvPreview.length} producto(s) importados exitosamente.`);
   };
 
-  const lowStock = products.filter(p => p.stock > 0 && p.stock <= (p.minStock || 5));
+  const lowStock = products.filter(p => p.stock > 0 && p.stock <= (p.minStock || 0));
   const outOfStock = products.filter(p => p.stock <= 0);
 
   return (
@@ -211,6 +280,13 @@ export const Inventory = () => {
             <Upload size={18} /> Importar
             <input type="file" accept=".csv" onChange={handleImportCSV} className="hidden" />
           </label>
+          <button
+            onClick={() => printInventoryReportA4(filteredProducts, settings.companyName || 'Glyph Core')}
+            className="px-5 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold flex justify-center items-center gap-2 shadow-lg transition active:scale-95"
+            title="Generar PDF A4"
+          >
+            <Printer size={18} /> Imprimir PDF
+          </button>
           <button
             onClick={handleExportCSV}
             className="px-5 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-bold flex justify-center items-center gap-2 shadow-lg transition active:scale-95"
@@ -291,7 +367,7 @@ export const Inventory = () => {
               {filteredProducts.map((product) => {
                 const prices = calculatePrices(product, settings);
                 const isOutOfStock = product.stock <= 0;
-                const isLowStock = product.stock <= (product.minStock || 5);
+                const isLowStock = product.stock <= (product.minStock || 0);
 
                 return (
                   <tr key={product.id} className="hover:bg-gray-50 transition group">
@@ -453,7 +529,13 @@ export const Inventory = () => {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden">
             <div className="p-5 border-b bg-gray-50 flex justify-between items-center">
               <div><h3 className="text-xl font-black text-gray-800 flex items-center gap-2"><Truck size={24} className="text-red-600" /> Cargar Compra</h3><p className="text-sm text-gray-500">Ingresa la mercancía y la deuda.</p></div>
-              <button onClick={() => setIsInvoiceModalOpen(false)} className="bg-white p-2 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition"><X size={20} /></button>
+              <div className="flex items-center gap-3">
+                <label className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-sm ${isScanning ? 'bg-purple-100 text-purple-400 cursor-not-allowed' : 'bg-purple-600 text-white hover:bg-purple-700 hover:shadow-purple-200'}`}>
+                  <Zap size={16} fill="currentColor" /> {isScanning ? 'Analizando...' : '✨ Escaneo IA'}
+                  <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleScanInvoice} disabled={isScanning} />
+                </label>
+                <button onClick={() => setIsInvoiceModalOpen(false)} className="bg-white p-2 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition"><X size={20} /></button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
@@ -512,7 +594,7 @@ export const Inventory = () => {
                   <h4 className="text-[10px] font-bold text-gray-400 uppercase flex items-center gap-2 mb-2"><History size={12} /> Comprado a {invoiceHeader.supplier}</h4>
                   <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                     {supplierCatalog.map((item, idx) => (
-                      <button key={idx} onClick={() => setTempItem({ sku: item.sku, name: item.name, quantity: 1, cost: item.lastCost, minStock: 5 })} className="flex-shrink-0 bg-white border hover:border-red-400 rounded-lg p-2 text-left min-w-[140px] shadow-sm transition active:scale-95 group"><p className="text-[9px] text-gray-400 font-mono">{item.sku}</p><p className="text-xs font-bold text-gray-700 truncate w-32 group-hover:text-red-600">{item.name}</p><p className="text-[10px] text-green-600 font-bold">${item.lastCost}</p></button>
+                      <button key={idx} onClick={() => setTempItem({ sku: item.sku, name: item.name, quantity: 1, cost: item.lastCost, minStock: 0 })} className="flex-shrink-0 bg-white border hover:border-red-400 rounded-lg p-2 text-left min-w-[140px] shadow-sm transition active:scale-95 group"><p className="text-[9px] text-gray-400 font-mono">{item.sku}</p><p className="text-xs font-bold text-gray-700 truncate w-32 group-hover:text-red-600">{item.name}</p><p className="text-[10px] text-green-600 font-bold">${item.lastCost}</p></button>
                     ))}
                   </div>
                 </div>
@@ -535,20 +617,29 @@ export const Inventory = () => {
                   <thead className="bg-gray-50 text-xs text-gray-400 uppercase font-bold"><tr><th className="p-3 text-left">Código</th><th className="p-3 text-left">Descripción</th><th className="p-3 text-center">Cant.</th><th className="p-3 text-center text-red-500">Min</th><th className="p-3 text-right">Costo</th><th className="p-3 text-right">Subtotal</th><th className="p-3"></th></tr></thead>
                   <tbody className="divide-y divide-gray-100">
                     {invoiceItems.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50"><td className="p-3 font-mono text-xs text-gray-500">{item.sku}</td><td className="p-3 font-medium text-gray-700">{item.name}</td><td className="p-3 text-center font-bold bg-gray-50">{item.quantity}</td><td className="p-3 text-center text-xs text-red-400 font-bold">{item.minStock}</td><td className="p-3 text-right">{formatCurrency(item.costUnitUSD, 'USD')}</td><td className="p-3 text-right font-bold text-gray-900">{formatCurrency(item.quantity * item.costUnitUSD, 'USD')}</td><td className="p-3 text-center"><button onClick={() => setInvoiceItems(invoiceItems.filter((_, i) => i !== idx))} className="text-gray-300 hover:text-red-600 transition"><Trash2 size={16} /></button></td></tr>
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="p-3"><input className="w-full bg-transparent font-mono text-xs text-gray-500 outline-none" value={item.sku} onChange={e => handleInvoiceItemChange(idx, 'sku', e.target.value)} /></td>
+                        <td className="p-3"><input className="w-full bg-transparent font-medium text-gray-700 outline-none focus:ring-1 rounded" value={item.name} onChange={e => handleInvoiceItemChange(idx, 'name', e.target.value)} /></td>
+                        <td className="p-3"><input type="number" className="w-full border border-gray-200 rounded p-1 text-center font-bold bg-white" value={item.quantity} onChange={e => handleInvoiceItemChange(idx, 'quantity', parseFloat(e.target.value) || 0)} /></td>
+                        <td className="p-3 text-center text-xs text-red-400 font-bold">{item.minStock}</td>
+                        <td className="p-3"><input type="number" step="0.01" className="w-full border border-gray-200 rounded p-1 text-right bg-white" value={item.costUnitUSD} onChange={e => handleInvoiceItemChange(idx, 'costUnitUSD', parseFloat(e.target.value) || 0)} /></td>
+                        <td className="p-3 text-right font-bold text-gray-900">{formatCurrency(item.quantity * item.costUnitUSD, 'USD')}</td>
+                        <td className="p-3 text-center"><button onClick={() => setInvoiceItems(invoiceItems.filter((_, i) => i !== idx))} className="text-gray-300 hover:text-red-600 transition"><Trash2 size={16} /></button></td>
+                      </tr>
                     ))}
                     {invoiceItems.length === 0 && <tr><td colSpan={7} className="p-8 text-center text-gray-400 italic">No has agregado productos a esta factura.</td></tr>}
                   </tbody>
                 </table>
               </div>
 
-              <div className="flex justify-between items-center bg-gray-900 text-white p-4 rounded-xl shadow-lg">
-                <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <Truck size={16} /> Flete Global ($): <input type="number" className="w-24 bg-gray-800 border-none rounded p-1 font-bold text-white ml-2 text-right focus:ring-1 focus:ring-gray-500" value={invoiceHeader.freight || ''} onChange={e => setInvoiceHeader({ ...invoiceHeader, freight: parseFloat(e.target.value) || 0 })} placeholder="0.00" />
+              <div className="flex justify-between items-center bg-gray-900 text-white p-4 rounded-xl shadow-lg mt-4 flex-wrap gap-4">
+                <div className="flex items-center gap-4 text-sm text-gray-400">
+                  <span className="flex items-center gap-1"><Truck size={16} /> Flete: <input type="number" className="w-20 bg-gray-800 border-none rounded p-1 font-bold text-white text-right focus:ring-1 focus:ring-gray-500" value={invoiceHeader.freight || ''} onChange={e => setInvoiceHeader({ ...invoiceHeader, freight: parseFloat(e.target.value) || 0 })} placeholder="0.00" /></span>
+                  <span className="flex items-center gap-1"><FileText size={16} /> IVA / Tax: <input type="number" className="w-20 bg-gray-800 border-none rounded p-1 font-bold text-white text-right focus:ring-1 focus:ring-gray-500" value={invoiceHeader.tax || ''} onChange={e => setInvoiceHeader({ ...invoiceHeader, tax: parseFloat(e.target.value) || 0 })} placeholder="0.00" /></span>
                 </div>
-                <div className="text-right">
+                <div className="text-right ml-auto">
                   <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Total Factura</p>
-                  <p className="text-3xl font-black text-white leading-none">{formatCurrency(invoiceItems.reduce((a, b) => a + (b.quantity * b.costUnitUSD), 0) + invoiceHeader.freight, 'USD')}</p>
+                  <p className="text-3xl font-black text-white leading-none">{formatCurrency(invoiceItems.reduce((a, b) => a + (b.quantity * b.costUnitUSD), 0) + invoiceHeader.freight + invoiceHeader.tax, 'USD')}</p>
                 </div>
               </div>
             </div>

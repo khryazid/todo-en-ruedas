@@ -31,24 +31,33 @@ interface MenuItem {
 }
 
 const allMenuItems: MenuItem[] = [
+    // Operaciones Rápidas & Ventas
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: ShoppingCart, label: 'Ventas', path: '/pos', requiredPermissions: [Permission.CREATE_SALE] },
     { icon: History, label: 'Historial', path: '/sales', requiredPermissions: [Permission.VIEW_OWN_SALES, Permission.VIEW_ALL_SALES] },
     { icon: FileText, label: 'Cotizaciones', path: '/quotes', requiredPermissions: [Permission.VIEW_QUOTES] },
-    { icon: PieChart, label: 'Cierre', path: '/daily-close', requiredPermissions: [Permission.CLOSE_CASH] },
+
+    // Inventario y Proveedores
     { icon: Package, label: 'Inventario', path: '/inventory', allowedRoles: ['ADMIN', 'MANAGER'] },
-    { icon: Wallet, label: 'CxC', path: '/accounts-receivable', requiredPermissions: [Permission.VIEW_RECEIVABLES] },
     { icon: FileText, label: 'Facturas', path: '/invoices', allowedRoles: ['ADMIN', 'MANAGER', 'VIEWER'] },
+
+    // Contactos y Cuentas
     { icon: Users, label: 'Clientes', path: '/clients', requiredPermissions: [Permission.VIEW_CLIENTS] },
+    { icon: Wallet, label: 'Deudas Clientes', path: '/accounts-receivable', requiredPermissions: [Permission.VIEW_RECEIVABLES] },
+
+    // Finanzas, Cierre y Gastos
+    { icon: PieChart, label: 'Cierre Diario', path: '/daily-close', requiredPermissions: [Permission.CLOSE_CASH] },
+    { icon: TrendingDown, label: 'Gastos', path: '/expenses', allowedRoles: ['ADMIN', 'MANAGER'] },
     { icon: Award, label: 'Comisiones', path: '/commissions', allowedRoles: ['ADMIN', 'MANAGER'] },
+
+    // Administración y Configuración
     { icon: Shield, label: 'Usuarios', path: '/users', requiredPermissions: [Permission.VIEW_USERS] },
     { icon: ClipboardList, label: 'Auditoría', path: '/audit', requiredPermissions: [Permission.VIEW_AUDIT] },
-    { icon: Settings, label: 'Config.', path: '/settings', requiredPermissions: [Permission.VIEW_SETTINGS] },
-    { icon: TrendingDown, label: 'Gastos', path: '/expenses', allowedRoles: ['ADMIN', 'MANAGER'] },
+    { icon: Settings, label: 'Configuración', path: '/settings', requiredPermissions: [Permission.VIEW_SETTINGS] },
 ];
 
 // Ítems que siempre van en el menú principal del topbar (los más usados)
-const PRIMARY_PATHS = ['/dashboard', '/pos', '/sales', '/quotes', '/daily-close', '/inventory', '/clients'];
+const PRIMARY_PATHS = ['/dashboard', '/pos', '/sales', '/inventory', '/clients', '/accounts-receivable', '/daily-close'];
 
 const roleColors: Record<string, string> = {
     ADMIN: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
@@ -99,10 +108,9 @@ export const TopBar = memo(() => {
     }, []);
 
     const alertCount = useMemo(() =>
-        products.filter(p => p.stock <= (p.minStock || 5)).length,
+        products.filter(p => p.stock <= (p.minStock || 0)).length,
         [products]
     );
-
     const visibleItems = useMemo(() => {
         if (!currentUserData || !role) return [];
         return allMenuItems.filter(item => {
@@ -132,7 +140,7 @@ export const TopBar = memo(() => {
 
     const companyName = settings.companyName && settings.companyName !== 'Cargando...'
         ? settings.companyName
-        : 'Todo en Ruedas';
+        : 'Glyph Core';
 
     const handleLogout = async () => {
         setUserMenuOpen(false);
@@ -166,15 +174,12 @@ export const TopBar = memo(() => {
                     onClick={() => navigate('/dashboard')}
                     className="flex items-center gap-2.5 flex-shrink-0 mr-2 hover:opacity-90 transition"
                 >
-                    <div className="w-7 h-7 bg-red-600 rounded-lg flex items-center justify-center shadow-lg shadow-red-900/50 flex-shrink-0">
-                        <span className="text-white font-black text-xs leading-none">TR</span>
-                    </div>
                     <div className="hidden sm:block leading-tight text-left">
                         <p className="text-white font-black text-sm leading-tight tracking-tight truncate max-w-[180px]">
                             {companyName}
                         </p>
                         <p className="text-gray-500 text-[9px] uppercase tracking-widest font-bold leading-none mt-0.5">
-                            Sistema POS
+                            Business Management
                         </p>
                     </div>
                 </button>
@@ -283,10 +288,6 @@ export const TopBar = memo(() => {
                                         {roleLabels[currentUserData.role] || currentUserData.role}
                                     </span>
                                 </div>
-                                {/* Avatar */}
-                                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-500 to-red-700 text-white font-black text-sm flex items-center justify-center shadow-lg flex-shrink-0">
-                                    {currentUserData.fullName.charAt(0).toUpperCase()}
-                                </div>
                                 <ChevronDown size={13} className={`text-gray-400 transition-transform duration-200 ${userMenuOpen ? 'rotate-180' : ''}`} />
                             </button>
 
@@ -296,9 +297,6 @@ export const TopBar = memo(() => {
                                     {/* Info del usuario */}
                                     <div className="p-4 border-b border-white/8">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-red-700 text-white font-black flex items-center justify-center text-base shadow-lg">
-                                                {currentUserData.fullName.charAt(0).toUpperCase()}
-                                            </div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-white font-bold text-sm truncate">{currentUserData.fullName}</p>
                                                 <p className="text-gray-400 text-[10px] truncate">{currentUserData.email}</p>

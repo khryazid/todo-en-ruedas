@@ -95,21 +95,25 @@ export const Invoices = () => {
         const originalInvoice = invoices.find(i => i.id === editingInvoice.id);
         if (!originalInvoice) return;
 
+        const quantityChanges: Record<string, number> = {};
+
         originalInvoice.items.forEach(oldItem => {
-            const product = products.find(p => p.sku === oldItem.sku);
-            if (product) updateProduct(product.id, { stock: product.stock - oldItem.quantity });
+            quantityChanges[oldItem.sku] = (quantityChanges[oldItem.sku] || 0) - oldItem.quantity;
         });
 
-        setTimeout(() => {
-            editingInvoice.items.forEach(newItem => {
-                const currentProducts = useStore.getState().products;
-                const product = currentProducts.find(p => p.sku === newItem.sku);
-                if (product) updateProduct(product.id, { stock: product.stock + newItem.quantity });
-            });
-            updateInvoice(editingInvoice);
-            alert("✅ Factura actualizada y Stock ajustado correctamente.");
-            setIsDetailModalOpen(false);
-        }, 50);
+        editingInvoice.items.forEach(newItem => {
+            quantityChanges[newItem.sku] = (quantityChanges[newItem.sku] || 0) + newItem.quantity;
+        });
+
+        Object.entries(quantityChanges).forEach(([sku, netChange]) => {
+            if (netChange === 0) return;
+            const product = products.find(p => p.sku === sku);
+            if (product) updateProduct(product.id, { stock: product.stock + netChange });
+        });
+
+        updateInvoice(editingInvoice);
+        alert("✅ Factura actualizada y Stock ajustado correctamente.");
+        setIsDetailModalOpen(false);
     };
 
     const handleRegisterPayment = (e: React.FormEvent) => {

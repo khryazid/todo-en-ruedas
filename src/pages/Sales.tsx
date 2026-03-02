@@ -8,8 +8,9 @@ import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { usePermissions } from '../hooks/usePermissions';
 import { formatCurrency } from '../utils/pricing';
-import { printInvoice, printSalesList, sendToWhatsApp } from '../utils/ticketGenerator';
+import { printInvoice, printSalesList, sendToWhatsApp, printSalesReportA4 } from '../utils/ticketGenerator';
 import { exportToCSV } from '../utils/exportCSV';
+import toast from 'react-hot-toast';
 import {
     Eye, Search, Printer, Ban,
     X, ShoppingBag, User, Phone, MapPin, MessageCircle, Trash2, Download, RotateCcw
@@ -17,7 +18,7 @@ import {
 import type { Sale } from '../types';
 
 export const Sales = () => {
-    const { sales, clients, annulSale, deleteSale, addReturn, products } = useStore();
+    const { sales, clients, annulSale, deleteSale, addReturn, products, suppliers, settings } = useStore();
     const { isAdmin, isManager, role } = usePermissions();
     const currentUserData = useStore(s => s.currentUserData);
     const isSeller = role === 'SELLER';
@@ -66,7 +67,7 @@ export const Sales = () => {
         exportToCSV(
             filteredSales.map(s => ({
                 fecha: new Date(s.date).toLocaleString('es-VE'),
-                ticket: s.id.slice(-6),
+                ticket: s.localId ? s.localId.toString() : s.id.slice(-6),
                 cliente: clients.find(c => c.id === s.clientId)?.name || 'Anónimo',
                 vendedor: s.sellerName || 'Admin',
                 metodo: s.paymentMethod,
@@ -160,18 +161,24 @@ export const Sales = () => {
                         {isSeller ? 'Tus ventas registradas' : 'Auditoría y control de operaciones'}
                     </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                        onClick={() => printSalesReportA4(filteredSales, settings.companyName || 'Glyph Core')}
+                        className="w-full sm:w-auto bg-red-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-700 transition shadow-lg active:scale-95"
+                    >
+                        <Printer size={18} /> Imprimir A4
+                    </button>
                     <button
                         onClick={handleExportCSV}
-                        className="w-full md:w-auto bg-green-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-green-700 transition shadow-lg active:scale-95"
+                        className="w-full sm:w-auto bg-green-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-green-700 transition shadow-lg active:scale-95"
                     >
                         <Download size={18} /> Exportar CSV
                     </button>
                     <button
                         onClick={handlePrintReport}
-                        className="w-full md:w-auto bg-gray-900 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-black transition shadow-lg active:scale-95"
+                        className="w-full sm:w-auto bg-gray-900 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-black transition shadow-lg active:scale-95"
                     >
-                        <Printer size={18} /> Imprimir Listado
+                        <Printer size={18} /> Ticket Térmico
                     </button>
                 </div>
             </div>
@@ -240,7 +247,7 @@ export const Sales = () => {
                                     <tr key={sale.id} className={`hover:bg-gray-50 transition group ${isCancelled ? 'bg-red-50/30' : ''}`}>
                                         <td className="px-6 py-4">
                                             <p className="font-bold text-gray-800">{new Date(sale.date).toLocaleString('es-VE')}</p>
-                                            <p className="text-xs text-gray-400 font-mono">#{sale.id.slice(-6)}</p>
+                                            <p className="text-xs text-gray-400 font-mono">#{sale.localId || sale.id.slice(-6)}</p>
                                         </td>
                                         <td className="px-6 py-4">
                                             {client ? (
@@ -484,8 +491,8 @@ export const Sales = () => {
                                 <button
                                     onClick={() => setReturnType('PARTIAL')}
                                     className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition border-2 ${returnType === 'PARTIAL'
-                                            ? 'bg-orange-500 text-white border-orange-500'
-                                            : 'bg-white text-gray-600 border-gray-200 hover:border-orange-200'
+                                        ? 'bg-orange-500 text-white border-orange-500'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-orange-200'
                                         }`}
                                 >
                                     Parcial (items)
@@ -493,8 +500,8 @@ export const Sales = () => {
                                 <button
                                     onClick={() => setReturnType('FULL')}
                                     className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition border-2 ${returnType === 'FULL'
-                                            ? 'bg-red-500 text-white border-red-500'
-                                            : 'bg-white text-gray-600 border-gray-200 hover:border-red-200'
+                                        ? 'bg-red-500 text-white border-red-500'
+                                        : 'bg-white text-gray-600 border-gray-200 hover:border-red-200'
                                         }`}
                                 >
                                     Total (anular)

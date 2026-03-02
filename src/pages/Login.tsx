@@ -29,7 +29,7 @@ export const Login = () => {
                         <Key className="text-white" size={32} />
                     </div>
                     <h2 className="text-3xl font-black text-white">Bienvenido</h2>
-                    <p className="text-blue-100 mt-2">Sistema Todo en Ruedas 2.0</p>
+                    <p className="text-blue-100 mt-2">Glyph Core Management</p>
                 </div>
 
                 {/* Formulario */}

@@ -31,6 +31,7 @@ export const DailyClose = () => {
             if (data) {
                 setCloseHistory(data.map(r => ({
                     id: r.id,
+                    sequenceNumber: r.sequence_number,
                     closedAt: r.closed_at,
                     closedBy: r.closed_by,
                     sellerName: r.seller_name,
@@ -91,7 +92,7 @@ export const DailyClose = () => {
         return map;
     }, [currentShiftSales, paymentMethods]);
 
-    const handlePrint = () => {
+    const handlePrint = async () => {
         if (reportType === 'X' && currentShiftSales.length === 0) {
             return alert('No hay movimientos para imprimir.');
         }
@@ -101,6 +102,26 @@ export const DailyClose = () => {
             : 'Imprimir Corte Parcial (X) no reinicia los contadores.';
 
         if (window.confirm(confirmMessage)) {
+            let nextSequenceNumber: number | null = null;
+            let reportIdentifier = Date.now().toString().slice(-6);
+
+            if (reportType === 'Z') {
+                const newCloseResult = await performDailyClose({
+                    totalUSD,
+                    totalBs,
+                    txCount: currentShiftSales.length,
+                });
+
+                if (newCloseResult && newCloseResult.sequenceNumber) {
+                    nextSequenceNumber = newCloseResult.sequenceNumber;
+                } else {
+                    nextSequenceNumber = closeHistory.length > 0 ? (closeHistory[0].sequenceNumber || 0) + 1 : 1;
+                }
+                reportIdentifier = `Z #${nextSequenceNumber}`;
+            } else {
+                reportIdentifier = `X PARCIAL`;
+            }
+
             printTicket({
                 type: reportType,
                 date: new Date().toLocaleString('es-VE'),
@@ -108,35 +129,29 @@ export const DailyClose = () => {
                 totalBs,
                 itemsCount: currentShiftSales.length,
                 breakdown,
-                reportNumber: Date.now().toString().slice(-6),
+                reportNumber: reportIdentifier,
                 paymentMethods
             });
 
             if (reportType === 'Z') {
-                // ✅ Pasar totales del turno para el historial
-                performDailyClose({
-                    totalUSD,
-                    totalBs,
-                    txCount: currentShiftSales.length,
-                }).then(() => {
-                    // Refrescar historial después del cierre
-                    supabase
-                        .from('cash_closes')
-                        .select('*')
-                        .order('closed_at', { ascending: false })
-                        .limit(10)
-                        .then(({ data }) => {
-                            if (data) setCloseHistory(data.map(r => ({
-                                id: r.id,
-                                closedAt: r.closed_at,
-                                closedBy: r.closed_by,
-                                sellerName: r.seller_name,
-                                totalUSD: r.total_usd,
-                                totalBs: r.total_bs,
-                                txCount: r.tx_count,
-                            })));
-                        });
-                });
+                // Refrescar historial después del cierre
+                supabase
+                    .from('cash_closes')
+                    .select('*')
+                    .order('closed_at', { ascending: false })
+                    .limit(10)
+                    .then(({ data }) => {
+                        if (data) setCloseHistory(data.map(r => ({
+                            id: r.id,
+                            sequenceNumber: r.sequence_number,
+                            closedAt: r.closed_at,
+                            closedBy: r.closed_by,
+                            sellerName: r.seller_name,
+                            totalUSD: r.total_usd,
+                            totalBs: r.total_bs,
+                            txCount: r.tx_count,
+                        })));
+                    });
             }
         }
     };
@@ -150,7 +165,7 @@ export const DailyClose = () => {
             totalBs: c.totalBs,
             itemsCount: c.txCount,
             breakdown: { 'TOTAL (sin desglose)': c.totalUSD },
-            reportNumber: `REIMP-${c.id.slice(-6)}`,
+            reportNumber: c.sequenceNumber ? `Z #${c.sequenceNumber}` : `REIMP-${c.id.slice(-6)}`,
             paymentMethods,
         });
     };
@@ -174,7 +189,7 @@ export const DailyClose = () => {
             txCount: currentShiftSales.length,
             breakdown,
             sellerBreakdown,
-            companyName: settings.companyName || 'Todo en Ruedas',
+            companyName: settings.companyName || 'Glyph Core',
             reportNumber: Date.now().toString().slice(-6),
             shiftOpenTime: shiftOpenTime?.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) || undefined,
         });
@@ -311,8 +326,8 @@ export const DailyClose = () => {
                                             )}
                                         </div>
                                         <div className="text-right flex-shrink-0 mr-2">
-                                            <p className="text-xs font-black text-gray-800">{formatCurrency(c.totalUSD, 'USD')}</p>
-                                            <p className="text-[10px] text-gray-400">{c.txCount} tx</p>
+                                            <p className="font-bold text-gray-800">Cierre Z - {formatCurrency(c.totalUSD, 'USD')}</p>
+                                            <p className="text-xs text-gray-400 font-mono">#{c.sequenceNumber || c.id.slice(-6)} ({c.txCount} tx)</p>
                                         </div>
                                         {/* Botón reimprimir */}
                                         <button

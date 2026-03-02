@@ -131,20 +131,34 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
         await supabase.from('settings').update({ last_close_date: now }).neq('id', '00000000-0000-0000-0000-000000000000');
       }
 
-      // 2. ✅ Registrar en historial de cierres
-      await supabase.from('cash_closes').insert({
+      // 2. ✅ Registrar en historial de cierres y obtener retorno
+      const { data: newClose, error } = await supabase.from('cash_closes').insert({
         closed_at: now,
         closed_by: currentUserData?.id || null,
         seller_name: currentUserData?.fullName || null,
         total_usd: turnData?.totalUSD ?? 0,
         total_bs: turnData?.totalBs ?? 0,
         tx_count: turnData?.txCount ?? 0,
-      });
+      }).select().single();
+
+      if (error) console.error("Error al cerrar caja:", error);
 
       set((state) => ({ settings: { ...state.settings, lastCloseDate: now } }));
       toast.success('Cierre de caja exitoso 🏁');
+      
+      return newClose ? {
+        id: newClose.id,
+        sequenceNumber: newClose.sequence_number,
+        closedAt: newClose.closed_at,
+        totalUSD: newClose.total_usd,
+        totalBs: newClose.total_bs,
+        txCount: newClose.tx_count,
+        sellerName: newClose.seller_name || undefined,
+        closedBy: newClose.closed_by || undefined
+      } : null;
     } catch (error) {
       toast.error('Error al cerrar caja');
+      return null;
     }
   },
 });

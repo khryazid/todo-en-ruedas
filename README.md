@@ -1,4 +1,4 @@
-# 🚗 Todo en Ruedas — Sistema POS & Administrativo
+# 🚗 Glyph Core — Sistema POS & Administrativo
 
 > Sistema de Punto de Venta, Inventario, Cotizaciones y Control Financiero diseñado para negocios venezolanos que operan en ambiente **bimonetario (USD / VES)**.
 
@@ -96,7 +96,7 @@ El motor de precios en `src/utils/pricing.ts` soporta dos regímenes:
 ```bash
 # 1. Clonar
 git clone <repository_url>
-cd todo-en-ruedas
+cd glyph-core
 
 # 2. Instalar dependencias
 npm install
@@ -107,11 +107,15 @@ cp .env.example .env
 # VITE_SUPABASE_URL=https://xxxx.supabase.co
 # VITE_SUPABASE_ANON_KEY=tu_anon_key
 
-# 4. Levantar en desarrollo
+# 4. Inicializar Base de Datos (Supabase)
+# Copia el contenido del archivo `supabase/initial_schema.sql` y pégalo 
+# en el SQL Editor de tu proyecto en Supabase. Corre el script para crear las tablas.
+
+# 5. Levantar en desarrollo
 npm run dev
 # → http://localhost:5173
 
-# 5. Build producción
+# 6. Build producción
 npm run build
 ```
 
@@ -158,4 +162,4 @@ src/
 
 ---
 
-*© 2025–2026 Todo en Ruedas. Todos los derechos reservados.*
+*© 2025–2026 Glyph Core. Todos los derechos reservados.*

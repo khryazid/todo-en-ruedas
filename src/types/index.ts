@@ -153,6 +153,7 @@ export interface Payment {
 
 export interface Sale {
   id: string;
+  localId?: number;
   date: string;
   totalUSD: number;
   totalVED: number;
@@ -195,6 +196,7 @@ export interface Invoice {
   items: IncomingItem[];
   subtotalUSD: number;
   freightTotalUSD: number;
+  taxTotalUSD: number;
   totalUSD: number;
   paidAmountUSD: number;
   payments: Payment[];
@@ -229,6 +231,7 @@ export interface AppSettings {
 
 export interface CashClose {
   id: string;
+  sequenceNumber?: number;
   closedAt: string;
   closedBy?: string;
   sellerName?: string;

@@ -505,7 +505,7 @@ export const Quotes = () => {
                                     <Printer size={18} /> Ticket
                                 </button>
                                 <button
-                                    onClick={() => printQuoteReport(viewQuote, settings.companyName || 'Todo en Ruedas', settings.tasaBCV || 1)}
+                                    onClick={() => printQuoteReport(viewQuote, settings.companyName || 'Glyph Core', settings.tasaBCV || 1)}
                                     className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 flex justify-center items-center gap-2 transition shadow-lg shadow-red-100"
                                     title="Generar PDF A4 profesional"
                                 >

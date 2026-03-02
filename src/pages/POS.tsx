@@ -364,7 +364,7 @@ export const POS = () => {
                             <div className="text-center">
                                 <CheckCircle className="text-green-500 mx-auto mb-4" size={64} />
                                 <h3 className="text-2xl font-black text-gray-800 mb-2">¡Venta Exitosa!</h3>
-                                <p className="text-gray-500 mb-6">La venta #{completedSale.id} ha sido registrada correctamente.</p>
+                                <p className="text-gray-500 mb-6">La venta #{completedSale.localId || completedSale.id.slice(-6)} ha sido registrada correctamente.</p>
 
                                 <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-100 shadow-inner">
                                     <div className="flex justify-between items-center mb-2">

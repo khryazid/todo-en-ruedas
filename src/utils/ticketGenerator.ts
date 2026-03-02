@@ -107,8 +107,8 @@ export const printInvoice = (sale: Sale, directClient?: Client) => {
             <div class="title">${settings.companyName}</div>
             <div class="subtitle">${settings.rifType}-${settings.rif}</div>
             <div class="subtitle">${settings.address}</div>
-            <div class="divider"></div>
-            <div>Ticket: #${sale.id.slice(-6)}</div>
+            <div className="divider"></div>
+            <div>Ticket: #${sale.localId || sale.id.slice(-6)}</div>
             <div>Fecha: ${date}</div>
             ${client ? `<div class="divider"></div><div style="text-align:left">CLIENTE: ${client.name}<br>RIF: ${client.rif}</div>` : ''}
         </div>
@@ -192,7 +192,7 @@ export const printTicket = (data: CloseReportProps) => {
 
         <div class="footer">
             <p>Tasa BCV: ${settings.tasaBCV}</p>
-            <p>Generado por Todo en Ruedas System</p>
+            <p>Generado por Glyph Core</p>
         </div>
     `;
 
@@ -200,43 +200,40 @@ export const printTicket = (data: CloseReportProps) => {
 };
 
 // --- 4. IMPRIMIR LISTA DE VENTAS (HISTORIAL) ---
-export const printSalesList = (sales: Sale[], start: string, end: string) => {
+export const printSalesList = (sales: Sale[], startDate: string, endDate: string) => {
     const { settings, clients } = useStore.getState();
-    const total = sales.reduce((acc, s) => acc + s.totalUSD, 0);
+    const totalUSD = sales.reduce((acc, sale) => acc + sale.totalUSD, 0);
 
-    let rows = '';
-    sales.forEach(s => {
-        const clientName = clients.find(c => c.id === s.clientId)?.name || '-';
-        rows += `
-            <tr>
-                <td style="border-bottom:1px solid #ddd; padding:4px;">${new Date(s.date).toLocaleDateString()}</td>
-                <td style="border-bottom:1px solid #ddd; padding:4px;">#${s.id.slice(-4)}</td>
-                <td style="border-bottom:1px solid #ddd; padding:4px;">${clientName.substring(0, 10)}</td>
-                <td style="border-bottom:1px solid #ddd; padding:4px; text-align:right">$${s.totalUSD.toFixed(2)}</td>
-            </tr>
-        `;
-    });
-
-    const content = `
-        <div class="header">
-            <h2>Reporte de Ventas</h2>
-            <p>Periodo: ${start || 'Inicio'} - ${end || 'Fin'}</p>
-            <p><strong>Total Periodo: $${total.toFixed(2)}</strong></p>
+    const html = `
+        <div style="font-family:monospace;width:280px;margin:0 auto;color:black;">
+            <h2 style="text-align:center;margin:0 0 10px 0;">REPORTE DE VENTAS</h2>
+            <p>Desde: ${startDate || 'Inicio'}</p>
+            <p>Hasta: ${endDate || 'Hoy'}</p>
+            <hr style="border-top:1px dashed black;margin:10px 0;" />
+            <table style="width:100%;font-size:12px;text-align:left;">
+                <thead><tr><th>Ticket</th><th>Total USD</th></tr></thead>
+                <tbody>
+                    ${sales.map(s => `<tr><td>#${s.localId || s.id.slice(-6)}</td><td>$${s.totalUSD.toFixed(2)}</td></tr>`).join('')}
+                </tbody>
+            </table>
+            <hr style="border-top:1px dashed black;margin:10px 0;" />
+            <div style="display:flex;justify-content:space-between;font-weight:bold;">
+                <span>TOTAL:</span>
+                <span>$${totalUSD.toFixed(2)}</span>
+            </div>
+            <hr style="border-top:1px dashed black;margin:10px 0;" />
+            <p style="text-align:center;font-size:10px;">Generado el ${new Date().toLocaleString('es-VE')}</p>
         </div>
-        <table style="width:100%; border-collapse:collapse; margin-top:10px;">
-            <thead>
-                <tr style="background:#f0f0f0;">
-                    <th style="text-align:left; padding:4px;">Fecha</th>
-                    <th style="text-align:left; padding:4px;">Tkt</th>
-                    <th style="text-align:left; padding:4px;">Cliente</th>
-                    <th style="text-align:right; padding:4px;">Total</th>
-                </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-        </table>
     `;
 
-    printMobileFriendly(content);
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Reporte de Ventas</title>
+        <style>@page{margin:20px;}body{margin:0;padding:0;background:white;}</style>
+    </head><body>${html}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
 };
 
 // --- 5. GENERAR ENLACE DE WHATSAPP ---
@@ -246,7 +243,7 @@ export const sendToWhatsApp = (sale: Sale, directClient?: Client) => {
     const phone = client?.phone ? client.phone.replace(/\D/g, '') : '';
 
     let message = `*${settings.companyName}*\n`;
-    message += `🧾 Recibo de Venta #${sale.id.slice(-6)}\n`;
+    message += `🧾 Recibo de Venta #${sale.localId || sale.id.slice(-6)}\n`;
     message += `📅 Fecha: ${new Date(sale.date).toLocaleDateString()}\n`;
     message += `------------------------------\n`;
 
@@ -306,7 +303,7 @@ export const printDailyCloseReport = (data: DailyCloseReportData) => {
     const isZ = data.type === 'Z';
     const html = `
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:700px;margin:0 auto;padding:32px;color:#111;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e5e7eb;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e5e7eb;">
                 <div>
                     <h1 style="margin:0;font-size:20px;font-weight:900;color:#111;">${data.companyName}</h1>
                     <p style="margin:4px 0 0;color:#6b7280;font-size:12px;">REPORTE DE ${isZ ? 'CIERRE Z — DEFINITIVO' : 'CORTE X — PARCIAL'}</p>
@@ -371,7 +368,7 @@ export const printDailyCloseReport = (data: DailyCloseReportData) => {
             </div>` : ''}
 
             <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
-                <p style="margin:0;font-size:11px;color:#9ca3af;">Generado el ${new Date().toLocaleString('es-VE')} • ${data.companyName} • Sistema POS Todo en Ruedas</p>
+                <p style="margin:0;font-size:11px;color:#9ca3af;">Generado el ${new Date().toLocaleString('es-VE')} • ${data.companyName} • Sistema POS Glyph Core</p>
                 ${isZ ? '<p style="margin:4px 0 0;font-size:11px;font-weight:700;color:#b91c1c;">⚠ Este es un documento de CIERRE DEFINITIVO — Los contadores han sido reiniciados.</p>' : ''}
             </div>
         </div>
@@ -491,6 +488,143 @@ export const printQuoteReport = (quote: Quote, companyName: string, rate: number
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><title>Cotización #${quote.number || quote.id.slice(-8).toUpperCase()} — ${companyName}</title>
         <style>@page{margin:20px;}body{margin:0;padding:20px;background:white;}</style>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    </head><body>${html}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 500);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF INVENTARIO A4
+// ─────────────────────────────────────────────────────────────────────────────
+export const printInventoryReportA4 = (products: any[], companyName: string) => {
+    let html = `
+        <div style="font-family:Inter,system-ui,sans-serif;max-width:800px;margin:0 auto;color:#111827;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:20px;border-bottom:3px solid #dc2626;">
+                <div>
+                    <h1 style="margin:0;font-size:24px;font-weight:900;">${companyName}</h1>
+                    <p style="margin:4px 0 0;font-size:12px;color:#6b7280;">Reporte de Existencias / Inventario Físico</p>
+                </div>
+                <div style="text-align:right;">
+                    <p style="margin:0;font-size:12px;font-weight:600;">FECHA DE IMPRESIÓN</p>
+                    <p style="margin:4px 0 0;font-size:14px;font-weight:700;color:#dc2626;">${new Date().toLocaleDateString('es-VE')} ${new Date().toLocaleTimeString('es-VE')}</p>
+                </div>
+            </div>
+            
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+                <thead>
+                    <tr style="background:#1f2937;color:white;">
+                        <th style="padding:10px;text-align:left;font-size:11px;">SKU</th>
+                        <th style="padding:10px;text-align:left;font-size:11px;">NOMBRE DE PRODUCTO</th>
+                        <th style="padding:10px;text-align:center;font-size:11px;">CAT.</th>
+                        <th style="padding:10px;text-align:right;font-size:11px;">COSTO $</th>
+                        <th style="padding:10px;text-align:center;font-size:11px;">STOCK</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    products.forEach((p, i) => {
+        html += `
+            <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f9fafb'}; border-bottom:1px solid #e5e7eb;">
+                <td style="padding:8px 10px;font-size:11px;font-family:monospace;">${p.sku}</td>
+                <td style="padding:8px 10px;font-size:12px;font-weight:600;">${p.name}</td>
+                <td style="padding:8px 10px;text-align:center;font-size:11px;color:#6b7280;">${p.category}</td>
+                <td style="padding:8px 10px;text-align:right;font-size:12px;">$${Number(p.cost || p.costo || 0).toFixed(2)}</td>
+                <td style="padding:8px 10px;text-align:center;font-size:12px;font-weight:700;color:${p.stock <= (p.minStock || 0) ? '#dc2626' : (p.stock > 0 ? '#16a34a' : '#000')};">${p.stock}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+            <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
+                <p style="margin:0;font-size:11px;color:#9ca3af;">Total de Referencias Listadas: ${products.length} • Generado por Glyph Core</p>
+            </div>
+        </div>
+    `;
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Inventario - ${companyName}</title>
+        <style>@page{margin:20px;}body{margin:0;padding:20px;background:white;} table, th, td { border-collapse: collapse; }</style>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    </head><body>${html}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 500);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF HISTORIAL DE VENTAS A4
+// ─────────────────────────────────────────────────────────────────────────────
+export const printSalesReportA4 = (sales: any[], companyName: string) => {
+    let html = `
+        <div style="font-family:Inter,system-ui,sans-serif;max-width:800px;margin:0 auto;color:#111827;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:20px;border-bottom:3px solid #dc2626;">
+                <div>
+                    <h1 style="margin:0;font-size:24px;font-weight:900;">${companyName}</h1>
+                    <p style="margin:4px 0 0;font-size:12px;color:#6b7280;">Reporte Consolidado de Ventas</p>
+                </div>
+                <div style="text-align:right;">
+                    <p style="margin:0;font-size:12px;font-weight:600;">FECHA DE REPORTE</p>
+                    <p style="margin:4px 0 0;font-size:14px;font-weight:700;color:#dc2626;">${new Date().toLocaleDateString('es-VE')} ${new Date().toLocaleTimeString('es-VE')}</p>
+                </div>
+            </div>
+            
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+                <thead>
+                    <tr style="background:#1f2937;color:white;">
+                        <th style="padding:10px;text-align:left;font-size:11px;">FECHA/HORA</th>
+                        <th style="padding:10px;text-align:left;font-size:11px;">RECIBO</th>
+                        <th style="padding:10px;text-align:left;font-size:11px;">CLIENTE</th>
+                        <th style="padding:10px;text-align:center;font-size:11px;">ITEMS</th>
+                        <th style="padding:10px;text-align:right;font-size:11px;">TOTAL $</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    const totalSalesUSD = sales.reduce((acc, sale) => acc + (sale.totalUSD || 0), 0);
+
+    sales.forEach((s, i) => {
+        const itemQty = s.items?.reduce((acc: number, item: any) => acc + item.quantity, 0) || 0;
+        html += `
+            <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f9fafb'}; border-bottom:1px solid #e5e7eb;">
+                <td style="padding:8px 10px;font-size:11px;color:#374151;">${new Date(s.date).toLocaleString('es-VE')}</td>
+                <td style="padding:8px 10px;font-size:11px;font-family:monospace;font-weight:700;">#${s.localId || s.id.slice(-6).toUpperCase()}</td>
+                <td style="padding:8px 10px;font-size:11px;font-weight:600;">${s.clientName || 'Cliente General'}</td>
+                <td style="padding:8px 10px;text-align:center;font-size:12px;">${itemQty}</td>
+                <td style="padding:8px 10px;text-align:right;font-size:12px;font-weight:700;color:#16a34a;">$${Number(s.totalUSD || 0).toFixed(2)}</td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+
+            <div style="display:flex;justify-content:flex-end;">
+                <div style="background:#f9fafb;padding:16px;border-radius:8px;text-align:right;min-width:200px;border:1px solid #e5e7eb;">
+                    <p style="margin:0 0 4px;font-size:11px;color:#6b7280;font-weight:700;">TOTAL DE VENTAS LISTADAS</p>
+                    <p style="margin:0;font-size:18px;font-weight:900;color:#111827;">$${totalSalesUSD.toFixed(2)}</p>
+                </div>
+            </div>
+
+            <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
+                <p style="margin:0;font-size:11px;color:#9ca3af;">Operaciones Listadas: ${sales.length} • Generado por Glyph Core</p>
+            </div>
+        </div>
+    `;
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Historial - ${companyName}</title>
+        <style>@page{margin:20px;}body{margin:0;padding:20px;background:white;} table, th, td { border-collapse: collapse; }</style>
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     </head><body>${html}</body></html>`);

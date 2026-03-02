@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon-192.png', 'icon-512.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Todo en Ruedas - Sistema de Gestión',
-        short_name: 'TodoEnRuedas',
+        name: 'Glyph Core - Sistema de Gestión',
+        short_name: 'Glyph Core',
         description: 'Sistema ERP & POS - Inventario y Ventas Multimoneda',
         theme_color: '#111827',
         background_color: '#111827',

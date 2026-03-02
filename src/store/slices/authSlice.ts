@@ -88,7 +88,8 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
           settingsId: settingsData.id,
           settings: {
             ...state.settings,
-            companyName: settingsData.company_name,
+            companyName: settingsData.company_name || 'Glyph Core',
+            salePrinterProfile: 'default',
             rif: settingsData.rif.split('-')[1] || settingsData.rif,
             rifType: settingsData.rif.split('-')[0] || 'J',
             address: settingsData.address,
@@ -146,6 +147,7 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
         set({
           sales: salesData.map((s) => ({
             id: s.id,
+            localId: s.local_id,
             date: s.date,
             clientId: s.client_id,
             totalUSD: s.total_usd,
@@ -158,14 +160,14 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
             // pueda filtrar sus ventas propias correctamente
             userId: s.user_id || undefined,
             sellerName: s.seller_name || undefined,
-            items: s.sale_items.map((i: Record<string, unknown>) => ({
+            items: (s.sale_items || []).map((i: Record<string, unknown>) => ({
               sku: i.sku || 'N/A',
               name: i.product_name_snapshot || 'Producto',
               quantity: i.quantity,
               priceFinalUSD: i.unit_price_usd,
               costUnitUSD: i.cost_unit_usd
             })),
-            payments: s.payments.map((p: Record<string, unknown>) => ({
+            payments: (s.payments || []).map((p: Record<string, unknown>) => ({
               id: p.id, date: p.created_at,
               amountUSD: p.amount_usd, method: p.method, note: p.note
             }))
@@ -174,6 +176,7 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
       }
 
     } catch (error) {
+      console.error("❌ ERROR CARGANDO DATOS INICIALES:", error);
       toast.error('Error de conexión al cargar datos');
     } finally {
       set({ isLoading: false });

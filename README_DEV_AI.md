@@ -1,4 +1,4 @@
-# 🤖 Guía para Desarrolladores / AI — Todo en Ruedas
+# 🤖 Guía para Desarrolladores / AI — Glyph Core
 > **Actualizado:** 2026-03-01 | Para humanos y modelos de IA que trabajan en este proyecto.
 
 ---
@@ -18,6 +18,7 @@ Sistema POS + Inventario + Cotizaciones + Gastos para negocio venezolano bimonet
 | **Fetch en `fetchInitialData`** | Todo slice nuevo con tabla Supabase → agregar su `fetchXxx()` al final de `authSlice.fetchInitialData()` |
 | **No tocar `App.tsx` a ciegas** | Las rutas están protegidas con `<RoleRoute>`. Agregar rutas nuevas con su `allowedRoles` |
 | **RLS es la barrera final** | El frontend muestra/oculta botones por rol, pero Supabase RLS bloquea en el backend. Ambas capas deben estar alineadas |
+| **Control de Versiones (GIT)** | La IA **NUNCA** debe ejecutar comandos de Git automáticamente. Cuando se termine un bloque lógico de cambios, la IA debe notificar al usuario y generar un texto de commit (ej. `feat: implementado x`) para que el usuario lo copie y ejecute manualmente. |
 
 ---
 

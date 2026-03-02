@@ -62,6 +62,8 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         seller_name: currentUserData?.fullName || null,
       }).select().single();
 
+      console.log("🛠️ SUPABASE INSERT RETORNO:", saleData);
+
       if (saleError || !saleData) throw new Error(saleError?.message);
 
       const saleItems = cart.map((item) => ({
@@ -94,9 +96,15 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         }
       }
 
+      // 🚀 FAILSAFE: Si Supabase (vía PostgREST caché) no devuelve todavía la nueva columna local_id
+      // Forzaremos el visualizador asumiendo el id de la venta anterior + 1.
+      const lastId = get().sales.length > 0 ? (get().sales[0].localId || 0) : 0;
+      const calculatedLocalId = saleData.local_id ? saleData.local_id : lastId + 1;
+
       // Incremental update: build sale locally and update stock
       const newSale: Sale = {
         id: saleData.id,
+        localId: calculatedLocalId,
         date: saleData.date,
         clientId: clientId || undefined,
         totalUSD,
@@ -137,7 +145,7 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
       }));
 
       toast.dismiss(loadingToast);
-      toast.success(`✅ Venta Registrada\nTicket #${saleData.id.slice(-6)}`);
+      toast.success(`✅ Venta Registrada\nTicket #${calculatedLocalId || saleData.id.slice(-6)}`);
 
       return newSale;
 
