@@ -178,5 +178,13 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     } finally {
       set({ isLoading: false });
     }
+
+    // Cargar cotizaciones y gastos (no críticos — fallar silenciosamente)
+    try {
+      await get().fetchQuotes();
+    } catch (e) { console.warn('fetchQuotes:', e); }
+    try {
+      await get().fetchExpenses();
+    } catch (e) { console.warn('fetchExpenses:', e); }
   },
 });

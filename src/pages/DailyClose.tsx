@@ -11,11 +11,11 @@ import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import { printTicket, printDailyCloseReport } from '../utils/ticketGenerator';
 import { supabase } from '../supabase/client';
-import { DollarSign, Printer, Lock, Clock, AlertTriangle, History, User, FileText } from 'lucide-react';
+import { DollarSign, Printer, Lock, Clock, AlertTriangle, History, User, FileText, TrendingDown } from 'lucide-react';
 import type { CashClose } from '../types';
 
 export const DailyClose = () => {
-    const { sales, paymentMethods, settings, performDailyClose } = useStore();
+    const { sales, paymentMethods, settings, performDailyClose, expenses, fetchExpenses } = useStore();
     const [reportType, setReportType] = useState<'X' | 'Z'>('X');
     const [closeHistory, setCloseHistory] = useState<CashClose[]>([]);
 
@@ -41,7 +41,9 @@ export const DailyClose = () => {
             }
         };
         fetchHistory();
-    }, [settings.lastCloseDate]); // Re-fetch cuando se hace un nuevo cierre
+    }, [settings.lastCloseDate]);
+
+    useEffect(() => { fetchExpenses(); }, []); // Re-fetch cuando se hace un nuevo cierre
 
     // --- LÓGICA DE CORTE DE TURNO ---
     const lastClose = useMemo(() =>
@@ -66,6 +68,15 @@ export const DailyClose = () => {
     // --- CÁLCULOS DEL TURNO ACTUAL ---
     const totalUSD = currentShiftSales.reduce((acc, s) => acc + s.totalUSD, 0);
     const totalBs = currentShiftSales.reduce((acc, s) => acc + s.totalVED, 0);
+
+    // Gastos del turno actual
+    const shiftExpenses = useMemo(() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const sinceStr = lastClose ? lastClose.toISOString().split('T')[0] : null;
+        return expenses.filter(e => e.date === todayStr || (sinceStr && e.date >= sinceStr));
+    }, [expenses, lastClose]);
+    const totalExpensesUSD = shiftExpenses.reduce((acc, e) => acc + e.amountUSD, 0);
+    const netProfitUSD = totalUSD - totalExpensesUSD;
 
     const breakdown = useMemo(() => {
         const map: Record<string, number> = {};
@@ -229,6 +240,32 @@ export const DailyClose = () => {
                             </p>
                         </div>
                     </div>
+
+                    {/* GASTOS Y UTILIDAD NETA */}
+                    {(shiftExpenses.length > 0 || true) && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-red-50 border border-red-100 p-5 rounded-2xl flex items-center gap-4">
+                                <div className="w-11 h-11 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                                    <TrendingDown size={20} className="text-red-500" />
+                                </div>
+                                <div>
+                                    <p className="text-xs text-red-400 uppercase font-bold mb-0.5">Gastos del Turno</p>
+                                    <p className="text-2xl font-black text-red-600">{formatCurrency(totalExpensesUSD, 'USD')}</p>
+                                    <p className="text-xs text-red-400">{shiftExpenses.length} gasto{shiftExpenses.length !== 1 ? 's' : ''} registrado{shiftExpenses.length !== 1 ? 's' : ''}</p>
+                                </div>
+                            </div>
+                            <div className={`p-5 rounded-2xl border flex items-center gap-4 ${netProfitUSD >= 0 ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}>
+                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${netProfitUSD >= 0 ? 'bg-green-100' : 'bg-orange-100'}`}>
+                                    <DollarSign size={20} className={netProfitUSD >= 0 ? 'text-green-500' : 'text-orange-500'} />
+                                </div>
+                                <div>
+                                    <p className={`text-xs uppercase font-bold mb-0.5 ${netProfitUSD >= 0 ? 'text-green-400' : 'text-orange-400'}`}>Utilidad Neta</p>
+                                    <p className={`text-2xl font-black ${netProfitUSD >= 0 ? 'text-green-600' : 'text-orange-600'}`}>{formatCurrency(netProfitUSD, 'USD')}</p>
+                                    <p className={`text-xs ${netProfitUSD >= 0 ? 'text-green-400' : 'text-orange-400'}`}>Ventas - Gastos</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* DESGLOSE */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

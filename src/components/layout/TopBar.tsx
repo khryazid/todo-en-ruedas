@@ -17,8 +17,9 @@ import {
     LayoutDashboard, ShoppingCart, Package, FileText,
     Settings, LogOut, History, PieChart, Users, Wallet,
     Shield, ClipboardList, Award, Menu, X, Search,
-    ChevronDown, UserCircle, Sliders
+    ChevronDown, UserCircle, Sliders, TrendingDown, Moon, Sun
 } from 'lucide-react';
+import { useDarkMode } from '../../hooks/useDarkMode';
 import type { PermissionType } from '../../utils/permissions';
 
 interface MenuItem {
@@ -43,6 +44,7 @@ const allMenuItems: MenuItem[] = [
     { icon: Shield, label: 'Usuarios', path: '/users', requiredPermissions: [Permission.VIEW_USERS] },
     { icon: ClipboardList, label: 'Auditoría', path: '/audit', requiredPermissions: [Permission.VIEW_AUDIT] },
     { icon: Settings, label: 'Config.', path: '/settings', requiredPermissions: [Permission.VIEW_SETTINGS] },
+    { icon: TrendingDown, label: 'Gastos', path: '/expenses', allowedRoles: ['ADMIN', 'MANAGER'] },
 ];
 
 // Ítems que siempre van en el menú principal del topbar (los más usados)
@@ -63,6 +65,7 @@ export const TopBar = memo(() => {
     const [moreOpen, setMoreOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [pinModalOpen, setPinModalOpen] = useState(false);
+    const { isDark, toggle: toggleDark } = useDarkMode();
 
     // Pines persistidos en localStorage — el usuario elige qué va en la barra
     const [pinnedPaths, setPinnedPaths] = useState<string[]>(() => {
@@ -251,6 +254,15 @@ export const TopBar = memo(() => {
                         <Search size={13} />
                         Buscar
                         <kbd className="bg-white/10 text-gray-500 px-1 py-0.5 rounded text-[9px] font-mono ml-1">Ctrl+K</kbd>
+                    </button>
+
+                    {/* TOGGLE DARK MODE */}
+                    <button
+                        onClick={toggleDark}
+                        title={isDark ? 'Modo claro' : 'Modo oscuro'}
+                        className="hidden md:flex w-8 h-8 items-center justify-center rounded-xl bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-white transition"
+                    >
+                        {isDark ? <Sun size={15} /> : <Moon size={15} />}
                     </button>
 
                     {/* MENÚ DE USUARIO */}

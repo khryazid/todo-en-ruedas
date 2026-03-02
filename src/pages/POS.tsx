@@ -69,7 +69,7 @@ const ProductCard = memo(({ product, priceUSD, onAdd }: ProductCardProps) => {
 // COMPONENTE PRINCIPAL: POS
 // =============================================
 export const POS = () => {
-    const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, completeSale, settings, paymentMethods } = useStore();
+    const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, completeSale, settings, paymentMethods, sales } = useStore();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -181,12 +181,29 @@ export const POS = () => {
     }, [isCheckoutModalOpen, completedSale]);
 
     const handleCheckout = useCallback(async () => {
-        if (isCreditSale && !selectedClient) return alert("⚠️ Para vender a crédito, DEBES seleccionar un Cliente registrado.");
+        if (isCreditSale && !selectedClient) return alert('⚠️ Para vender a crédito, DEBES seleccionar un Cliente registrado.');
+
+        // #2 Validación de límite de crédito
+        if (isCreditSale && selectedClient && (selectedClient.creditLimit ?? 0) > 0) {
+            const currentDebt = sales
+                .filter(s => s.clientId === selectedClient.id && (s.status === 'PENDING' || s.status === 'PARTIAL'))
+                .reduce((acc, s) => acc + (s.totalUSD - s.paidAmountUSD), 0);
+            const abono = parseFloat(initialPayment) || 0;
+            const newDebt = totalUSD - abono;
+            if (currentDebt + newDebt > (selectedClient.creditLimit ?? 0)) {
+                return alert(
+                    `⛔ Límite de crédito excedido.\n` +
+                    `Deuda actual: $${currentDebt.toFixed(2)}\n` +
+                    `Nueva deuda: $${newDebt.toFixed(2)}\n` +
+                    `Límite: $${(selectedClient.creditLimit ?? 0).toFixed(2)}`
+                );
+            }
+        }
 
         let paymentAmount = totalUSD;
         if (isCreditSale) {
             const abono = parseFloat(initialPayment) || 0;
-            if (abono > totalUSD) return alert("El abono no puede ser mayor al total.");
+            if (abono > totalUSD) return alert('El abono no puede ser mayor al total.');
             paymentAmount = abono;
         }
 

@@ -386,4 +386,115 @@ export const printDailyCloseReport = (data: DailyCloseReportData) => {
     win.focus();
     setTimeout(() => win.print(), 300);
 };
+import type { Quote } from '../types';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF COTIZACIÓN
+// ─────────────────────────────────────────────────────────────────────────────
+export const printQuoteReport = (quote: Quote, companyName: string, rate: number) => {
+    const statusLabels: Record<string, string> = {
+        DRAFT: 'Borrador', SENT: 'Enviada', ACCEPTED: 'Aceptada', REJECTED: 'Rechazada', EXPIRED: 'Expirada',
+    };
+    const statusColors: Record<string, string> = {
+        DRAFT: '#64748b', SENT: '#2563eb', ACCEPTED: '#16a34a', REJECTED: '#dc2626', EXPIRED: '#9ca3af',
+    };
+
+    const totalUSD = quote.totalUSD;
+    const totalBs = totalUSD * rate;
+
+    const html = `
+        <div style="font-family:Inter,system-ui,sans-serif;max-width:800px;margin:0 auto;color:#111827;">
+            <!-- HEADER -->
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:24px;border-bottom:3px solid #dc2626;margin-bottom:24px;">
+                <div>
+                    <h1 style="margin:0;font-size:28px;font-weight:900;color:#111827;">${companyName}</h1>
+                    <p style="margin:4px 0 0;font-size:13px;color:#6b7280;">Sistema de Punto de Venta</p>
+                </div>
+                <div style="text-align:right;">
+                    <div style="background:#dc2626;color:white;padding:8px 18px;border-radius:10px;font-size:20px;font-weight:900;letter-spacing:0.03em;">COTIZACIÓN</div>
+                    <p style="margin:8px 0 2px;font-size:12px;color:#6b7280;">N° de Referencia</p>
+                    <p style="margin:0;font-size:15px;font-weight:700;font-family:monospace;">#${quote.number || quote.id.slice(-8).toUpperCase()}</p>
+                </div>
+            </div>
+
+            <!-- INFO -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+                <div style="background:#f9fafb;padding:16px;border-radius:10px;">
+                    <p style="margin:0 0 8px;font-size:10px;text-transform:uppercase;font-weight:700;color:#6b7280;letter-spacing:0.1em;">Cliente</p>
+                    <p style="margin:0;font-size:15px;font-weight:800;color:#111827;">${quote.clientName || 'Sin Cliente Asignado'}</p>
+                </div>
+                <div style="background:#f9fafb;padding:16px;border-radius:10px;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                        <span style="font-size:11px;color:#6b7280;font-weight:600;">Fecha de emisión</span>
+                        <span style="font-size:11px;font-weight:700;">${new Date(quote.date).toLocaleDateString('es-VE')}</span>
+                    </div>
+                    ${quote.validUntil ? `<div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                        <span style="font-size:11px;color:#6b7280;font-weight:600;">Válida hasta</span>
+                        <span style="font-size:11px;font-weight:700;">${new Date(quote.validUntil).toLocaleDateString('es-VE')}</span>
+                    </div>` : ''}
+                    <div style="display:flex;justify-content:space-between;">
+                        <span style="font-size:11px;color:#6b7280;font-weight:600;">Estado</span>
+                        <span style="font-size:11px;font-weight:800;color:${statusColors[quote.status] || '#111827'};">${statusLabels[quote.status] || quote.status}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLA DE ÍTEMS -->
+            <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+                <thead>
+                    <tr style="background:#1f2937;color:white;">
+                        <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;">Código</th>
+                        <th style="padding:10px 12px;text-align:left;font-size:11px;text-transform:uppercase;">Descripción</th>
+                        <th style="padding:10px 12px;text-align:center;font-size:11px;text-transform:uppercase;">Cant.</th>
+                        <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;">P. Unit. USD</th>
+                        <th style="padding:10px 12px;text-align:right;font-size:11px;text-transform:uppercase;">Subtotal USD</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${quote.items.map((item, i) => `
+                    <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+                        <td style="padding:10px 12px;font-size:11px;font-family:monospace;color:#6b7280;">${item.sku}</td>
+                        <td style="padding:10px 12px;font-size:12px;font-weight:600;">${item.name}</td>
+                        <td style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;">${item.quantity}</td>
+                        <td style="padding:10px 12px;text-align:right;font-size:12px;">$${item.priceFinalUSD.toFixed(2)}</td>
+                        <td style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;">$${(item.priceFinalUSD * item.quantity).toFixed(2)}</td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>
+
+            <!-- TOTALES -->
+            <div style="display:flex;justify-content:flex-end;margin-bottom:24px;">
+                <div style="width:280px;background:#f9fafb;border-radius:10px;padding:16px;">
+                    <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:2px solid #e5e7eb;">
+                        <span style="font-size:14px;font-weight:800;">TOTAL USD</span>
+                        <span style="font-size:18px;font-weight:900;color:#dc2626;">$${totalUSD.toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;margin-top:6px;">
+                        <span style="font-size:11px;color:#6b7280;">Ref. Bs. (${rate.toFixed(2)})</span>
+                        <span style="font-size:11px;font-weight:700;">Bs. ${totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                </div>
+            </div>
+
+            ${quote.notes ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:12px;margin-bottom:20px;">
+                <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;">Observaciones</p>
+                <p style="margin:0;font-size:12px;color:#78350f;">${quote.notes}</p>
+            </div>` : ''}
+
+            <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
+                <p style="margin:0;font-size:11px;color:#9ca3af;">Esta cotización es válida por los días indicados • ${companyName} • Generado el ${new Date().toLocaleString('es-VE')}</p>
+            </div>
+        </div>
+    `;
+
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>Cotización #${quote.number || quote.id.slice(-8).toUpperCase()} — ${companyName}</title>
+        <style>@page{margin:20px;}body{margin:0;padding:20px;background:white;}</style>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    </head><body>${html}</body></html>`);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 500);
+};

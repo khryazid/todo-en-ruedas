@@ -236,6 +236,21 @@ export const Clients = () => {
                             </div>
                             <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1">Dirección Fiscal</label><input className="w-full border-2 border-gray-100 rounded-xl p-3" placeholder="Av. Principal..." value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} /></div>
                             <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1">Email (Opcional)</label><input type="email" className="w-full border-2 border-gray-100 rounded-xl p-3" placeholder="correo@ejemplo.com" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} /></div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">
+                                    Límite de Crédito USD <span className="text-gray-400 font-normal normal-case">(0 = sin límite)</span>
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">$</span>
+                                    <input
+                                        type="number" min="0" step="0.01"
+                                        className="w-full border-2 border-gray-100 rounded-xl p-3 pl-7 font-bold font-mono focus:border-red-200 outline-none"
+                                        placeholder="0.00 = sin límite"
+                                        value={formData.creditLimit ?? ''}
+                                        onChange={e => setFormData({ ...formData, creditLimit: Number(e.target.value) || 0 })}
+                                    />
+                                </div>
+                            </div>
                             <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1">Notas Internas</label><textarea className="w-full border-2 border-gray-100 rounded-xl p-3 h-20 resize-none" placeholder="Preferencias, persona de contacto..." value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} /></div>
                             <button type="submit" className="w-full py-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-black shadow-lg flex items-center justify-center gap-2 mt-2"><Save size={20} /> {isEditing ? 'GUARDAR CAMBIOS' : 'REGISTRAR CLIENTE'}</button>
                         </form>

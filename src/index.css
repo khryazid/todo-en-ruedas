@@ -2,6 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── DARK MODE GLOBAL ──────────────────────────────────────────────────────
+   En modo oscuro, sobrescribimos los fondos y textos más comunes de la app.
+   Esto permite que funcione sin necesidad de añadir dark: a cada componente.
+────────────────────────────────────────────────────────────────────────────── */
+:root {
+  --app-bg: #f9fafb;      /* gray-50 */
+  --surface: #ffffff;
+  --surface-2: #f9fafb;   /* gray-50 */
+  --border: #e5e7eb;       /* gray-200 */
+  --text-primary: #111827; /* gray-900 */
+  --text-secondary: #6b7280;/* gray-500 */
+}
+
+.dark {
+  --app-bg: #030712;       /* gray-950 */
+  --surface: #111827;      /* gray-900 */
+  --surface-2: #1f2937;    /* gray-800 */
+  --border: #374151;       /* gray-700 */
+  --text-primary: #f9fafb; /* gray-50 */
+  --text-secondary: #9ca3af;/* gray-400 */
+}
+
+/* Aplicar al body/main y fondos grises más usados en la app */
+body {
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Fondo gris-50 → app-bg en dark */
+.dark .bg-gray-50 { background-color: var(--surface-2) !important; }
+.dark .bg-white   { background-color: var(--surface) !important; }
+.dark .bg-gray-100 { background-color: #1f2937 !important; }
+
+/* Bordes */
+.dark .border-gray-100 { border-color: #374151 !important; }
+.dark .border-gray-200 { border-color: #374151 !important; }
+
+/* Textos */
+.dark .text-gray-800  { color: #f3f4f6 !important; }
+.dark .text-gray-700  { color: #e5e7eb !important; }
+.dark .text-gray-600  { color: #d1d5db !important; }
+.dark .text-gray-500  { color: #9ca3af !important; }
+.dark .text-gray-400  { color: #6b7280 !important; }
+
+/* Inputs y formularios */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+  border-color: #374151 !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #6b7280 !important; }
+
+/* Cards comunes */
+.dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.5) !important; }
+
 /* --- 1. PERSONALIZACIÓN DEL SCROLLBAR --- */
 /* Un toque sutil para que se vea profesional en listas largas */
 .custom-scrollbar::-webkit-scrollbar {

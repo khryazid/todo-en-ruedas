@@ -58,7 +58,48 @@ export interface Client {
   address?: string;
   email?: string;
   notes?: string;
+  creditLimit?: number; // #2 Límite de crédito
 }
+
+// ─── GASTOS ───────────────────────────────────────────────────────────────────
+// Las categorías base. El usuario puede escribir cualquier texto libre también.
+export const DEFAULT_EXPENSE_CATEGORIES = [
+  'Operativo', 'Nómina', 'Servicios', 'Transporte',
+  'Alquiler', 'Luz', 'Agua', 'Internet', 'Seguro', 'Otro'
+] as const;
+
+export type ExpenseCategory = typeof DEFAULT_EXPENSE_CATEGORIES[number] | string;
+
+export type ExpenseCurrency = 'USD' | 'BS';
+
+export interface Expense {
+  id: string;
+  date: string;           // ISO date yyyy-mm-dd
+  description: string;
+  amountUSD: number;      // Siempre almacenado en USD (conversión si es BS)
+  amountBS?: number;      // Monto original en bolívares (si currency=BS)
+  currency: ExpenseCurrency; // Moneda de ingreso
+  category: ExpenseCategory;
+  paymentMethod: string;
+  userId?: string;
+  sellerName?: string;
+  // Gastos recurrentes
+  isRecurring?: boolean;
+  recurringId?: string;   // ID de la plantilla recurrente a la que pertenece
+}
+
+export interface RecurringExpense {
+  id: string;
+  description: string;
+  category: ExpenseCategory;
+  amountUSD: number;
+  amountBS?: number;
+  currency: ExpenseCurrency;
+  paymentMethod: string;
+  dayOfMonth?: number;    // día del mes para recordatorio (1-31)
+  active: boolean;
+}
+
 
 export interface CartItem extends Product {
   quantity: number;
@@ -73,7 +114,8 @@ export interface QuoteItem {
   sku: string;
   name: string;
   quantity: number;
-  priceFinalUSD: number;
+  priceFinalUSD: number;  // precio de lista
+  discountPct?: number;   // descuento por ítem 0-100
 }
 
 export interface Quote {

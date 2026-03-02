@@ -7,6 +7,7 @@ import { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { printMobileQuote } from '../utils/quoteGenerator';
+import { printQuoteReport } from '../utils/ticketGenerator';
 import {
     FileText, Plus, X, Save, Trash2, Search,
     CheckCircle, XCircle, Clock, Send, Eye, Printer,
@@ -62,7 +63,10 @@ export const Quotes = () => {
         return true;
     });
 
-    const formTotal = formItems.reduce((acc, i) => acc + i.priceFinalUSD * i.quantity, 0);
+    const formTotal = formItems.reduce((acc, i) => {
+        const net = i.priceFinalUSD * (1 - (i.discountPct || 0) / 100);
+        return acc + net * i.quantity;
+    }, 0);
     const selectedClient = clients.find(c => c.id === formClientId);
 
     // Productos filtrados para el buscador del formulario
@@ -99,6 +103,10 @@ export const Quotes = () => {
 
     const updateItemPrice = (productId: string, price: number) => {
         setFormItems(formItems.map(i => i.productId === productId ? { ...i, priceFinalUSD: price } : i));
+    };
+
+    const updateItemDiscount = (productId: string, pct: number) => {
+        setFormItems(formItems.map(i => i.productId === productId ? { ...i, discountPct: Math.min(100, Math.max(0, pct)) } : i));
     };
 
     const resetForm = () => {
@@ -297,27 +305,38 @@ export const Quotes = () => {
                             {formItems.length > 0 && (
                                 <div className="border border-gray-100 rounded-xl overflow-hidden">
                                     <div className="bg-gray-50 px-4 py-2 text-xs font-bold text-gray-500 uppercase grid grid-cols-12 gap-2">
-                                        <span className="col-span-5">Producto</span>
+                                        <span className="col-span-4">Producto</span>
                                         <span className="col-span-2 text-center">Cant.</span>
-                                        <span className="col-span-3 text-center">Precio $</span>
+                                        <span className="col-span-2 text-center">Precio $</span>
+                                        <span className="col-span-2 text-center">Desc.%</span>
                                         <span className="col-span-2 text-right">Sub.</span>
                                     </div>
-                                    {formItems.map(item => (
-                                        <div key={item.productId} className="grid grid-cols-12 gap-2 items-center px-4 py-2 border-t border-gray-50">
-                                            <span className="col-span-5 text-sm font-bold text-gray-700 truncate">{item.name}</span>
-                                            <input type="number" min={1} value={item.quantity}
-                                                onChange={e => updateItemQty(item.productId, parseInt(e.target.value))}
-                                                className="col-span-2 border border-gray-200 rounded-lg text-center p-1 text-sm font-bold w-full"
-                                            />
-                                            <input type="number" min={0} step={0.01} value={item.priceFinalUSD}
-                                                onChange={e => updateItemPrice(item.productId, parseFloat(e.target.value) || 0)}
-                                                className="col-span-3 border border-gray-200 rounded-lg text-center p-1 text-sm font-bold w-full"
-                                            />
-                                            <span className="col-span-2 text-right text-sm font-black text-gray-800">
-                                                {formatCurrency(item.priceFinalUSD * item.quantity, 'USD')}
-                                            </span>
-                                        </div>
-                                    ))}
+                                    {formItems.map(item => {
+                                        const netPrice = item.priceFinalUSD * (1 - (item.discountPct || 0) / 100);
+                                        return (
+                                            <div key={item.productId} className="grid grid-cols-12 gap-2 items-center px-4 py-2 border-t border-gray-50">
+                                                <span className="col-span-4 text-sm font-bold text-gray-700 truncate">{item.name}</span>
+                                                <input type="number" min={1} value={item.quantity}
+                                                    onChange={e => updateItemQty(item.productId, parseInt(e.target.value))}
+                                                    className="col-span-2 border border-gray-200 rounded-lg text-center p-1 text-sm font-bold w-full"
+                                                />
+                                                <input type="number" min={0} step={0.01} value={item.priceFinalUSD}
+                                                    onChange={e => updateItemPrice(item.productId, parseFloat(e.target.value) || 0)}
+                                                    className="col-span-2 border border-gray-200 rounded-lg text-center p-1 text-sm font-bold w-full"
+                                                />
+                                                <div className="col-span-2 relative">
+                                                    <input type="number" min={0} max={100} step={1} value={item.discountPct ?? ''}
+                                                        onChange={e => updateItemDiscount(item.productId, parseFloat(e.target.value) || 0)}
+                                                        placeholder="0"
+                                                        className="border border-red-200 rounded-lg text-center p-1 text-sm font-bold w-full text-red-600 focus:border-red-400 outline-none"
+                                                    />
+                                                </div>
+                                                <span className="col-span-2 text-right text-sm font-black text-gray-800">
+                                                    {formatCurrency(netPrice * item.quantity, 'USD')}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                     <div className="bg-blue-50 px-4 py-3 flex justify-between items-center">
                                         <span className="text-sm font-bold text-blue-700">TOTAL</span>
                                         <span className="text-xl font-black text-blue-900">{formatCurrency(formTotal, 'USD')}</span>
@@ -483,7 +502,14 @@ export const Quotes = () => {
                                     onClick={() => printMobileQuote(viewQuote, settings)}
                                     className="flex-1 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black flex justify-center items-center gap-2 transition"
                                 >
-                                    <Printer size={18} /> Imprimir
+                                    <Printer size={18} /> Ticket
+                                </button>
+                                <button
+                                    onClick={() => printQuoteReport(viewQuote, settings.companyName || 'Todo en Ruedas', settings.tasaBCV || 1)}
+                                    className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 flex justify-center items-center gap-2 transition shadow-lg shadow-red-100"
+                                    title="Generar PDF A4 profesional"
+                                >
+                                    <Printer size={18} /> PDF A4
                                 </button>
                             </div>
                         </div>
