@@ -2,67 +2,438 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── DARK MODE GLOBAL ──────────────────────────────────────────────────────
-   En modo oscuro, sobrescribimos los fondos y textos más comunes de la app.
-   Esto permite que funcione sin necesidad de añadir dark: a cada componente.
-────────────────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK MODE — Sistema de colores completo
+   Principio de diseño: NUNCA texto claro sobre fondo claro en dark mode.
+   
+   Paleta oscura:
+     Fondo página:    #030712  (gray-950)
+     Superficie:      #111827  (gray-900)
+     Superficie 2:    #1f2937  (gray-800)
+     Superficie 3:    #374151  (gray-700)
+     Borde:           #374151  (gray-700)
+     Texto primario:  #f9fafb  (gray-50)
+     Texto secundario:#9ca3af  (gray-400)
+═══════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  --app-bg: #f9fafb;      /* gray-50 */
-  --surface: #ffffff;
-  --surface-2: #f9fafb;   /* gray-50 */
-  --border: #e5e7eb;       /* gray-200 */
-  --text-primary: #111827; /* gray-900 */
-  --text-secondary: #6b7280;/* gray-500 */
+    --app-bg: #f9fafb;
+    --surface: #ffffff;
+    --surface-2: #f9fafb;
+    --surface-3: #f3f4f6;
+    --border: #e5e7eb;
+    --text-1: #111827;
+    --text-2: #4b5563;
+    --text-3: #9ca3af;
 }
 
 .dark {
-  --app-bg: #030712;       /* gray-950 */
-  --surface: #111827;      /* gray-900 */
-  --surface-2: #1f2937;    /* gray-800 */
-  --border: #374151;       /* gray-700 */
-  --text-primary: #f9fafb; /* gray-50 */
-  --text-secondary: #9ca3af;/* gray-400 */
+    --app-bg: #030712;
+    --surface: #111827;
+    --surface-2: #1f2937;
+    --surface-3: #374151;
+    --border: #374151;
+    --text-1: #f9fafb;
+    --text-2: #d1d5db;
+    --text-3: #6b7280;
 }
 
-/* Aplicar al body/main y fondos grises más usados en la app */
+/* ── Base ─────────────────────────────────────────────────────────────────── */
 body {
-  background-color: var(--app-bg);
-  color: var(--text-primary);
-  transition: background-color 0.3s ease, color 0.3s ease;
+    background-color: var(--app-bg);
+    color: var(--text-1);
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Fondo gris-50 → app-bg en dark */
-.dark .bg-gray-50 { background-color: var(--surface-2) !important; }
-.dark .bg-white   { background-color: var(--surface) !important; }
-.dark .bg-gray-100 { background-color: #1f2937 !important; }
+/* ── Fondos neutros ───────────────────────────────────────────────────────── */
+.dark .bg-white {
+    background-color: var(--surface) !important;
+}
 
-/* Bordes */
-.dark .border-gray-100 { border-color: #374151 !important; }
-.dark .border-gray-200 { border-color: #374151 !important; }
+.dark .bg-gray-50 {
+    background-color: var(--surface-2) !important;
+}
 
-/* Textos */
-.dark .text-gray-800  { color: #f3f4f6 !important; }
-.dark .text-gray-700  { color: #e5e7eb !important; }
-.dark .text-gray-600  { color: #d1d5db !important; }
-.dark .text-gray-500  { color: #9ca3af !important; }
-.dark .text-gray-400  { color: #6b7280 !important; }
+.dark .bg-gray-100 {
+    background-color: var(--surface-3) !important;
+}
 
-/* Inputs y formularios */
+.dark .bg-gray-200 {
+    background-color: #374151 !important;
+}
+
+/* ── Bordes ───────────────────────────────────────────────────────────────── */
+.dark .border-gray-50 {
+    border-color: #1f2937 !important;
+}
+
+.dark .border-gray-100 {
+    border-color: #374151 !important;
+}
+
+.dark .border-gray-200 {
+    border-color: #4b5563 !important;
+}
+
+.dark .border-dashed {
+    border-color: #374151 !important;
+}
+
+/* ── Textos grises → equivalentes luminosos en oscuro ────────────────────── */
+.dark .text-black {
+    color: #f9fafb !important;
+}
+
+.dark .text-gray-900 {
+    color: #f9fafb !important;
+}
+
+.dark .text-gray-800 {
+    color: #f3f4f6 !important;
+}
+
+.dark .text-gray-700 {
+    color: #e5e7eb !important;
+}
+
+.dark .text-gray-600 {
+    color: #d1d5db !important;
+}
+
+.dark .text-gray-500 {
+    color: #9ca3af !important;
+}
+
+.dark .text-gray-400 {
+    color: #6b7280 !important;
+}
+
+/* ── Colores de estado: badges (bg-X-50/100 text-X-600/700) ─────────────────
+   Conversión: fondo pastel opaco → rgba semi-transparente
+   El texto cambia de tono oscuro a luminoso para que sea legible           */
+
+/* Naranja / Advertencia */
+.dark .bg-orange-50 {
+    background-color: rgba(234, 88, 12, 0.12) !important;
+}
+
+.dark .bg-orange-100 {
+    background-color: rgba(234, 88, 12, 0.20) !important;
+}
+
+.dark .text-orange-800,
+.dark .text-orange-700 {
+    color: #fb923c !important;
+}
+
+.dark .text-orange-600 {
+    color: #f97316 !important;
+}
+
+.dark .text-orange-500 {
+    color: #f97316 !important;
+}
+
+/* Verde / Éxito */
+.dark .bg-green-50 {
+    background-color: rgba(22, 163, 74, 0.12) !important;
+}
+
+.dark .bg-green-100 {
+    background-color: rgba(22, 163, 74, 0.20) !important;
+}
+
+.dark .text-green-800,
+.dark .text-green-700 {
+    color: #4ade80 !important;
+}
+
+.dark .text-green-600 {
+    color: #22c55e !important;
+}
+
+.dark .text-green-500 {
+    color: #22c55e !important;
+}
+
+/* Rojo / Error / Deuda */
+.dark .bg-red-50 {
+    background-color: rgba(220, 38, 38, 0.12) !important;
+}
+
+.dark .bg-red-100 {
+    background-color: rgba(220, 38, 38, 0.20) !important;
+}
+
+.dark .text-red-800,
+.dark .text-red-700 {
+    color: #f87171 !important;
+}
+
+.dark .text-red-600 {
+    color: #f87171 !important;
+}
+
+.dark .text-red-500 {
+    color: #ef4444 !important;
+}
+
+.dark .text-red-400 {
+    color: #fca5a5 !important;
+}
+
+/* Azul / Info */
+.dark .bg-blue-50 {
+    background-color: rgba(37, 99, 235, 0.12) !important;
+}
+
+.dark .bg-blue-100 {
+    background-color: rgba(37, 99, 235, 0.20) !important;
+}
+
+.dark .text-blue-800,
+.dark .text-blue-700 {
+    color: #60a5fa !important;
+}
+
+.dark .text-blue-600 {
+    color: #60a5fa !important;
+}
+
+.dark .text-blue-500 {
+    color: #3b82f6 !important;
+}
+
+/* Amarillo */
+.dark .bg-yellow-50 {
+    background-color: rgba(202, 138, 4, 0.12) !important;
+}
+
+.dark .bg-yellow-100 {
+    background-color: rgba(202, 138, 4, 0.20) !important;
+}
+
+.dark .text-yellow-800,
+.dark .text-yellow-700 {
+    color: #fbbf24 !important;
+}
+
+.dark .text-yellow-600 {
+    color: #f59e0b !important;
+}
+
+/* Morado */
+.dark .bg-purple-50 {
+    background-color: rgba(147, 51, 234, 0.12) !important;
+}
+
+.dark .bg-purple-100 {
+    background-color: rgba(147, 51, 234, 0.20) !important;
+}
+
+.dark .text-purple-700,
+.dark .text-purple-600 {
+    color: #c084fc !important;
+}
+
+/* Teal / Cian */
+.dark .bg-teal-50 {
+    background-color: rgba(20, 184, 166, 0.12) !important;
+}
+
+.dark .bg-teal-100 {
+    background-color: rgba(20, 184, 166, 0.20) !important;
+}
+
+.dark .text-teal-700,
+.dark .text-teal-600 {
+    color: #2dd4bf !important;
+}
+
+/* ── Hover states ──────────────────────────────────────────────────────────
+   Cuando el hover pone un fondo claro, lo convertimos a oscuro.
+   Siempre especificamos color también para garantizar contraste.           */
+
+/* Fondos grises en hover */
+.dark .hover\:bg-gray-50:hover {
+    background-color: #1f2937 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .hover\:bg-gray-100:hover {
+    background-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .hover\:bg-gray-200:hover {
+    background-color: #4b5563 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .hover\:bg-white:hover {
+    background-color: #1f2937 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .hover\:bg-black:hover {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+}
+
+/* Fondos de colores en hover */
+.dark .hover\:bg-blue-50:hover {
+    background-color: rgba(37, 99, 235, 0.25) !important;
+    color: #93c5fd !important;
+}
+
+.dark .hover\:bg-blue-100:hover {
+    background-color: rgba(37, 99, 235, 0.30) !important;
+    color: #93c5fd !important;
+}
+
+.dark .hover\:bg-red-50:hover {
+    background-color: rgba(220, 38, 38, 0.22) !important;
+    color: #fca5a5 !important;
+}
+
+.dark .hover\:bg-red-100:hover {
+    background-color: rgba(220, 38, 38, 0.32) !important;
+    color: #fca5a5 !important;
+}
+
+.dark .hover\:bg-green-50:hover {
+    background-color: rgba(22, 163, 74, 0.22) !important;
+    color: #86efac !important;
+}
+
+.dark .hover\:bg-green-100:hover {
+    background-color: rgba(22, 163, 74, 0.30) !important;
+    color: #86efac !important;
+}
+
+.dark .hover\:bg-orange-50:hover {
+    background-color: rgba(234, 88, 12, 0.22) !important;
+    color: #fdba74 !important;
+}
+
+.dark .hover\:bg-yellow-50:hover {
+    background-color: rgba(202, 138, 4, 0.22) !important;
+    color: #fde68a !important;
+}
+
+.dark .hover\:bg-purple-50:hover {
+    background-color: rgba(147, 51, 234, 0.22) !important;
+    color: #d8b4fe !important;
+}
+
+/* Hover sobre textos */
+.dark .hover\:text-gray-900:hover {
+    color: #f9fafb !important;
+}
+
+.dark .hover\:text-gray-800:hover {
+    color: #f3f4f6 !important;
+}
+
+.dark .hover\:text-gray-700:hover {
+    color: #e5e7eb !important;
+}
+
+.dark .hover\:text-red-600:hover {
+    color: #f87171 !important;
+}
+
+.dark .hover\:text-red-500:hover {
+    color: #ef4444 !important;
+}
+
+/* ── Group-hover (ProductCard del POS) ───────────────────────────────────── */
+.dark .group:hover .group-hover\:text-red-600 {
+    color: #f87171 !important;
+}
+
+.dark .group:hover .group-hover\:bg-red-600 {
+    background-color: #dc2626 !important;
+    color: white !important;
+}
+
+.dark .group:hover .group-hover\:text-white {
+    color: #ffffff !important;
+}
+
+/* ── Inputs, textareas, selects ───────────────────────────────────────────── */
 .dark input,
 .dark textarea,
 .dark select {
-  background-color: #1f2937 !important;
-  color: #f9fafb !important;
-  border-color: #374151 !important;
+    background-color: var(--surface-2) !important;
+    color: var(--text-1) !important;
+    border-color: var(--border) !important;
 }
+
 .dark input::placeholder,
-.dark textarea::placeholder { color: #6b7280 !important; }
+.dark textarea::placeholder {
+    color: var(--text-3) !important;
+}
 
-/* Cards comunes */
-.dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.5) !important; }
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+    border-color: #4b5563 !important;
+    outline-color: transparent;
+}
 
-/* --- 1. PERSONALIZACIÓN DEL SCROLLBAR --- */
-/* Un toque sutil para que se vea profesional en listas largas */
+/* Dropdowns del select: el fondo del menú desplegable */
+.dark option,
+.dark select option {
+    background-color: #1f2937;
+    color: #f9fafb;
+}
+
+/* ── Sombras ──────────────────────────────────────────────────────────────── */
+.dark .shadow-sm {
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .shadow {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .shadow-md {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .shadow-lg {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7) !important;
+}
+
+.dark .shadow-2xl {
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.8) !important;
+}
+
+.dark .shadow-inner {
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .hover\:shadow-md:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ── Separadores entre filas de tabla ────────────────────────────────────── */
+.dark .divide-gray-50>*+* {
+    border-color: #1f2937 !important;
+}
+
+.dark .divide-gray-100>*+* {
+    border-color: #374151 !important;
+}
+
+.dark .divide-y>*+* {
+    border-color: #374151 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLLBAR PERSONALIZADO
+═══════════════════════════════════════════════════════════════════════════ */
 .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -74,24 +445,21 @@ body {
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
     background-color: #cbd5e1;
-    /* Gris suave */
     border-radius: 20px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background-color: #94a3b8;
-    /* Gris un poco más oscuro al pasar el mouse */
 }
 
-/* --- 2. LÓGICA DE IMPRESIÓN (CRÍTICO PARA TICKETS) --- */
+/* ═══════════════════════════════════════════════════════════════════════════
+   IMPRESIÓN — Crítico para tickets
+═══════════════════════════════════════════════════════════════════════════ */
 @media print {
-
-    /* Ocultar TODO el contenido de la app por defecto */
     body * {
         visibility: hidden;
     }
 
-    /* Mostrar SOLO el área de impresión (generada por ticketGenerator.ts) */
     #print-area,
     #print-area * {
         visibility: visible;
@@ -106,7 +474,6 @@ body {
         padding: 0;
     }
 
-    /* Eliminar encabezados/pies de página automáticos del navegador */
     @page {
         size: auto;
         margin: 0mm;
