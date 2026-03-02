@@ -63,12 +63,13 @@ export const GlobalSearch = () => {
 
     return (
         <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-start justify-center pt-[10vh] p-4 animate-in fade-in duration-150"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-start justify-center pt-[10vh] p-4 animate-in fade-in duration-150"
             onClick={(e) => { if (e.target === e.currentTarget) setIsOpen(false); }}
         >
-            <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-top-4 duration-150">
+            <div className="w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-top-4 duration-150"
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
                 {/* Input */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+                <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
                     <Search size={18} className="text-gray-400 flex-shrink-0" />
                     <input
                         ref={inputRef}
@@ -76,9 +77,10 @@ export const GlobalSearch = () => {
                         value={query}
                         onChange={e => setQuery(e.target.value)}
                         placeholder="Buscar productos, clientes, tickets..."
-                        className="flex-1 outline-none text-gray-800 font-medium text-sm bg-transparent"
+                        className="flex-1 outline-none font-medium text-sm bg-transparent"
+                        style={{ color: 'var(--text-1)' }}
                     />
-                    <button onClick={() => setIsOpen(false)} className="text-gray-300 hover:text-gray-500 transition">
+                    <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-gray-500 transition">
                         <X size={18} />
                     </button>
                 </div>

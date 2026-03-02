@@ -7,6 +7,7 @@ import { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { Link } from 'react-router-dom';
+import { useDarkMode } from '../hooks/useDarkMode';
 import {
   TrendingUp, TrendingDown, DollarSign, Package,
   AlertTriangle, Wallet, Users, BarChart3, ArrowUpRight, ArrowDownRight, AlertOctagon, Award
@@ -18,6 +19,17 @@ import {
 
 export const Dashboard = () => {
   const { sales, products, invoices, clients, settings, currentUserData } = useStore();
+  const { isDark } = useDarkMode();
+
+  // Colores dinámicos para Recharts (SVG no puede leer clases CSS)
+  const chartColors = {
+    tick: isDark ? '#6b7280' : '#9ca3af',
+    grid: isDark ? '#374151' : '#f3f4f6',
+    tooltip: isDark
+      ? { background: '#1f2937', border: '#374151', color: '#f9fafb' }
+      : { background: '#ffffff', border: 'none', color: '#111827' },
+  };
+
   const userRole = currentUserData?.role || 'VIEWER';
   const isSeller = userRole === 'SELLER';
   const isAdminOrManager = userRole === 'ADMIN' || userRole === 'MANAGER';
@@ -248,7 +260,7 @@ export const Dashboard = () => {
           <div className="absolute -right-4 -top-4 opacity-10 text-blue-500"><Users size={100} /></div>
           <div className="relative z-10">
             <p className="text-xs text-blue-500 uppercase font-bold mb-1">Líder del Periodo</p>
-            <h3 className="text-lg font-black text-blue-900 truncate">
+            <h3 className="text-lg font-black text-blue-700 dark:text-blue-300 truncate">
               {topClientsList[0]?.client?.name || 'N/A'}
             </h3>
           </div>
@@ -289,12 +301,20 @@ export const Dashboard = () => {
             </div>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9ca3af', fontWeight: 600 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartColors.grid} />
+                <XAxis dataKey="label" tick={{ fontSize: 10, fill: chartColors.tick, fontWeight: 600 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: chartColors.tick }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
                 <Tooltip
                   formatter={(value) => [`$${value}`, 'Total USD']}
-                  contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: 12 }}
+                  contentStyle={{
+                    borderRadius: 12,
+                    border: `1px solid ${chartColors.tooltip.border}`,
+                    boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.1)',
+                    fontSize: 12,
+                    backgroundColor: chartColors.tooltip.background,
+                    color: chartColors.tooltip.color,
+                  }}
+                  labelStyle={{ color: chartColors.tooltip.color, fontWeight: 700 }}
                 />
                 <Bar dataKey="total" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={48} />
               </BarChart>
@@ -323,8 +343,19 @@ export const Dashboard = () => {
                       <Cell key={index} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => [`$${value}`, '']} contentStyle={{ borderRadius: 12, border: 'none', fontSize: 11, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
+                  <Tooltip
+                    formatter={(value) => [`$${value}`, '']}
+                    contentStyle={{
+                      borderRadius: 12,
+                      border: `1px solid ${chartColors.tooltip.border}`,
+                      fontSize: 11,
+                      boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.1)',
+                      backgroundColor: chartColors.tooltip.background,
+                      color: chartColors.tooltip.color,
+                    }}
+                    labelStyle={{ color: chartColors.tooltip.color }}
+                  />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8, color: chartColors.tick }} />
                 </PieChart>
               </ResponsiveContainer>
             )}
