@@ -9,7 +9,7 @@ import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { Link } from 'react-router-dom';
 import { useDarkMode } from '../hooks/useDarkMode';
 import {
-  TrendingUp, TrendingDown, DollarSign, Package,
+  TrendingDown, DollarSign, Package,
   AlertTriangle, Wallet, Users, BarChart3, ArrowUpRight, ArrowDownRight, AlertOctagon, Award
 } from 'lucide-react';
 import {
@@ -100,7 +100,7 @@ export const Dashboard = () => {
   const lowStock = products.filter(p => p.stock > 0 && p.stock <= p.minStock);
 
   // --- 6. PROYECCIÓN DE INVENTARIO ---
-  const inventoryStats = useMemo(() => {
+  const inventoryStats = (() => {
     let totalInvested = 0;
     let totalRevenuePotential = 0;
     products.forEach(p => {
@@ -109,10 +109,10 @@ export const Dashboard = () => {
       totalRevenuePotential += p.stock * prices.finalPriceUSD;
     });
     return { invested: totalInvested, revenue: totalRevenuePotential, profit: totalRevenuePotential - totalInvested };
-  }, [products, settings]);
+  })();
 
   // --- 7. ANÁLISIS DE PRODUCTOS (CORREGIDO) ---
-  const productPerformance = useMemo(() => {
+  const productPerformance = (() => {
     const salesMap: Record<string, number> = {};
 
     filteredSales.forEach(sale => {
@@ -134,10 +134,10 @@ export const Dashboard = () => {
       bestSellers: [...ranked].sort((a, b) => b.soldQuantity - a.soldQuantity).slice(0, 5),
       worstSellers: [...ranked].filter(p => p.stock > 0).sort((a, b) => a.soldQuantity - b.soldQuantity).slice(0, 5)
     };
-  }, [filteredSales, products]);
+  })();
 
   // --- 8. TOP CLIENTES ---
-  const topClientsList = useMemo(() => {
+  const topClientsList = (() => {
     const clientMap: Record<string, number> = {};
 
     filteredSales.forEach(sale => {
@@ -153,10 +153,10 @@ export const Dashboard = () => {
         client: clients.find(c => c.id === id),
         amount
       }));
-  }, [filteredSales, clients]);
+  })();
 
   // --- 9. DATOS PARA GRÁFICAS (solo Admin/Manager) ---
-  const chartData = useMemo(() => {
+  const chartData = (() => {
     if (!isAdminOrManager) return [];
     const days: { label: string; total: number; date: string }[] = [];
     for (let i = 6; i >= 0; i--) {
@@ -173,11 +173,11 @@ export const Dashboard = () => {
       });
     }
     return days;
-  }, [sales, isAdminOrManager]);
+  })();
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
-  const paymentData = useMemo(() => {
+  const paymentData = (() => {
     if (!isAdminOrManager) return [];
     const methodMap: Record<string, number> = {};
     filteredSales.forEach(s => {
@@ -185,7 +185,7 @@ export const Dashboard = () => {
       methodMap[m] = (methodMap[m] || 0) + s.totalUSD;
     });
     return Object.entries(methodMap).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
-  }, [filteredSales, isAdminOrManager]);
+  })();
 
   return (
     <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen animate-in fade-in duration-300">
@@ -202,7 +202,7 @@ export const Dashboard = () => {
         <div className="flex flex-col md:flex-row gap-2 w-full xl:w-auto">
           <div className="flex bg-gray-100 p-1 rounded-xl">
             {['today', 'week', 'month', 'custom'].map((t) => (
-              <button key={t} onClick={() => setFilterType(t as any)} className={`px-4 py-2 rounded-lg text-xs font-bold transition ${filterType === t ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
+              <button key={t} onClick={() => setFilterType(t as "today" | "week" | "month" | "custom")} className={`px-4 py-2 rounded-lg text-xs font-bold transition ${filterType === t ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>
                 {t === 'today' ? 'Hoy' : t === 'week' ? 'Semana' : t === 'month' ? 'Mes' : 'Rango'}
               </button>
             ))}

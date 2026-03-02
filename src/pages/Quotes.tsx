@@ -11,7 +11,7 @@ import { printQuoteReport } from '../utils/ticketGenerator';
 import {
     FileText, Plus, X, Save, Trash2, Search,
     CheckCircle, XCircle, Clock, Send, Eye, Printer,
-    AlertCircle, ChevronDown, ShoppingBag, MessageCircle
+    AlertCircle, ShoppingBag, MessageCircle
 } from 'lucide-react';
 import type { Quote, QuoteItem, QuoteStatus } from '../types';
 

@@ -4,13 +4,12 @@
  */
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// No router hooks needed here anymore
 import { useStore } from '../store/useStore';
 import { Building2, User, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const Setup = () => {
-    const navigate = useNavigate();
     const setupFirstAdmin = useStore(s => s.setupFirstAdmin);
 
     const [isLoading, setIsLoading] = useState(false);
@@ -125,7 +124,7 @@ export const Setup = () => {
                             <div className="flex gap-2">
                                 <select
                                     value={formData.rifType}
-                                    onChange={(e) => setFormData({ ...formData, rifType: e.target.value as any })}
+                                    onChange={(e) => setFormData({ ...formData, rifType: e.target.value as 'J' | 'V' | 'E' | 'G' | 'P' })}
                                     className="w-1/4 px-3 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
                                 >
                                     <option value="J" className="text-gray-900">J</option>

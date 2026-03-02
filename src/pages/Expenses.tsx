@@ -7,12 +7,12 @@
  *   - Autor: muestra quién registró el gasto
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import {
-    TrendingDown, Plus, Edit, Trash2, X, Save, Filter,
-    Download, CalendarClock, RefreshCw, DollarSign, User, ChevronDown
+    TrendingDown, Plus, Edit, Trash2, X, Save,
+    Download, CalendarClock, RefreshCw, User, ChevronDown
 } from 'lucide-react';
 import type { Expense, RecurringExpense, ExpenseCurrency } from '../types';
 import { DEFAULT_EXPENSE_CATEGORIES } from '../types';
@@ -54,6 +54,7 @@ export const Expenses = () => {
     // Filtros
     const [period, setPeriod] = useState<Period>('month');
     const [filterCat, setFilterCat] = useState<string>('ALL');
+    const [selectedSellerTerm, setSelectedSellerTerm] = useState<string>('ALL');
 
     // Modal de agregar/editar
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,16 +94,25 @@ export const Expenses = () => {
 
     // ─── Datos filtrados ───────────────────────────────────────────────────────
     const periodExpenses = useMemo(() => filterByPeriod(expenses, period), [expenses, period]);
-    const displayed = useMemo(() =>
-        filterCat === 'ALL' ? periodExpenses : periodExpenses.filter(e => e.category === filterCat),
-        [periodExpenses, filterCat]
-    );
+    const displayed = useMemo(() => {
+        let filtered = filterCat === 'ALL' ? periodExpenses : periodExpenses.filter(e => e.category === filterCat);
+        if (selectedSellerTerm !== 'ALL') {
+            filtered = filtered.filter(e => (e.sellerName || 'Sistema') === selectedSellerTerm);
+        }
+        return filtered;
+    }, [periodExpenses, filterCat, selectedSellerTerm]);
 
     const totalUSD = useMemo(() => displayed.reduce((a, e) => a + e.amountUSD, 0), [displayed]);
 
     const allCategories = useMemo(() => {
         const cats = new Set(expenses.map(e => e.category));
         return ['ALL', ...DEFAULT_EXPENSE_CATEGORIES.filter(c => cats.has(c) || true)];
+    }, [expenses]);
+
+    // Lista única de vendedores para el filtro
+    const allSellers = useMemo(() => {
+        const sellers = new Set(expenses.map(e => e.sellerName || 'Sistema').filter(Boolean));
+        return Array.from(sellers);
     }, [expenses]);
 
     // ─── Handlers de form ──────────────────────────────────────────────────────
@@ -271,15 +281,34 @@ export const Expenses = () => {
                     })}
                 </div>
 
-                {/* FILTRO CATEGORÍA */}
-                <div className="flex gap-2 flex-wrap">
-                    {allCategories.map(cat => (
-                        <button key={cat} onClick={() => setFilterCat(cat)}
-                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${filterCat === cat ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}
-                        >
-                            {cat === 'ALL' ? 'Todas las categorías' : cat}
-                        </button>
-                    ))}
+                {/* FILTRO CATEGORÍA Y VENDEDOR */}
+                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                    <div className="flex gap-2 flex-wrap flex-1">
+                        {allCategories.map(cat => (
+                            <button key={cat} onClick={() => setFilterCat(cat)}
+                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${filterCat === cat ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}
+                            >
+                                {cat === 'ALL' ? 'Todas las categorías' : cat}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="w-full md:w-64">
+                        <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                            <select
+                                className="w-full pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 outline-none focus:border-red-300 appearance-none cursor-pointer"
+                                value={selectedSellerTerm}
+                                onChange={e => setSelectedSellerTerm(e.target.value)}
+                            >
+                                <option value="ALL">👤 Todos los Usuarios</option>
+                                {allSellers.map(seller => (
+                                    <option key={seller} value={seller}>{seller}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                        </div>
+                    </div>
                 </div>
 
                 {/* TABLA */}

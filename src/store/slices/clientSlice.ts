@@ -6,9 +6,9 @@
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { Client } from '../../types';
-import type { SetState, GetState } from '../types';
+import type { SetState } from '../types';
 
-export const createClientSlice = (set: SetState, _get: GetState) => ({
+export const createClientSlice = (set: SetState) => ({
 
   clients: [] as Client[],
 

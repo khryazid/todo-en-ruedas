@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import {
-    FileText, CheckCircle, Clock, TrendingDown,
+    FileText, TrendingDown,
     Save, X, Trash2, Edit, History, Truck, Wallet, RefreshCw, Zap, Filter, Search
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
@@ -27,18 +27,27 @@ export const Invoices = () => {
     const [statusFilter, setStatusFilter] = useState('ALL');
 
     useEffect(() => {
-        if (paymentMethods.length > 0) setPaymentMethod(paymentMethods[0].name);
+        if (paymentMethods.length > 0) {
+            setTimeout(() => setPaymentMethod(paymentMethods[0].name), 0);
+        }
     }, [paymentMethods]);
 
+    const openDetailModal = (invoice: Invoice) => {
+        setEditingInvoice(JSON.parse(JSON.stringify(invoice)));
+        setIsDetailModalOpen(true);
+    };
+
     useEffect(() => {
-        if (location.state?.openInvoiceId) {
+        if (location.state?.openInvoiceId && invoices.length > 0) {
             const target = invoices.find(inv => inv.id === location.state.openInvoiceId);
-            if (target) openDetailModal(target);
+            if (target && target.id !== selectedInvoice?.id) {
+                setTimeout(() => openDetailModal(target), 0);
+            }
         }
-    }, [location.state, invoices]);
+    }, [location.state, invoices, selectedInvoice?.id]);
 
     const filteredInvoices = useMemo(() => {
-        let filtered = invoices.filter(inv => {
+        const filtered = invoices.filter(inv => {
             const matchesSearch = inv.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (inv.supplier || '').toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus = statusFilter === 'ALL' || inv.status === statusFilter;
@@ -58,18 +67,13 @@ export const Invoices = () => {
         setIsPaymentModalOpen(true);
     };
 
-    const openDetailModal = (invoice: Invoice) => {
-        setEditingInvoice(JSON.parse(JSON.stringify(invoice)));
-        setIsDetailModalOpen(true);
-    };
-
     const handleDeleteInvoice = (id: string) => {
         if (window.confirm('🚨 ¿Seguro que deseas ELIMINAR esta factura?\nEsto NO alterará el stock actual del inventario.')) {
             deleteInvoice(id);
         }
     };
 
-    const handleItemChange = (index: number, field: keyof IncomingItem, value: any) => {
+    const handleItemChange = (index: number, field: keyof IncomingItem, value: string | number) => {
         if (!editingInvoice) return;
         const newItems = [...editingInvoice.items];
         newItems[index] = { ...newItems[index], [field]: value };

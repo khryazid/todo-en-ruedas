@@ -102,25 +102,25 @@ export const Inventory = () => {
             tax: invoiceData.taxTotalUSD || 0
           });
 
-          setInvoiceItems(invoiceData.items.map((item: any) => ({
+          setInvoiceItems(invoiceData.items.map((item: { sku?: string; name?: string; quantity?: number | string; costUnitUSD?: number | string }) => ({
             id: Date.now().toString() + Math.random(),
             sku: item.sku || '',
             name: item.name || '',
-            quantity: typeof item.quantity === 'number' ? item.quantity : parseFloat(item.quantity) || 1,
-            costUnitUSD: typeof item.costUnitUSD === 'number' ? item.costUnitUSD : parseFloat(item.costUnitUSD) || 0,
+            quantity: typeof item.quantity === 'number' ? item.quantity : parseFloat(String(item.quantity || '1')) || 1,
+            costUnitUSD: typeof item.costUnitUSD === 'number' ? item.costUnitUSD : parseFloat(String(item.costUnitUSD || '0')) || 0,
             minStock: 0
           })));
 
           toast.success("¡Factura extraída con éxito! ✨ Revisa los datos.");
-        } catch (innerError: any) {
-          toast.error("Error del modelo: " + innerError.message);
+        } catch (innerError: unknown) {
+          toast.error("Error del modelo: " + (innerError as Error).message);
         } finally {
           setIsScanning(false);
           toast.dismiss(loadingToast);
         }
       };
-    } catch (err: any) {
-      toast.error("Error al procesar archivo: " + err.message);
+    } catch (err: unknown) {
+      toast.error("Error al procesar archivo: " + (err as Error).message);
       setIsScanning(false);
       toast.dismiss(loadingToast);
     } finally {
@@ -160,7 +160,7 @@ export const Inventory = () => {
     setTempItem({ sku: '', name: '', quantity: 1, cost: 0, minStock: 0 });
   };
 
-  const handleInvoiceItemChange = (index: number, field: keyof IncomingItem, value: any) => {
+  const handleInvoiceItemChange = (index: number, field: keyof IncomingItem, value: string | number) => {
     const newItems = [...invoiceItems];
     newItems[index] = { ...newItems[index], [field]: value };
     setInvoiceItems(newItems);

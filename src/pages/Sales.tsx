@@ -10,7 +10,6 @@ import { usePermissions } from '../hooks/usePermissions';
 import { formatCurrency } from '../utils/pricing';
 import { printInvoice, printSalesList, sendToWhatsApp, printSalesReportA4 } from '../utils/ticketGenerator';
 import { exportToCSV } from '../utils/exportCSV';
-import toast from 'react-hot-toast';
 import {
     Eye, Search, Printer, Ban,
     X, ShoppingBag, User, Phone, MapPin, MessageCircle, Trash2, Download, RotateCcw
@@ -18,7 +17,7 @@ import {
 import type { Sale } from '../types';
 
 export const Sales = () => {
-    const { sales, clients, annulSale, deleteSale, addReturn, products, suppliers, settings } = useStore();
+    const { sales, clients, annulSale, deleteSale, addReturn, products, settings } = useStore();
     const { isAdmin, isManager, role } = usePermissions();
     const currentUserData = useStore(s => s.currentUserData);
     const isSeller = role === 'SELLER';
@@ -27,6 +26,7 @@ export const Sales = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [selectedSellerTerm, setSelectedSellerTerm] = useState('ALL');
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
     // Estados modal de Devolución
@@ -51,12 +51,15 @@ export const Sales = () => {
         // Filtramos por ID de venta O por Nombre de Cliente
         const matchTerm = sale.id.toLowerCase().includes(searchTerm.toLowerCase()) || clientName.includes(searchTerm.toLowerCase());
 
+        // Filtro Vendedor (solo si no es SELLER, porque ellos ya están filtrados arriba)
+        const matchSeller = isSeller || selectedSellerTerm === 'ALL' || (sale.sellerName || 'Admin') === selectedSellerTerm;
+
         // Filtro de Fechas
         if (startDate && endDate) {
             const sDate = new Date(sale.date).toISOString().split('T')[0];
-            return matchTerm && sDate >= startDate && sDate <= endDate;
+            return matchTerm && matchSeller && sDate >= startDate && sDate <= endDate;
         }
-        return matchTerm;
+        return matchTerm && matchSeller;
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const handlePrintReport = () => {
@@ -115,7 +118,7 @@ export const Sales = () => {
         if (!returnSale) return;
 
         const itemsToReturn = returnType === 'FULL'
-            ? returnSale.items.map((item, i) => ({
+            ? returnSale.items.map((item) => ({
                 productId: products.find(p => p.sku === item.sku)?.id,
                 sku: item.sku,
                 name: item.name,
@@ -218,6 +221,26 @@ export const Sales = () => {
                         <input type="date" className="w-full py-2.5 px-3 bg-gray-50 rounded-xl text-sm font-bold text-gray-700" value={endDate} onChange={e => setEndDate(e.target.value)} />
                     </div>
                 </div>
+                {!isSeller && (
+                    <div className="flex-1 lg:w-48">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase">Vendedor</label>
+                        <div className="relative">
+                            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                            <select
+                                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border-none rounded-xl outline-none focus:ring-2 focus:ring-red-100 font-medium appearance-none cursor-pointer"
+                                value={selectedSellerTerm}
+                                onChange={e => setSelectedSellerTerm(e.target.value)}
+                            >
+                                <option value="ALL">Todos los usuarios</option>
+                                <option value="Admin">Admin</option>
+                                {/* Extraer nombres únicos de vendedores del historial para crear opciones dinámicas */}
+                                {Array.from(new Set(sales.map(s => s.sellerName).filter(Boolean))).map(seller => (
+                                    <option key={seller} value={seller}>{seller}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* TABLA PRINCIPAL */}

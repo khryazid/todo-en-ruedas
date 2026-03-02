@@ -5,14 +5,14 @@
  * y visualización detallada de tickets con funciones de impresión y WhatsApp.
  */
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import { printInvoice, sendToWhatsApp } from '../utils/ticketGenerator';
 import {
     Users, Search, Plus, Edit, Trash2,
-    Phone, Mail, MapPin, X, Save,
-    ShoppingBag, Calendar, TrendingUp, Award, Clock,
+    Phone, MapPin, X, Save,
+    ShoppingBag, Award, Clock,
     Eye, Printer, Ban, MessageCircle, User, AlertTriangle
 } from 'lucide-react';
 import type { Client, Sale } from '../types';
@@ -72,7 +72,7 @@ export const Clients = () => {
             updateClient(formData.id, formData);
             alert("Cliente actualizado");
         } else {
-            addClient({ ...formData, id: Date.now().toString() });
+            addClient({ ...formData, id: crypto.randomUUID() });
             alert("Cliente registrado exitosamente");
         }
         closeModal();

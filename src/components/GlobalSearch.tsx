@@ -29,12 +29,13 @@ export const GlobalSearch = () => {
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    // Auto-focus al abrir
+    // Auto-focus y reset
     useEffect(() => {
         if (isOpen) {
             setTimeout(() => inputRef.current?.focus(), 50);
         } else {
-            setQuery('');
+            // Evitar setState sincrónico dentro del effect al cerrar
+            setTimeout(() => setQuery(''), 0);
         }
     }, [isOpen]);
 

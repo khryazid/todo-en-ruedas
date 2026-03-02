@@ -188,6 +188,37 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     } catch (e) { console.warn('fetchQuotes:', e); }
     try {
       await get().fetchExpenses();
+
+      // ✅ FUNCIONALIDAD PENDIENTE IMPLEMENTADA: Alerta de gastos recurrentes al iniciar sesión
+      const expenses = get().expenses;
+      const today = new Date();
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+
+      // Buscamos gastos que estén marcados como recurrentes
+      const recurringExpensesDef = expenses.filter(e => e.isRecurring);
+
+      // Filtramos cuáles de esos gastos NO han sido pagados este mes
+      const unpaidRecurring = recurringExpensesDef.filter(recurring => {
+        // Buscamos si existe un pago para esta categoría recurrente en el mes actual
+        const hasPaidThisMonth = expenses.some(e => {
+          const expenseDate = new Date(e.date);
+          return e.category === recurring.category &&
+            expenseDate.getMonth() === currentMonth &&
+            expenseDate.getFullYear() === currentYear &&
+            e.id !== recurring.id; // Asegurarse de no contarse a sí mismo si ya se registró hoy
+        });
+        return !hasPaidThisMonth;
+      });
+
+      if (unpaidRecurring.length > 0) {
+        const uniqueCategories = Array.from(new Set(unpaidRecurring.map(e => e.category)));
+        toast('Tienes gastos recurrentes pendientes este mes:\n' + uniqueCategories.join(', '), {
+          icon: '🗓️',
+          duration: 8000
+        });
+      }
+
     } catch (e) { console.warn('fetchExpenses:', e); }
   },
 });

@@ -68,7 +68,7 @@ function App() {
 
   useEffect(() => {
     checkSession();
-  }, []);
+  }, [checkSession]);
 
   // Mostrar loader mientras verifica sesión o setup
   if (isLoading || isChecking) {

@@ -6,7 +6,7 @@
 import toast from 'react-hot-toast';
 import { supabase } from '../../supabase/client';
 import type { SetState, GetState } from '../types';
-import type { Quote, QuoteItem, Sale } from '../../types';
+import type { Quote, Sale } from '../../types';
 
 export interface QuoteSlice {
     quotes: Quote[];
@@ -28,20 +28,20 @@ export const createQuoteSlice = (set: SetState, get: GetState): QuoteSlice => ({
 
         if (error) { console.error('Error fetching quotes:', error); return; }
 
-        const mapped: Quote[] = (data || []).map((r: any) => ({
-            id: r.id,
-            number: r.number,
-            date: r.date,
-            validUntil: r.valid_until,
-            clientId: r.client_id,
-            clientName: r.client_name,
-            items: r.items || [],
-            totalUSD: r.total_usd,
-            totalBs: r.total_bs,
-            notes: r.notes,
-            status: r.status,
-            userId: r.user_id,
-            sellerName: r.seller_name,
+        const mapped: Quote[] = (data || []).map((r: Record<string, unknown>) => ({
+            id: r.id as string,
+            number: r.number as string,
+            date: r.date as string,
+            validUntil: r.valid_until as string,
+            clientId: r.client_id as string,
+            clientName: r.client_name as string,
+            items: (r.items as unknown) as Quote["items"] || [],
+            totalUSD: r.total_usd as number,
+            totalBs: r.total_bs as number,
+            notes: r.notes as string,
+            status: r.status as Quote["status"],
+            userId: r.user_id as string,
+            sellerName: r.seller_name as string,
         }));
 
         set({ quotes: mapped });

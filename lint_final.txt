@@ -1,0 +1,34 @@
+
+> todo-en-ruedas@0.0.0 lint
+> eslint .
+
+
+C:\Users\Khris\todo-en-ruedas\src\pages\DailyClose.tsx
+  82:11  error  'paymentMethodBreakdown' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx
+  115:30  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:115:30
+  113 |
+  114 |   // --- 7. AN├üLISIS DE PRODUCTOS (CORREGIDO) ---
+> 115 |   const productPerformance = useMemo(() => {
+      |                              ^^^^^^^^^^^^^^^
+> 116 |     const salesMap: Record<string, number> = {};
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 117 |
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 136 |     };
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 137 |   })();
+      | ^^^^^ Could not preserve existing memoization
+  138 |
+  139 |   // --- 8. TOP CLIENTES ---
+  140 |   const topClientsList = (() => {  react-hooks/preserve-manual-memoization
+  115:30  warning  React Hook useMemo does nothing when called with only one argument. Did you forget to pass an array of dependencies?                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react-hooks/exhaustive-deps
+
+Γ£û 3 problems (2 errors, 1 warning)
+

@@ -4,7 +4,7 @@
  * OPTIMIZADO V2: Usa Inyección CSS para evitar páginas en blanco en móviles.
  */
 
-import type { Sale, AppSettings, PaymentMethod, Client } from '../types';
+import type { Sale, PaymentMethod, Client } from '../types';
 import { useStore } from '../store/useStore';
 
 // --- 1. FUNCIÓN MAESTRA DE IMPRESIÓN (CSS INJECTION) ---
@@ -201,7 +201,6 @@ export const printTicket = (data: CloseReportProps) => {
 
 // --- 4. IMPRIMIR LISTA DE VENTAS (HISTORIAL) ---
 export const printSalesList = (sales: Sale[], startDate: string, endDate: string) => {
-    const { settings, clients } = useStore.getState();
     const totalUSD = sales.reduce((acc, sale) => acc + sale.totalUSD, 0);
 
     const html = `
@@ -499,7 +498,7 @@ export const printQuoteReport = (quote: Quote, companyName: string, rate: number
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF INVENTARIO A4
 // ─────────────────────────────────────────────────────────────────────────────
-export const printInventoryReportA4 = (products: any[], companyName: string) => {
+export const printInventoryReportA4 = (products: { sku: string; name: string; category?: string; cost?: number; costo?: number; stock: number; minStock?: number; }[], companyName: string) => {
     let html = `
         <div style="font-family:Inter,system-ui,sans-serif;max-width:800px;margin:0 auto;color:#111827;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:20px;border-bottom:3px solid #dc2626;">
@@ -562,7 +561,7 @@ export const printInventoryReportA4 = (products: any[], companyName: string) => 
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF HISTORIAL DE VENTAS A4
 // ─────────────────────────────────────────────────────────────────────────────
-export const printSalesReportA4 = (sales: any[], companyName: string) => {
+export const printSalesReportA4 = (sales: { date: string; localId?: string; id: string; clientName?: string; totalUSD: number; items?: { quantity: number; }[]; }[], companyName: string) => {
     let html = `
         <div style="font-family:Inter,system-ui,sans-serif;max-width:800px;margin:0 auto;color:#111827;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:20px;border-bottom:3px solid #dc2626;">
@@ -592,7 +591,7 @@ export const printSalesReportA4 = (sales: any[], companyName: string) => {
     const totalSalesUSD = sales.reduce((acc, sale) => acc + (sale.totalUSD || 0), 0);
 
     sales.forEach((s, i) => {
-        const itemQty = s.items?.reduce((acc: number, item: any) => acc + item.quantity, 0) || 0;
+        const itemQty = s.items?.reduce((acc: number, item: { quantity: number; }) => acc + item.quantity, 0) || 0;
         html += `
             <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f9fafb'}; border-bottom:1px solid #e5e7eb;">
                 <td style="padding:8px 10px;font-size:11px;color:#374151;">${new Date(s.date).toLocaleString('es-VE')}</td>

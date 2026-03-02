@@ -1,0 +1,160 @@
+
+> todo-en-ruedas@0.0.0 lint
+> eslint .
+
+
+C:\Users\Khris\todo-en-ruedas\src\components\QuickClientModal.tsx
+   9:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  60:18  error  'error' is defined but never used         @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\components\layout\TopBar.tsx
+  131:88  error  Empty block statement  no-empty
+  138:93  error  Empty block statement  no-empty
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Audit.tsx
+  62:63  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+  79:39  warning  React Hook useEffect has a missing dependency: 'fetchLogs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Clients.tsx
+  75:42  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Clients.tsx:75:42
+  73 |             alert("Cliente actualizado");
+  74 |         } else {
+> 75 |             addClient({ ...formData, id: Date.now().toString() });
+     |                                          ^^^^^^^^^^ Cannot call impure function
+  76 |             alert("Cliente registrado exitosamente");
+  77 |         }
+  78 |         closeModal();  react-hooks/purity
+
+C:\Users\Khris\todo-en-ruedas\src\pages\DailyClose.tsx
+  106:36  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\Khris\todo-en-ruedas\src\pages\DailyClose.tsx:106:36
+  104 |         if (window.confirm(confirmMessage)) {
+  105 |             let nextSequenceNumber: number | null = null;
+> 106 |             let reportIdentifier = Date.now().toString().slice(-6);
+      |                                    ^^^^^^^^^^ Cannot call impure function
+  107 |
+  108 |             if (reportType === 'Z') {
+  109 |                 const newCloseResult = await performDailyClose({  react-hooks/purity
+  184:33  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\Khris\todo-en-ruedas\src\pages\DailyClose.tsx:184:33
+  182 |         });
+  183 |
+> 184 |         const currentReportId = Date.now().toString().slice(-6);
+      |                                 ^^^^^^^^^^ Cannot call impure function
+  185 |         printDailyCloseReport({
+  186 |             type: reportType,
+  187 |             date: new Date().toLocaleString('es-VE'),                                                                                       react-hooks/purity
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx
+  137:6   warning  React Hook useMemo has an unnecessary dependency: 'settings'. Either exclude it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                react-hooks/exhaustive-deps
+  137:7   error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This dependency may be mutated later, which could cause the value to change unexpectedly.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:137:7
+  135 |       worstSellers: [...ranked].filter(p => p.stock > 0).sort((a, b) => a.soldQuantity - b.soldQuantity).slice(0, 5)
+  136 |     };
+> 137 |   }, [filteredSales, products, settings]);
+      |       ^^^^^^^^^^^^^ This dependency may be modified later
+  138 |
+  139 |   // --- 8. TOP CLIENTES ---
+  140 |   const topClientsList = useMemo(() => {                                                                                                                                                                                                                                                                                  react-hooks/preserve-manual-memoization
+  140:26  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:140:26
+  138 |
+  139 |   // --- 8. TOP CLIENTES ---
+> 140 |   const topClientsList = useMemo(() => {
+      |                          ^^^^^^^^^^^^^^^
+> 141 |     const clientMap: Record<string, number> = {};
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 142 |
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |       }));
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |   }, [filteredSales, clients]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Could not preserve existing memoization
+  157 |
+  158 |   // --- 9. DATOS PARA GR├üFICAS (solo Admin/Manager) ---
+  159 |   const chartData = useMemo(() => {  react-hooks/preserve-manual-memoization
+  156:7   error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This dependency may be mutated later, which could cause the value to change unexpectedly.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:156:7
+  154 |         amount
+  155 |       }));
+> 156 |   }, [filteredSales, clients]);
+      |       ^^^^^^^^^^^^^ This dependency may be modified later
+  157 |
+  158 |   // --- 9. DATOS PARA GR├üFICAS (solo Admin/Manager) ---
+  159 |   const chartData = useMemo(() => {                                                                                                                                                                                                                                                                                                                                                                        react-hooks/preserve-manual-memoization
+  188:7   error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This dependency may be mutated later, which could cause the value to change unexpectedly.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:188:7
+  186 |     });
+  187 |     return Object.entries(methodMap).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
+> 188 |   }, [filteredSales, isAdminOrManager]);
+      |       ^^^^^^^^^^^^^ This dependency may be modified later
+  189 |
+  190 |   return (
+  191 |     <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen animate-in fade-in duration-300">                                                                                                                                                                                                                                                 react-hooks/preserve-manual-memoization
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Expenses.tsx
+  10:29  error  'useEffect' is defined but never used   @typescript-eslint/no-unused-vars
+  14:48  error  'Filter' is defined but never used      @typescript-eslint/no-unused-vars
+  15:41  error  'DollarSign' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Inventory.tsx
+  105:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  122:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  163:85  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Invoices.tsx
+  47:8  warning  React Hook useEffect has a missing dependency: 'selectedInvoice?.id'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Quotes.tsx
+  14:18  error  'ChevronDown' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Setup.tsx
+   13:11   error  'navigate' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  128:108  error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Users.tsx
+  16:29  error  'isAdmin' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\store\slices\cartSlice.ts
+  7:25  error  'GetState' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\store\slices\clientSlice.ts
+  9:25  error  'GetState' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\store\slices\expenseSlice.ts
+  9:25  error  'GetState' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\utils\ticketGenerator.ts
+  501:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  564:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  594:61  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Khris\todo-en-ruedas\supabase\functions\process-invoice\index.ts
+  93:14  error  'parseError' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 33 problems (30 errors, 3 warnings)
+

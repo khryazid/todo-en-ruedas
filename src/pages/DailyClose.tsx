@@ -44,7 +44,7 @@ export const DailyClose = () => {
         fetchHistory();
     }, [settings.lastCloseDate]);
 
-    useEffect(() => { fetchExpenses(); }, []); // Re-fetch cuando se hace un nuevo cierre
+    useEffect(() => { fetchExpenses(); }, [fetchExpenses]); // Re-fetch cuando se hace un nuevo cierre
 
     // --- LÓGICA DE CORTE DE TURNO ---
     const lastClose = useMemo(() =>
@@ -79,7 +79,7 @@ export const DailyClose = () => {
     const totalExpensesUSD = shiftExpenses.reduce((acc, e) => acc + e.amountUSD, 0);
     const netProfitUSD = totalUSD - totalExpensesUSD;
 
-    const breakdown = useMemo(() => {
+    const breakdown = (() => {
         const map: Record<string, number> = {};
         paymentMethods.forEach(pm => map[pm.name] = 0);
         currentShiftSales.forEach(sale => {
@@ -90,7 +90,7 @@ export const DailyClose = () => {
             }
         });
         return map;
-    }, [currentShiftSales, paymentMethods]);
+    })();
 
     const handlePrint = async () => {
         if (reportType === 'X' && currentShiftSales.length === 0) {
@@ -103,7 +103,7 @@ export const DailyClose = () => {
 
         if (window.confirm(confirmMessage)) {
             let nextSequenceNumber: number | null = null;
-            let reportIdentifier = Date.now().toString().slice(-6);
+            let reportIdentifier = crypto.randomUUID().slice(-6);
 
             if (reportType === 'Z') {
                 const newCloseResult = await performDailyClose({
@@ -181,6 +181,7 @@ export const DailyClose = () => {
             sellerBreakdown[name].totalUSD += s.totalUSD;
         });
 
+        const currentReportId = crypto.randomUUID().slice(-6);
         printDailyCloseReport({
             type: reportType,
             date: new Date().toLocaleString('es-VE'),
@@ -190,7 +191,7 @@ export const DailyClose = () => {
             breakdown,
             sellerBreakdown,
             companyName: settings.companyName || 'Glyph Core',
-            reportNumber: Date.now().toString().slice(-6),
+            reportNumber: currentReportId,
             shiftOpenTime: shiftOpenTime?.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) || undefined,
         });
     };
@@ -257,7 +258,7 @@ export const DailyClose = () => {
                     </div>
 
                     {/* GASTOS Y UTILIDAD NETA */}
-                    {(shiftExpenses.length > 0 || true) && (
+                    {(shiftExpenses.length > 0) && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="bg-red-50 border border-red-100 p-5 rounded-2xl flex items-center gap-4">
                                 <div className="w-11 h-11 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">

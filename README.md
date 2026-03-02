@@ -12,8 +12,8 @@
 ## ✨ Características
 
 ### 🛒 Punto de Venta (POS)
-- Búsqueda rápida de productos y clientes
-- Ventas al contado y **a crédito** con validación de límite de crédito
+- Búsqueda rápida de productos y clientes (renderizados optimizados para >1000 items)
+- Ventas al contado y **a crédito** con validación y **visualización de deuda vs límite de crédito**
 - Envío de recibo por **WhatsApp** o impresión térmica 80mm
 - Descuentos y métodos de pago múltiples
 - Conversión automática USD ↔ Bs según tasa BCV/Monitor
@@ -23,6 +23,7 @@
 - Alertas de stock mínimo
 - Dos regímenes de precio: **BCV** y **TH (Monitor)** — ver [Lógica Bimonetaria](#-lógica-bimonetaria)
 - Control de proveedores y facturas de compra
+- **Carga Mágica de Facturas con IA (OCR + LLM)**: auto-completado de costos y productos desde fotos/PDF.
 
 ### 📋 Cotizaciones
 - Crear cotizaciones con descuento por ítem

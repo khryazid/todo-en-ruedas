@@ -14,10 +14,9 @@ import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { printInvoice, sendToWhatsApp } from '../utils/ticketGenerator';
 import {
-    ShoppingCart, User, Search, MapPin, Printer,
-    CheckCircle, X, Phone, XCircle, UserPlus, Minus, Plus, Trash2, ArrowRight, MessageCircle, AlertTriangle, DollarSign
+    ShoppingCart, User, Search, Printer,
+    CheckCircle, X, UserPlus, Minus, Plus, Trash2, MessageCircle, DollarSign
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import type { Product, Client, Sale } from '../types';
 import { QuickClientModal } from '../components/QuickClientModal';
 
@@ -174,26 +173,33 @@ export const POS = () => {
 
     useEffect(() => {
         if (!isCheckoutModalOpen && !completedSale) {
-            setIsCreditSale(false);
-            setInitialPayment('');
-            setDiscountPct(0);
+            // Se usa setTimeout para evitar el setState sincrónico dentro del effect 
+            setTimeout(() => {
+                setIsCreditSale(false);
+                setInitialPayment('');
+                setDiscountPct(0);
+            }, 0);
         }
     }, [isCheckoutModalOpen, completedSale]);
+
+    const currentClientDebt = (() => {
+        if (!selectedClient) return 0;
+        return sales
+            .filter(s => s.clientId === selectedClient.id && (s.status === 'PENDING' || s.status === 'PARTIAL'))
+            .reduce((acc, s) => acc + (s.totalUSD - s.paidAmountUSD), 0);
+    })();
 
     const handleCheckout = useCallback(async () => {
         if (isCreditSale && !selectedClient) return alert('⚠️ Para vender a crédito, DEBES seleccionar un Cliente registrado.');
 
         // #2 Validación de límite de crédito
         if (isCreditSale && selectedClient && (selectedClient.creditLimit ?? 0) > 0) {
-            const currentDebt = sales
-                .filter(s => s.clientId === selectedClient.id && (s.status === 'PENDING' || s.status === 'PARTIAL'))
-                .reduce((acc, s) => acc + (s.totalUSD - s.paidAmountUSD), 0);
             const abono = parseFloat(initialPayment) || 0;
             const newDebt = totalUSD - abono;
-            if (currentDebt + newDebt > (selectedClient.creditLimit ?? 0)) {
+            if (currentClientDebt + newDebt > (selectedClient.creditLimit ?? 0)) {
                 return alert(
                     `⛔ Límite de crédito excedido.\n` +
-                    `Deuda actual: $${currentDebt.toFixed(2)}\n` +
+                    `Deuda actual: $${currentClientDebt.toFixed(2)}\n` +
                     `Nueva deuda: $${newDebt.toFixed(2)}\n` +
                     `Límite: $${(selectedClient.creditLimit ?? 0).toFixed(2)}`
                 );
@@ -214,7 +220,7 @@ export const POS = () => {
         } else {
             setIsCheckoutModalOpen(false); // Cierra si hay error catastrófico
         }
-    }, [isCreditSale, selectedClient, totalUSD, initialPayment, selectedPaymentMethod, completeSale, clearClient]);
+    }, [isCreditSale, selectedClient, totalUSD, initialPayment, selectedPaymentMethod, completeSale, sales]);
 
     return (
         <div className="flex flex-col md:flex-row h-[calc(100vh-3.5rem)] bg-gray-100 w-full overflow-hidden">
@@ -237,7 +243,7 @@ export const POS = () => {
 
                 <div className="flex-1 overflow-y-auto p-2 md:p-4 custom-scrollbar bg-gray-50">
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 pb-20 md:pb-0">
-                        {filteredProducts.map(({ product, priceUSD }) => (
+                        {filteredProducts.slice(0, 100).map(({ product, priceUSD }) => (
                             <ProductCard
                                 key={product.id}
                                 product={product}
@@ -423,9 +429,20 @@ export const POS = () => {
                                 <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><ShoppingCart className="text-blue-600" /> Checkout</h2>
 
                                 {selectedClient && (
-                                    <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4 flex items-center gap-3">
-                                        <div className="bg-blue-200 text-blue-700 p-2 rounded-full"><User size={20} /></div>
-                                        <div><p className="text-[10px] uppercase font-bold text-blue-400">Cliente Asignado</p><p className="font-bold text-blue-900 text-sm">{selectedClient.name}</p></div>
+                                    <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4 flex flex-col gap-2">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-blue-200 text-blue-700 p-2 rounded-full"><User size={20} /></div>
+                                            <div>
+                                                <p className="text-[10px] uppercase font-bold text-blue-400">Cliente Asignado</p>
+                                                <p className="font-bold text-blue-900 text-sm">{selectedClient.name}</p>
+                                            </div>
+                                        </div>
+                                        {(selectedClient.creditLimit ?? 0) > 0 && (
+                                            <div className="flex justify-between items-center text-xs mt-1 pt-2 border-t border-blue-200/50">
+                                                <span className="text-blue-700 font-medium">Límite: <span className="font-bold">{formatCurrency(selectedClient.creditLimit!, 'USD')}</span></span>
+                                                <span className={`font-bold ${currentClientDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>Deuda: {formatCurrency(currentClientDebt, 'USD')}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 

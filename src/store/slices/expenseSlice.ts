@@ -6,9 +6,9 @@
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { Expense } from '../../types';
-import type { SetState, GetState } from '../types';
+import type { SetState } from '../types';
 
-export const createExpenseSlice = (_set: SetState, _get: GetState) => ({
+export const createExpenseSlice = (_set: SetState) => ({
 
     expenses: [] as Expense[],
 

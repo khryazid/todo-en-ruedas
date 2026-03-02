@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 interface QuickClientModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onClientCreated: (client: any) => void;
+    onClientCreated: (client: { name: string; rif: string }) => void;
 }
 
 export const QuickClientModal = ({ isOpen, onClose, onClientCreated }: QuickClientModalProps) => {
@@ -57,7 +57,7 @@ export const QuickClientModal = ({ isOpen, onClose, onClientCreated }: QuickClie
             });
 
             onClose();
-        } catch (error) {
+        } catch {
             toast.error('Error al crear el cliente');
         } finally {
             setIsLoading(false);

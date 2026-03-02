@@ -13,7 +13,7 @@ import type { AppUser, UserRole } from '../types';
 
 export const Users = () => {
     const { users, currentUserData, fetchUsers, createUser, updateUser, deactivateUser, activateUser, changeUserPassword } = useStore();
-    const { canManageUsers, isAdmin, isManager } = usePermissions();
+    const { canManageUsers, isManager } = usePermissions();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);

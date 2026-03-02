@@ -1,4 +1,5 @@
 # 🤖 Automatización: Extracción de Facturas con IA (OCR + LLM)
+> **Estado:** ✅ ¡Ya implementado! Esta funcionalidad está activa en el modal de "Cargar Compra" dentro de `src/pages/Inventory.tsx`.
 > **Objetivo:** Permitir al usuario subir una foto o PDF de una factura de proveedor. El sistema debe "leer" la imagen, extraer los datos (proveedor, fecha, número, ítems, costos, totales) y pre-llenar el formulario de "Nueva Factura" para que el usuario solo revise y acepte.
 
 ---
@@ -80,8 +81,8 @@ interface ExtractedInvoice {
 
 ---
 
-## 📝 5. Resumen del Plan de Implementación a Costo $0
+## 📝 5. Estado Actual de la Implementación (Completado)
 
-1. **Crear cuenta en Google AI Studio:** Sacar una API Key (Gratis total).
-2. **Backend (Supabase Edge Function):** Crear un micro-código en Supabase (TypeScript) que reciba la foto desde React y la envíe a la API de Gemini usando tu Key gratuita. Gemini responde con el JSON y Supabase se lo pasa de vuelta a React.
-3. **Frontend (Tu app actual):** Crear el botón "✨ Escanear", subir la foto, recibir el JSON y rellenar automáticamente el formulario de `Invoices.tsx`. El usuario guarda y la app hace el resto.
+1. **API:** Se utiliza Google Gemini (Edge Function `process-invoice`).
+2. **Frontend:** El botón "✨ Escaneo IA" se encuentra en `src/pages/Inventory.tsx` al presionar "Cargar Compra" -> abre el modal `isInvoiceModalOpen`.
+3. **Mapeo:** El Backend (Supabase) devuelve la Cabecera de la factura (con flete e impuestos) y sus `Items`. React pre-llena el estado local de subida (`invoiceHeader` y `invoiceItems`). El usuario puede visualizarlo o editar detalles antes de confirmar la compra.

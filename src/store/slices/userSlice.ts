@@ -38,9 +38,9 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             }));
 
             set({ users });
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Si la tabla no existe (modo setup), no mostrar error
-            const isSetupMode = error?.code === 'PGRST116' || error?.message?.includes('relation');
+            const isSetupMode = (error as Record<string, unknown>)?.code === 'PGRST116' || (error as Error)?.message?.includes('relation');
             if (isSetupMode) {
                 console.warn('⚠️ Tabla users no existe - modo setup inicial');
                 set({ users: [] });
@@ -330,7 +330,7 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
         try {
 
 
-            const updateData: any = {};
+            const updateData: Record<string, unknown> = {};
             if (updates.fullName !== undefined) updateData.full_name = updates.fullName;
             if (updates.role !== undefined) updateData.role = updates.role;
             if (updates.isActive !== undefined) updateData.is_active = updates.isActive;

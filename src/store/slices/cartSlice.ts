@@ -4,9 +4,9 @@
  */
 
 import type { Product, CartItem } from '../../types';
-import type { SetState, GetState } from '../types';
+import type { SetState } from '../types';
 
-export const createCartSlice = (set: SetState, _get: GetState) => ({
+export const createCartSlice = (set: SetState) => ({
 
   cart: [] as CartItem[],
 

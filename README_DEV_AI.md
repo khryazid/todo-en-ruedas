@@ -14,6 +14,8 @@ Sistema POS + Inventario + Cotizaciones + Gastos para negocio venezolano bimonet
 | Regla | Detalle |
 |---|---|
 | **TSC limpio** | Siempre correr `npx tsc --noEmit` antes de declarar algo listo |
+| **Linting estricto** | 0 warnings permitidos. El React Compiler maneja la memoización (no usar `useMemo` manual a no ser que sea estrictamente necesario, preferir IIFEs). |
+| **React Purity** | No usar funciones impuras como `Date.now()` para IDs o identificadores en el body del componente (usar `crypto.randomUUID()` o hacerlo en handlers). |
 | **Tipos en `types/index.ts`** | No crear tipos locales en páginas. Un solo archivo de tipos |
 | **Fetch en `fetchInitialData`** | Todo slice nuevo con tabla Supabase → agregar su `fetchXxx()` al final de `authSlice.fetchInitialData()` |
 | **No tocar `App.tsx` a ciegas** | Las rutas están protegidas con `<RoleRoute>`. Agregar rutas nuevas con su `allowedRoles` |
@@ -122,7 +124,7 @@ ALTER TABLE expenses
 ## 8. Features por Módulo (estado actual)
 
 ### ✅ Completado
-- **POS** — carrito, checkout, crédito con límite, tickets WhatsApp/impresión
+- **POS** — carrito, checkout, crédito con límite e indicador visual de deuda, tickets WhatsApp/impresión. Catálogo virtualizado/paginado para alto rendimiento (>1000 items).
 - **Inventario** — CRUD, alertas stock mínimo
 - **Ventas** — historial, abonos crédito, anulación, filtros por vendedor
 - **Clientes** — CRM, credit_limit, historial
@@ -133,11 +135,10 @@ ALTER TABLE expenses
 - **Cuentas por Cobrar** — abonos, deudores, WhatsApp
 - **Dark Mode** — CSS variables globales, toggle TopBar
 - **Personalización TopBar** — ítems pinados por usuario (localStorage)
+- **Carga de Facturas IA** — Escaneo OCR + LLM en modal "Cargar Compra" (`Inventory.tsx`) mediante `process-invoice` (Google Gemini Edge Function).
 
 ### 🔴 Pendiente
-- Indicador visual límite de crédito en POS (barra deuda/límite)
 - Notificación al login de gastos recurrentes del día
-- Filtro por vendedor en Sales y Expenses
 - Gráfico Gastos vs Ventas en Dashboard
 - Categorías de gastos persistidas en Supabase
 

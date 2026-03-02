@@ -1,0 +1,284 @@
+
+> todo-en-ruedas@0.0.0 lint
+> eslint .
+
+
+C:\Users\Khris\todo-en-ruedas\src\App.tsx
+  71:6  warning  React Hook useEffect has a missing dependency: 'checkSession'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Khris\todo-en-ruedas\src\components\GlobalSearch.tsx
+  37:13  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Khris\todo-en-ruedas\src\components\GlobalSearch.tsx:37:13
+  35 |             setTimeout(() => inputRef.current?.focus(), 50);
+  36 |         } else {
+> 37 |             setQuery('');
+     |             ^^^^^^^^ Avoid calling setState() directly within an effect
+  38 |         }
+  39 |     }, [isOpen]);
+  40 |  react-hooks/set-state-in-effect
+
+C:\Users\Khris\todo-en-ruedas\src\components\QuickClientModal.tsx
+   9:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  60:18  error  'error' is defined but never used         @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\components\layout\TopBar.tsx
+  131:88  error  Empty block statement  no-empty
+  138:93  error  Empty block statement  no-empty
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Audit.tsx
+  62:63  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+  79:39  warning  React Hook useEffect has a missing dependency: 'fetchLogs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Clients.tsx
+   8:20  error  'useMemo' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+  14:12  error  'Mail' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+  15:18  error  'Calendar' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           @typescript-eslint/no-unused-vars
+  15:28  error  'TrendingUp' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+  75:42  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Clients.tsx:75:42
+  73 |             alert("Cliente actualizado");
+  74 |         } else {
+> 75 |             addClient({ ...formData, id: Date.now().toString() });
+     |                                          ^^^^^^^^^^ Cannot call impure function
+  76 |             alert("Cliente registrado exitosamente");
+  77 |         }
+  78 |         closeModal();  react-hooks/purity
+
+C:\Users\Khris\todo-en-ruedas\src\pages\DailyClose.tsx
+   47:43  warning  React Hook useEffect has a missing dependency: 'fetchExpenses'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react-hooks/exhaustive-deps
+  106:36  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\Khris\todo-en-ruedas\src\pages\DailyClose.tsx:106:36
+  104 |         if (window.confirm(confirmMessage)) {
+  105 |             let nextSequenceNumber: number | null = null;
+> 106 |             let reportIdentifier = Date.now().toString().slice(-6);
+      |                                    ^^^^^^^^^^ Cannot call impure function
+  107 |
+  108 |             if (reportType === 'Z') {
+  109 |                 const newCloseResult = await performDailyClose({            react-hooks/purity
+  193:27  error    Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\Khris\todo-en-ruedas\src\pages\DailyClose.tsx:193:27
+  191 |             sellerBreakdown,
+  192 |             companyName: settings.companyName || 'Glyph Core',
+> 193 |             reportNumber: Date.now().toString().slice(-6),
+      |                           ^^^^^^^^^^ Cannot call impure function
+  194 |             shiftOpenTime: shiftOpenTime?.toLocaleString('es-VE', { dateStyle: 'short', timeStyle: 'short' }) || undefined,
+  195 |         });
+  196 |     };  react-hooks/purity
+  260:23  error    Unexpected constant truthiness on the left-hand side of a `&&` expression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    no-constant-binary-expression
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx
+   12:3   error  'TrendingUp' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        @typescript-eslint/no-unused-vars
+  137:7   error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This dependency may be mutated later, which could cause the value to change unexpectedly.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:137:7
+  135 |       worstSellers: [...ranked].filter(p => p.stock > 0).sort((a, b) => a.soldQuantity - b.soldQuantity).slice(0, 5)
+  136 |     };
+> 137 |   }, [filteredSales, products]);
+      |       ^^^^^^^^^^^^^ This dependency may be modified later
+  138 |
+  139 |   // --- 8. TOP CLIENTES ---
+  140 |   const topClientsList = useMemo(() => {                                                                                                                                                                                                                                                                                            react-hooks/preserve-manual-memoization
+  140:26  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:140:26
+  138 |
+  139 |   // --- 8. TOP CLIENTES ---
+> 140 |   const topClientsList = useMemo(() => {
+      |                          ^^^^^^^^^^^^^^^
+> 141 |     const clientMap: Record<string, number> = {};
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 142 |
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |       }));
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |   }, [filteredSales, clients]);
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Could not preserve existing memoization
+  157 |
+  158 |   // --- 9. DATOS PARA GR├üFICAS (solo Admin/Manager) ---
+  159 |   const chartData = useMemo(() => {  react-hooks/preserve-manual-memoization
+  156:7   error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This dependency may be mutated later, which could cause the value to change unexpectedly.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:156:7
+  154 |         amount
+  155 |       }));
+> 156 |   }, [filteredSales, clients]);
+      |       ^^^^^^^^^^^^^ This dependency may be modified later
+  157 |
+  158 |   // --- 9. DATOS PARA GR├üFICAS (solo Admin/Manager) ---
+  159 |   const chartData = useMemo(() => {                                                                                                                                                                                                                                                                                                                                                                        react-hooks/preserve-manual-memoization
+  188:7   error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This dependency may be mutated later, which could cause the value to change unexpectedly.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:188:7
+  186 |     });
+  187 |     return Object.entries(methodMap).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
+> 188 |   }, [filteredSales, isAdminOrManager]);
+      |       ^^^^^^^^^^^^^ This dependency may be modified later
+  189 |
+  190 |   return (
+  191 |     <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen animate-in fade-in duration-300">                                                                                                                                                                                                                                                 react-hooks/preserve-manual-memoization
+  205:65  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-explicit-any
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Expenses.tsx
+  10:29  error  'useEffect' is defined but never used   @typescript-eslint/no-unused-vars
+  14:48  error  'Filter' is defined but never used      @typescript-eslint/no-unused-vars
+  15:41  error  'DollarSign' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Inventory.tsx
+  105:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  122:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  163:85  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Invoices.tsx
+   8:15  error  'CheckCircle' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+   8:28  error  'Clock' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-unused-vars
+  36:25  error  Error: Cannot access variable before it is declared
+
+`openDetailModal` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Invoices.tsx:36:25
+  34 |         if (location.state?.openInvoiceId) {
+  35 |             const target = invoices.find(inv => inv.id === location.state.openInvoiceId);
+> 36 |             if (target) openDetailModal(target);
+     |                         ^^^^^^^^^^^^^^^ `openDetailModal` accessed before it is declared
+  37 |         }
+  38 |     }, [location.state, invoices]);
+  39 |
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Invoices.tsx:61:5
+  59 |     };
+  60 |
+> 61 |     const openDetailModal = (invoice: Invoice) => {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 62 |         setEditingInvoice(JSON.parse(JSON.stringify(invoice)));
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 63 |         setIsDetailModalOpen(true);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 64 |     };
+     | ^^^^^^^ `openDetailModal` is declared here
+  65 |
+  66 |     const handleDeleteInvoice = (id: string) => {
+  67 |         if (window.confirm('≡ƒÜ¿ ┬┐Seguro que deseas ELIMINAR esta factura?\nEsto NO alterar├í el stock actual del inventario.')) {  react-hooks/immutability
+  41:13  error  'filtered' is never reassigned. Use 'const' instead                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    prefer-const
+  72:80  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-explicit-any
+
+C:\Users\Khris\todo-en-ruedas\src\pages\POS.tsx
+   17:33  error    'MapPin' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-unused-vars
+   18:21  error    'Phone' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 @typescript-eslint/no-unused-vars
+   18:28  error    'XCircle' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               @typescript-eslint/no-unused-vars
+   18:68  error    'ArrowRight' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            @typescript-eslint/no-unused-vars
+   18:95  error    'AlertTriangle' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-unused-vars
+   20:10  error    'Link' is defined but never used                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  @typescript-eslint/no-unused-vars
+  177:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\Khris\todo-en-ruedas\src\pages\POS.tsx:177:13
+  175 |     useEffect(() => {
+  176 |         if (!isCheckoutModalOpen && !completedSale) {
+> 177 |             setIsCreditSale(false);
+      |             ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  178 |             setInitialPayment('');
+  179 |             setDiscountPct(0);
+  180 |         }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      react-hooks/set-state-in-effect
+  183:40  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `sales`, but the source dependencies were [isCreditSale, selectedClient, totalUSD, initialPayment, selectedPaymentMethod, completeSale, clearClient]. Inferred different dependency than source.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\POS.tsx:183:40
+  181 |     }, [isCheckoutModalOpen, completedSale]);
+  182 |
+> 183 |     const handleCheckout = useCallback(async () => {
+      |                                        ^^^^^^^^^^^^^
+> 184 |         if (isCreditSale && !selectedClient) return alert('ΓÜá∩╕Å Para vender a cr├⌐dito, DEBES seleccionar un Cliente registrado.');
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 185 |
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 216 |         }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 217 |     }, [isCreditSale, selectedClient, totalUSD, initialPayment, selectedPaymentMethod, completeSale, clearClient]);
+      | ^^^^^^ Could not preserve existing manual memoization
+  218 |
+  219 |     return (
+  220 |         <div className="flex flex-col md:flex-row h-[calc(100vh-3.5rem)] bg-gray-100 w-full overflow-hidden">  react-hooks/preserve-manual-memoization
+  217:8   warning  React Hook useCallback has a missing dependency: 'sales'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        react-hooks/exhaustive-deps
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Quotes.tsx
+  14:18  error  'ChevronDown' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Sales.tsx
+   13:8   error  'toast' is defined but never used               @typescript-eslint/no-unused-vars
+   21:73  error  'suppliers' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  122:43  error  'i' is defined but never used                   @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Setup.tsx
+   13:11   error  'navigate' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  128:108  error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Users.tsx
+  16:29  error  'isAdmin' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\store\slices\cartSlice.ts
+  9:48  error  '_get' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\store\slices\clientSlice.ts
+  11:50  error  '_get' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\store\slices\expenseSlice.ts
+  11:52  error  '_get' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\store\slices\quoteSlice.ts
+   9:22  error  'QuoteItem' is defined but never used     @typescript-eslint/no-unused-vars
+  31:54  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Khris\todo-en-ruedas\src\store\slices\settingsSlice.ts
+  159:14  error  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Khris\todo-en-ruedas\src\store\slices\userSlice.ts
+   41:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  333:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\Khris\todo-en-ruedas\src\utils\ticketGenerator.ts
+    7:21  error  'AppSettings' is defined but never used        @typescript-eslint/no-unused-vars
+  204:13  error  'settings' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  204:23  error  'clients' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  502:50  error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  565:43  error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+  595:61  error  Unexpected any. Specify a different type       @typescript-eslint/no-explicit-any
+
+C:\Users\Khris\todo-en-ruedas\supabase\functions\process-invoice\index.ts
+  93:14  error  'parseError' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 66 problems (62 errors, 4 warnings)
+  1 error and 0 warnings potentially fixable with the `--fix` option.
+

@@ -1,3 +1,6 @@
+// @ts-nocheck
+/* global Deno */
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {
@@ -27,7 +30,7 @@ DEBES devolver ÚNICAMENTE un objeto JSON válido que cumpla estrictamente con e
 }
 `;
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -90,14 +93,14 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       });
-    } catch (parseError) {
+    } catch {
       console.error("Failed to parse Gemini output as JSON:", resultText);
       throw new Error("El modelo no devolvió un JSON válido. Respuesta: " + resultText.substring(0, 50));
     }
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Process Invoice Error:', error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
+    return new Response(JSON.stringify({ success: false, error: (error as Error).message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });

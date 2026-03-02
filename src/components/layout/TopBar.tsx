@@ -128,14 +128,14 @@ export const TopBar = memo(() => {
     const togglePin = (path: string) => {
         setPinnedPaths(prev => {
             const next = prev.includes(path) ? prev.filter(p => p !== path) : [...prev, path];
-            try { localStorage.setItem('topbar-pinned', JSON.stringify(next)); } catch { }
+            try { localStorage.setItem('topbar-pinned', JSON.stringify(next)); } catch { console.warn('Storage error'); }
             return next;
         });
     };
 
     const resetPins = () => {
         setPinnedPaths(PRIMARY_PATHS);
-        try { localStorage.setItem('topbar-pinned', JSON.stringify(PRIMARY_PATHS)); } catch { }
+        try { localStorage.setItem('topbar-pinned', JSON.stringify(PRIMARY_PATHS)); } catch { console.warn('Storage error'); }
     };
 
     const companyName = settings.companyName && settings.companyName !== 'Cargando...'

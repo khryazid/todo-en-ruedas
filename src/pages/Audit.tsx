@@ -4,7 +4,7 @@
  * Solo visible para ADMIN y MANAGER (según permissions.ts VIEW_AUDIT).
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getRecentAuditLogs } from '../utils/audit';
 import {
     Shield, RefreshCw, Filter, Search,
@@ -53,12 +53,13 @@ export const Audit = () => {
     const [search, setSearch] = useState('');
     const [limit, setLimit] = useState(50);
 
-    const fetchLogs = async () => {
+    const fetchLogs = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
             const data = await getRecentAuditLogs(limit);
             // Supabase devuelve users como array en joins; tomamos el primer elemento
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const mapped: AuditEntry[] = (data || []).map((r: any) => ({
                 id: r.id,
                 action: r.action as AuditAction,
@@ -74,9 +75,9 @@ export const Audit = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [limit]);
 
-    useEffect(() => { fetchLogs(); }, [limit]);
+    useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
     // Filtros en cliente
     const filtered = logs.filter(log => {

@@ -1,0 +1,107 @@
+
+> todo-en-ruedas@0.0.0 lint
+> eslint .
+
+
+C:\Users\Khris\todo-en-ruedas\src\pages\DailyClose.tsx
+  93:9  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This dependency may be mutated later, which could cause the value to change unexpectedly.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\DailyClose.tsx:93:9
+  91 |         });
+  92 |         return map;
+> 93 |     }, [currentShiftSales, paymentMethods]);
+     |         ^^^^^^^^^^^^^^^^^ This dependency may be modified later
+  94 |
+  95 |     const handlePrint = async () => {
+  96 |         if (reportType === 'X' && currentShiftSales.length === 0) {  react-hooks/preserve-manual-memoization
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx
+  137:7   error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This dependency may be mutated later, which could cause the value to change unexpectedly.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:137:7
+  135 |       worstSellers: [...ranked].filter(p => p.stock > 0).sort((a, b) => a.soldQuantity - b.soldQuantity).slice(0, 5)
+  136 |     };
+> 137 |   }, [filteredSales, products]);
+      |       ^^^^^^^^^^^^^ This dependency may be modified later
+  138 |
+  139 |   // --- 8. TOP CLIENTES ---
+  140 |   const topClientsList = useMemo(() => {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react-hooks/preserve-manual-memoization
+  140:26  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This value was memoized in source but not in compilation output.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:140:26
+  138 |
+  139 |   // --- 8. TOP CLIENTES ---
+> 140 |   const topClientsList = useMemo(() => {
+      |                          ^^^^^^^^^^^^^^^
+> 141 |     const clientMap: Record<string, number> = {};
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 142 |
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |       }));
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |   }, [filteredSales]);
+      | ^^^^^^^^^^^^^^^^^^^^^^ Could not preserve existing memoization
+  157 |
+  158 |   // --- 9. DATOS PARA GR├üFICAS (solo Admin/Manager) ---
+  159 |   const chartData = useMemo(() => {                                                                                                                                                                                                                    react-hooks/preserve-manual-memoization
+  140:34  error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `clients`, but the source dependencies were [filteredSales]. Inferred different dependency than source.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:140:34
+  138 |
+  139 |   // --- 8. TOP CLIENTES ---
+> 140 |   const topClientsList = useMemo(() => {
+      |                                  ^^^^^^^
+> 141 |     const clientMap: Record<string, number> = {};
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 142 |
+      ΓÇª
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 155 |       }));
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 156 |   }, [filteredSales]);
+      | ^^^^ Could not preserve existing manual memoization
+  157 |
+  158 |   // --- 9. DATOS PARA GR├üFICAS (solo Admin/Manager) ---
+  159 |   const chartData = useMemo(() => {  react-hooks/preserve-manual-memoization
+  156:6   warning  React Hook useMemo has a missing dependency: 'clients'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      react-hooks/exhaustive-deps
+  156:7   error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This dependency may be mutated later, which could cause the value to change unexpectedly.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:156:7
+  154 |         amount
+  155 |       }));
+> 156 |   }, [filteredSales]);
+      |       ^^^^^^^^^^^^^ This dependency may be modified later
+  157 |
+  158 |   // --- 9. DATOS PARA GR├üFICAS (solo Admin/Manager) ---
+  159 |   const chartData = useMemo(() => {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 react-hooks/preserve-manual-memoization
+  176:6   warning  React Hook useMemo has a missing dependency: 'isAdminOrManager'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react-hooks/exhaustive-deps
+  188:6   warning  React Hook useMemo has a missing dependency: 'isAdminOrManager'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             react-hooks/exhaustive-deps
+  188:7   error    Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. This dependency may be mutated later, which could cause the value to change unexpectedly.
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Dashboard.tsx:188:7
+  186 |     });
+  187 |     return Object.entries(methodMap).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
+> 188 |   }, [filteredSales]);
+      |       ^^^^^^^^^^^^^ This dependency may be modified later
+  189 |
+  190 |   return (
+  191 |     <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen animate-in fade-in duration-300">                                                                                                                                                                                                                                                                                                                                                                                                                                                                   react-hooks/preserve-manual-memoization
+
+C:\Users\Khris\todo-en-ruedas\src\pages\Expenses.tsx
+  14:48  error  'Filter' is defined but never used  @typescript-eslint/no-unused-vars
+
+Γ£û 10 problems (7 errors, 3 warnings)
+

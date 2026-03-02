@@ -145,7 +145,7 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
 
       set((state) => ({ settings: { ...state.settings, lastCloseDate: now } }));
       toast.success('Cierre de caja exitoso 🏁');
-      
+
       return newClose ? {
         id: newClose.id,
         sequenceNumber: newClose.sequence_number,
@@ -156,7 +156,7 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
         sellerName: newClose.seller_name || undefined,
         closedBy: newClose.closed_by || undefined
       } : null;
-    } catch (error) {
+    } catch {
       toast.error('Error al cerrar caja');
       return null;
     }
