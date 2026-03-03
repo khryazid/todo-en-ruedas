@@ -21,6 +21,7 @@ export type CurrencyView = 'USD' | 'BS';
 export type PaymentCurrency = 'USD' | 'BS';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'CANCEL' | 'LOGIN' | 'LOGOUT';
 export type PriceList = 'Detal' | 'Mayorista' | 'Especial';
+export type ReturnOption = 'CREDIT' | 'REEMBOLSO';
 export type StockMovementType = 'SALE' | 'RETURN' | 'PURCHASE' | 'ADJUSTMENT' | 'SHRINKAGE';
 
 export interface StockMovement {
@@ -46,6 +47,9 @@ export interface SaleReturn {
   reason?: string;
   refundAmountUSD: number;
   type: ReturnType;
+  option?: ReturnOption;     // CREDIT = saldo a favor | REEMBOLSO = cash back
+  ncNumber?: string;         // e.g. NC-0001
+  clientId?: string;         // used when option === 'CREDIT'
   userId?: string;
   sellerName?: string;
   items: { productId?: string; sku: string; name: string; quantity: number; priceUSD: number }[];
@@ -78,6 +82,7 @@ export interface Client {
   notes?: string;
   creditLimit?: number; // #2 Límite de crédito
   priceList?: PriceList; // Lista de precio asignada
+  creditBalance?: number; // Saldo a favor acumulado por devoluciones
 }
 
 // ─── GASTOS ───────────────────────────────────────────────────────────────────

@@ -117,7 +117,20 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
         });
       }
 
-      if (clientsData) set({ clients: clientsData });
+      if (clientsData) set({
+        clients: clientsData.map((c) => ({
+          id: c.id,
+          name: c.name,
+          rif: c.rif,
+          phone: c.phone ?? undefined,
+          address: c.address ?? undefined,
+          email: c.email ?? undefined,
+          notes: c.notes ?? undefined,
+          creditLimit: c.credit_limit ? Number(c.credit_limit) : undefined,
+          priceList: c.price_list ?? undefined,
+          creditBalance: c.credit_balance ? Number(c.credit_balance) : 0,
+        }))
+      });
       if (suppliersData) set({ suppliers: suppliersData });
 
       if (paymentMethodsData && paymentMethodsData.length > 0) {

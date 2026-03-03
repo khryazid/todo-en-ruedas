@@ -177,6 +177,16 @@ export const Clients = () => {
                                     </div>
                                 )}
 
+                                {(client.creditBalance ?? 0) > 0 && (
+                                    <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-3 py-2 mb-3">
+                                        <span className="text-green-600 text-base">💳</span>
+                                        <div className="flex-1">
+                                            <p className="text-[10px] text-green-600 font-bold uppercase">Saldo a Favor</p>
+                                            <p className="text-sm font-black text-green-700">{formatCurrency(client.creditBalance!, 'USD')}</p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="space-y-2 text-sm text-gray-600 mt-2 mb-4">
                                     {client.phone && (
                                         <div className="flex items-center gap-2"><Phone size={14} className="text-gray-400" /><span>{client.phone}</span></div>
@@ -267,10 +277,10 @@ export const Clients = () => {
                                             type="button"
                                             onClick={() => setFormData({ ...formData, priceList: pl })}
                                             className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${(formData.priceList ?? 'Detal') === pl
-                                                    ? pl === 'Detal' ? 'bg-green-600 text-white border-green-600'
-                                                        : pl === 'Mayorista' ? 'bg-blue-600 text-white border-blue-600'
-                                                            : 'bg-purple-600 text-white border-purple-600'
-                                                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                                                ? pl === 'Detal' ? 'bg-green-600 text-white border-green-600'
+                                                    : pl === 'Mayorista' ? 'bg-blue-600 text-white border-blue-600'
+                                                        : 'bg-purple-600 text-white border-purple-600'
+                                                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                                                 }`}
                                         >
                                             {pl === 'Detal' ? '🟢' : pl === 'Mayorista' ? '🏷️' : '⭐'} {pl}

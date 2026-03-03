@@ -71,7 +71,7 @@ const ProductCard = memo(({ product, priceUSD, onAdd }: ProductCardProps) => {
 // COMPONENTE PRINCIPAL: POS
 // =============================================
 export const POS = () => {
-    const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, completeSale, settings, paymentMethods, sales, addQuote, quotes } = useStore();
+    const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, completeSale, settings, paymentMethods, sales, addQuote, quotes, applyClientCredit } = useStore();
     const location = useLocation();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -80,6 +80,7 @@ export const POS = () => {
     const [isCreditSale, setIsCreditSale] = useState(false);
     const [initialPayment, setInitialPayment] = useState('');
     const [discountPct, setDiscountPct] = useState(0);
+    const [applyCredit, setApplyCredit] = useState(false);
 
     const [clientSearch, setClientSearch] = useState('');
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -260,9 +261,13 @@ export const POS = () => {
                 setIsCreditSale(false);
                 setInitialPayment('');
                 setDiscountPct(0);
+                setApplyCredit(false);
             }, 0);
         }
     }, [isCheckoutModalOpen, completedSale]);
+
+    // Reset applyCredit when selectedClient changes
+    useEffect(() => { setApplyCredit(false); }, [selectedClient]);
 
     const currentClientDebt = (() => {
         if (!selectedClient) return 0;
@@ -291,21 +296,30 @@ export const POS = () => {
             }
         }
 
-        let paymentAmount = totalUSD;
+        const creditUsed = (applyCredit && selectedClient && (selectedClient.creditBalance ?? 0) > 0)
+            ? Math.min(selectedClient.creditBalance!, totalUSD)
+            : 0;
+        const effectiveTotal = Math.max(0, totalUSD - creditUsed);
+
+        let paymentAmount = effectiveTotal;
         if (isCreditSale) {
             const abono = parseFloat(initialPayment) || 0;
-            if (abono > totalUSD) return alert('El abono no puede ser mayor al total.');
+            if (abono > effectiveTotal) return alert('El abono no puede ser mayor al total.');
             paymentAmount = abono;
         }
 
         const sale = await completeSale(selectedPaymentMethod, selectedClient?.id, paymentAmount);
         if (sale) {
-            setCompletedSale(sale); // Ir a la vista de éxito
-            setIsCheckoutModalOpen(false); // Cerramos el modal de cobro (el de exito se muestra con completedSale)
+            // Deduct credit used from client balance
+            if (creditUsed > 0 && selectedClient) {
+                await applyClientCredit(selectedClient.id, -creditUsed);
+            }
+            setCompletedSale(sale);
+            setIsCheckoutModalOpen(false);
         } else {
-            setIsCheckoutModalOpen(false); // Cierra si hay error catastrófico
+            setIsCheckoutModalOpen(false);
         }
-    }, [isCreditSale, selectedClient, totalUSD, initialPayment, selectedPaymentMethod, completeSale, sales]);
+    }, [isCreditSale, selectedClient, totalUSD, initialPayment, selectedPaymentMethod, completeSale, sales, applyCredit, applyClientCredit]);
 
     // ✅ FIX: Guardar carrito como cotización
     const handleSaveQuote = useCallback(async () => {
@@ -554,6 +568,23 @@ export const POS = () => {
                     <div className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold border-b ${selectedClient.priceList === 'Mayorista' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-purple-50 border-purple-100 text-purple-700'}`}>
                         <span>{selectedClient.priceList === 'Mayorista' ? '🏷️' : '⭐'}</span>
                         <span>Precios {selectedClient.priceList} aplicados al catálogo</span>
+                    </div>
+                )}
+
+                {/* 💳 BANNER: Saldo a favor del cliente */}
+                {(selectedClient?.creditBalance ?? 0) > 0 && (
+                    <div className="px-3 py-2 flex items-center gap-2 bg-green-50 border-b border-green-200">
+                        <span className="text-green-600">💳</span>
+                        <div className="flex-1">
+                            <p className="text-[10px] font-bold text-green-700">Saldo a Favor disponible</p>
+                            <p className="text-xs font-black text-green-800">${selectedClient!.creditBalance!.toFixed(2)} USD</p>
+                        </div>
+                        <button
+                            onClick={() => setApplyCredit(v => !v)}
+                            className={`text-[10px] font-black px-2.5 py-1.5 rounded-lg border transition ${applyCredit ? 'bg-green-600 text-white border-green-600' : 'bg-white text-green-700 border-green-300 hover:bg-green-50'}`}
+                        >
+                            {applyCredit ? '✓ Aplicar' : 'Aplicar'}
+                        </button>
                     </div>
                 )}
 

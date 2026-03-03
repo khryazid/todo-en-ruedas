@@ -43,7 +43,7 @@ export const useStore = create<StoreState>((set, get) => ({
   ...createCartSlice(set),
   ...createSaleSlice(set, get),
   ...createInvoiceSlice(set, get),
-  ...createClientSlice(set),
+  ...createClientSlice(set, get),
   ...createQuoteSlice(set, get),
   ...createReturnSlice(set, get),
   ...createExpenseSlice(set),

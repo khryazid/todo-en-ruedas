@@ -14,7 +14,7 @@ import {
     Eye, Search, Printer, Ban,
     X, ShoppingBag, User, Phone, MapPin, MessageCircle, Trash2, Download, RotateCcw
 } from 'lucide-react';
-import type { Sale } from '../types';
+import type { Sale, ReturnOption } from '../types';
 
 export const Sales = () => {
     const { sales, clients, annulSale, deleteSale, addReturn, products, settings } = useStore();
@@ -35,6 +35,7 @@ export const Sales = () => {
     const [returnReason, setReturnReason] = useState('');
     // Cantidades a devolver por item (indexadas por índice del item en la venta)
     const [returnQtys, setReturnQtys] = useState<Record<number, number>>({});
+    const [returnOption, setReturnOption] = useState<ReturnOption>('REEMBOLSO');
 
     // Helper para obtener cliente
     const getClient = (clientId?: string) => clients.find(c => c.id === clientId);
@@ -101,11 +102,11 @@ export const Sales = () => {
         }
     };
 
-    // --- ABRIR MODAL DE DEVOLUCIÓN ---
     const openReturn = (sale: Sale) => {
         setReturnSale(sale);
         setReturnType('PARTIAL');
         setReturnReason('');
+        setReturnOption('REEMBOLSO');
         // Inicializar cantidades a 0
         const qtys: Record<number, number> = {};
         sale.items.forEach((_, i) => { qtys[i] = 0; });
@@ -147,8 +148,9 @@ export const Sales = () => {
             reason: returnReason,
             refundAmountUSD: Math.round(refundAmount * 100) / 100,
             type: returnType,
+            clientId: returnSale.clientId,
             items: itemsToReturn,
-        });
+        }, returnOption);
 
         if (ok) setReturnSale(null);
     };
@@ -557,9 +559,11 @@ export const Sales = () => {
                                 </div>
                             )}
 
-                            {/* Resumen monto */}
+                            {/* Monto + opción */}
                             <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
-                                <p className="text-xs font-bold text-orange-500 uppercase mb-1">Monto a Reembolsar</p>
+                                <p className="text-xs font-bold text-orange-500 uppercase mb-1">
+                                    {returnOption === 'CREDIT' ? 'Saldo a Favor del Cliente' : 'Monto a Reembolsar'}
+                                </p>
                                 <p className="text-2xl font-black text-orange-700">
                                     {returnType === 'FULL'
                                         ? formatCurrency(returnSale.totalUSD, 'USD')
@@ -569,6 +573,35 @@ export const Sales = () => {
                                         )
                                     }
                                 </p>
+                            </div>
+
+                            {/* Opción: CREDIT vs REEMBOLSO */}
+                            <div>
+                                <p className="text-xs font-bold text-gray-500 uppercase mb-2">Tipo de Reembolso</p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setReturnOption('REEMBOLSO')}
+                                        className={`flex-1 py-2.5 rounded-xl font-bold text-sm border-2 transition ${returnOption === 'REEMBOLSO' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}
+                                    >
+                                        💰 Reembolso
+                                    </button>
+                                    <button
+                                        onClick={() => setReturnOption('CREDIT')}
+                                        disabled={!returnSale.clientId}
+                                        className={`flex-1 py-2.5 rounded-xl font-bold text-sm border-2 transition ${returnOption === 'CREDIT' ? 'bg-green-600 text-white border-green-600' : 'bg-white text-gray-600 border-gray-200 hover:border-green-300'} disabled:opacity-40 disabled:cursor-not-allowed`}
+                                        title={!returnSale.clientId ? 'Solo disponible si la venta tiene cliente asignado' : ''}
+                                    >
+                                        💳 Saldo a Favor
+                                    </button>
+                                </div>
+                                {returnOption === 'CREDIT' && returnSale.clientId && (
+                                    <p className="text-xs text-green-600 mt-1.5 font-medium">
+                                        ✓ Se agregará al saldo del cliente: <strong>{getClient(returnSale.clientId)?.name}</strong>
+                                    </p>
+                                )}
+                                {!returnSale.clientId && (
+                                    <p className="text-xs text-gray-400 mt-1.5">Saldo a favor solo aplica para ventas con cliente registrado.</p>
+                                )}
                             </div>
 
                             {/* Motivo */}
