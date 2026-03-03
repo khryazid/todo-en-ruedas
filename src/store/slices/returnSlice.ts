@@ -64,6 +64,17 @@ export const createReturnSlice = (set: SetState, get: GetState): ReturnSlice => 
                     if (product) {
                         const newStock = product.stock + item.quantity;
                         await supabase.from('products').update({ stock: newStock }).eq('id', item.productId);
+                        // 📦 Log RETURN movement
+                        await get().addStockMovement({
+                            productId: product.id,
+                            productName: product.name,
+                            sku: product.sku,
+                            type: 'RETURN',
+                            qtyBefore: product.stock,
+                            qtyChange: item.quantity,
+                            referenceId: data.id as string,
+                            reason: ret.reason,
+                        });
                     }
                 }
             }

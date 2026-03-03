@@ -51,6 +51,22 @@ export const createProductSlice = (set: SetState, get: GetState) => ({
       const { error } = await supabase.from('products').update(dbUpdates).eq('id', id);
       if (error) throw error;
 
+      // 📦 Log ADJUSTMENT if stock changed
+      if (updates.stock !== undefined) {
+        const currentProduct = get().products.find(p => p.id === id);
+        if (currentProduct && updates.stock !== currentProduct.stock) {
+          await get().addStockMovement({
+            productId: id,
+            productName: currentProduct.name,
+            sku: currentProduct.sku,
+            type: 'ADJUSTMENT',
+            qtyBefore: currentProduct.stock,
+            qtyChange: updates.stock - currentProduct.stock,
+            reason: (updates as Record<string, unknown>).adjustmentReason as string | undefined,
+          });
+        }
+      }
+
       if (updates.supplier && updates.supplier !== 'General') {
         const existingSupplier = get().suppliers.find((s) => s.name.toLowerCase() === updates.supplier!.toLowerCase());
         if (!existingSupplier) await supabase.from('suppliers').insert({ name: updates.supplier, catalog: [] });

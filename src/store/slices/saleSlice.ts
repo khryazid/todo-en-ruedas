@@ -93,6 +93,16 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         if (product) {
           const newStock = Number(product.stock) - Number(item.quantity);
           await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+          // 📦 Log SALE movement
+          await get().addStockMovement({
+            productId: product.id,
+            productName: product.name,
+            sku: product.sku,
+            type: 'SALE',
+            qtyBefore: Number(product.stock),
+            qtyChange: -Number(item.quantity),
+            referenceId: saleData.id,
+          });
         }
       }
 

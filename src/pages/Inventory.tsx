@@ -2,6 +2,7 @@
  * @file Inventory.tsx
  */
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { exportToCSV } from '../utils/exportCSV';
@@ -10,12 +11,19 @@ import { printInventoryReportA4 } from '../utils/ticketGenerator';
 import toast from 'react-hot-toast';
 import {
   Search, Plus, Package, Edit, Trash2, FileText, X, CheckCircle,
-  Truck, History, AlertTriangle, AlertOctagon, Save, Filter, Download, Upload, Zap, Printer
+  Truck, History, AlertTriangle, AlertOctagon, Save, Filter, Download, Upload, Zap, Printer, Wrench
 } from 'lucide-react';
 import type { Product, IncomingItem, Invoice, CostType, PaymentStatus } from '../types';
 
 export const Inventory = () => {
   const { products, updateProduct, deleteProduct, addInvoice, addProduct, settings, suppliers } = useStore();
+  const navigate = useNavigate();
+
+  // Ajuste Manual state
+  const [adjustTarget, setAdjustTarget] = useState<{ id: string; name: string; sku: string; stock: number } | null>(null);
+  const [adjustQty, setAdjustQty] = useState<number>(0);
+  const [adjustType, setAdjustType] = useState<'ADJUSTMENT' | 'SHRINKAGE'>('ADJUSTMENT');
+  const [adjustReason, setAdjustReason] = useState('');
 
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
@@ -412,7 +420,26 @@ export const Inventory = () => {
                       Bs. {prices.finalPriceVED.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <div className="flex justify-center gap-2">
+                      <div className="flex justify-center gap-1">
+                        <button
+                          onClick={() => navigate(`/inventory/movements?product=${product.id}`)}
+                          className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                          title="Ver Movimientos"
+                        >
+                          <History size={16} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setAdjustTarget({ id: product.id, name: product.name, sku: product.sku, stock: product.stock });
+                            setAdjustQty(0);
+                            setAdjustReason('');
+                            setAdjustType('ADJUSTMENT');
+                          }}
+                          className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition"
+                          title="Ajuste Manual"
+                        >
+                          <Wrench size={16} />
+                        </button>
                         <button onClick={() => openEdit(product)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><Edit size={18} /></button>
                         <button onClick={() => handleDelete(product.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 size={18} /></button>
                       </div>
@@ -696,5 +723,80 @@ export const Inventory = () => {
         </div>
       )}
     </div>
-  );
-};
+
+      {/* --- MODAL: AJUSTE MANUAL DE STOCK --- */ }
+  {
+    adjustTarget && (
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-black text-gray-800 flex items-center gap-2">
+              <Wrench size={20} className="text-yellow-500" /> Ajuste Manual
+            </h3>
+            <button onClick={() => setAdjustTarget(null)} className="p-2 rounded-xl hover:bg-gray-100"><X size={20} /></button>
+          </div>
+          <div className="bg-gray-50 rounded-xl p-3 mb-4">
+            <p className="font-bold text-gray-800">{adjustTarget.name}</p>
+            <p className="text-xs text-gray-400 font-mono">{adjustTarget.sku} · Stock actual: <strong>{adjustTarget.stock}</strong></p>
+          </div>
+          <div className="flex gap-2 mb-4">
+            {(['ADJUSTMENT', 'SHRINKAGE'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setAdjustType(t)}
+                className={`flex-1 py-2 rounded-xl text-sm font-bold border transition ${adjustType === t ? (t === 'ADJUSTMENT' ? 'bg-yellow-500 text-white border-yellow-500' : 'bg-purple-500 text-white border-purple-500') : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+              >
+                {t === 'ADJUSTMENT' ? '⚙️ Ajuste' : '🗑️ Merma'}
+              </button>
+            ))}
+          </div>
+          <div className="mb-4">
+            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">
+              Cantidad — {adjustQty >= 0 ? 'Entrada (+)' : 'Salida (-)'}
+            </label>
+            <input
+              type="number"
+              className="w-full border-2 border-gray-200 rounded-xl p-3 text-xl font-black text-center outline-none focus:border-yellow-400 transition"
+              value={adjustQty}
+              onChange={e => setAdjustQty(Number(e.target.value))}
+              placeholder="0"
+            />
+            <p className="text-xs text-gray-400 mt-1 text-center">
+              Nuevo stock: <strong>{adjustTarget.stock + adjustQty}</strong>
+            </p>
+          </div>
+          <div className="mb-5">
+            <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Motivo <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              className="w-full border-2 border-gray-200 rounded-xl p-3 text-sm outline-none focus:border-yellow-400 transition"
+              placeholder="Ej: conteo físico, producto dañado..."
+              value={adjustReason}
+              onChange={e => setAdjustReason(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setAdjustTarget(null)} className="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition">Cancelar</button>
+            <button
+              onClick={async () => {
+                if (!adjustReason.trim()) { toast.error('El motivo es obligatorio'); return; }
+                if (adjustQty === 0) { toast.error('La cantidad no puede ser 0'); return; }
+                const newStock = adjustTarget.stock + adjustQty;
+                if (newStock < 0) { toast.error('El stock no puede ser negativo'); return; }
+                await updateProduct(adjustTarget.id, {
+                  stock: newStock,
+                  adjustmentReason: adjustReason,
+                } as unknown as Partial<Parameters<typeof updateProduct>[1]>);
+                toast.success(`Stock ajustado: ${adjustTarget.stock} → ${newStock}`);
+                setAdjustTarget(null);
+              }}
+              className="flex-1 py-3 bg-yellow-500 text-white font-bold rounded-xl hover:bg-yellow-600 transition flex items-center justify-center gap-2"
+            >
+              <Save size={16} /> Aplicar
+            </button>
+          </div>
+        </div>
+      )}
+      </div>
+    );
+  };

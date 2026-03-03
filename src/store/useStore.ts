@@ -33,6 +33,7 @@ import { createQuoteSlice } from './slices/quoteSlice';
 import { createReturnSlice } from './slices/returnSlice';
 import { createExpenseSlice } from './slices/expenseSlice';
 import { createSupplierSlice } from './slices/supplierSlice';
+import { createStockMovementSlice } from './slices/stockMovementSlice';
 
 export const useStore = create<StoreState>((set, get) => ({
   ...createAuthSlice(set, get),
@@ -47,4 +48,5 @@ export const useStore = create<StoreState>((set, get) => ({
   ...createReturnSlice(set, get),
   ...createExpenseSlice(set),
   ...createSupplierSlice(set, get),
+  ...createStockMovementSlice(set, get),
 }));

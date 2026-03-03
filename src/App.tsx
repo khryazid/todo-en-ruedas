@@ -38,6 +38,7 @@ const Quotes = lazy(() => import('./pages/Quotes').then(m => ({ default: m.Quote
 const Commissions = lazy(() => import('./pages/Commissions').then(m => ({ default: m.Commissions })));
 const Expenses = lazy(() => import('./pages/Expenses').then(m => ({ default: m.Expenses })));
 const Suppliers = lazy(() => import('./pages/Suppliers').then(m => ({ default: m.Suppliers })));
+const InventoryMovements = lazy(() => import('./pages/InventoryMovements').then(m => ({ default: m.InventoryMovements })));
 
 // Spinner para la transición entre páginas
 const PageLoader = () => (
@@ -153,6 +154,13 @@ function App() {
                         <Route path="/inventory" element={
                           <RoleRoute allowedRoles={['ADMIN', 'MANAGER']} redirectTo="/sales">
                             <Inventory />
+                          </RoleRoute>
+                        } />
+
+                        {/* Movimientos de Inventario: solo ADMIN y MANAGER */}
+                        <Route path="/inventory/movements" element={
+                          <RoleRoute allowedRoles={['ADMIN', 'MANAGER']} redirectTo="/sales">
+                            <InventoryMovements />
                           </RoleRoute>
                         } />
 

@@ -21,6 +21,23 @@ export type CurrencyView = 'USD' | 'BS';
 export type PaymentCurrency = 'USD' | 'BS';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'CANCEL' | 'LOGIN' | 'LOGOUT';
 export type PriceList = 'Detal' | 'Mayorista' | 'Especial';
+export type StockMovementType = 'SALE' | 'RETURN' | 'PURCHASE' | 'ADJUSTMENT' | 'SHRINKAGE';
+
+export interface StockMovement {
+  id: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  type: StockMovementType;
+  qtyBefore: number;
+  qtyChange: number;  // negative = exit, positive = entry
+  qtyAfter: number;
+  reason?: string;
+  referenceId?: string;
+  createdBy?: string;
+  sellerName?: string;
+  createdAt: string;
+}
 
 export interface SaleReturn {
   id: string;
