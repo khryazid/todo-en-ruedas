@@ -91,8 +91,8 @@ export const Setup = () => {
             <div className="relative w-full max-w-md">
                 {/* Logo/Brand */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-600 rounded-2xl mb-4 shadow-lg shadow-brand-600/50">
-                        <Building2 className="h-8 w-8 text-white" />
+                    <div className="inline-flex flex-col items-center justify-center mb-4">
+                        <img src="/logo.png" alt="Glyph Core Logo" className="h-20 w-auto mb-2 drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] filter brightness-110" />
                     </div>
                     <h1 className="text-3xl font-black text-white tracking-tight">
                         GLYPH <span className="text-brand-500">CORE</span>
