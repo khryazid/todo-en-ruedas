@@ -37,6 +37,7 @@ const Audit = lazy(() => import('./pages/Audit').then(m => ({ default: m.Audit }
 const Quotes = lazy(() => import('./pages/Quotes').then(m => ({ default: m.Quotes })));
 const Commissions = lazy(() => import('./pages/Commissions').then(m => ({ default: m.Commissions })));
 const Expenses = lazy(() => import('./pages/Expenses').then(m => ({ default: m.Expenses })));
+const Suppliers = lazy(() => import('./pages/Suppliers').then(m => ({ default: m.Suppliers })));
 
 // Spinner para la transición entre páginas
 const PageLoader = () => (
@@ -173,6 +174,13 @@ function App() {
                         <Route path="/expenses" element={
                           <RoleRoute allowedRoles={['ADMIN', 'MANAGER']} redirectTo="/sales">
                             <Expenses />
+                          </RoleRoute>
+                        } />
+
+                        {/* Proveedores: ADMIN, MANAGER */}
+                        <Route path="/suppliers" element={
+                          <RoleRoute allowedRoles={['ADMIN', 'MANAGER']} redirectTo="/sales">
+                            <Suppliers />
                           </RoleRoute>
                         } />
 

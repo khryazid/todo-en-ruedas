@@ -19,7 +19,7 @@ import { Permission } from '../../utils/permissions';
 import {
   LayoutDashboard, ShoppingCart, Package, FileText,
   Settings, LogOut, Menu, X, History, PieChart, Users, Wallet,
-  ChevronsLeft, ChevronsRight, Shield, ClipboardList, Award
+  ChevronsLeft, ChevronsRight, Shield, ClipboardList, Award, Truck
 } from 'lucide-react';
 
 import type { PermissionType } from '../../utils/permissions';
@@ -79,6 +79,12 @@ const menuItems: MenuItem[] = [
     label: 'Ctas. por Pagar',
     path: '/invoices',
     allowedRoles: ['ADMIN', 'MANAGER', 'VIEWER'] // VIEWER puede ver facturas para contabilidad
+  },
+  {
+    icon: Truck,
+    label: 'Proveedores',
+    path: '/suppliers',
+    allowedRoles: ['ADMIN', 'MANAGER']
   },
   {
     icon: Users,

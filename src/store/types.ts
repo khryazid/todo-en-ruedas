@@ -84,6 +84,11 @@ export interface StoreState {
   deleteSale: (saleId: string) => Promise<void>;
   registerSalePayment: (saleId: string, payment: Payment) => Promise<void>;
 
+  // --- Suppliers ---
+  addSupplier: (s: Omit<Supplier, 'id' | 'createdAt'>) => Promise<void>;
+  updateSupplier: (id: string, updates: Partial<Supplier>) => Promise<void>;
+  deleteSupplier: (id: string) => Promise<boolean>;
+
   // --- Invoices ---
   addInvoice: (invoice: Invoice) => Promise<boolean>;
   updateInvoice: (invoice: Invoice) => Promise<void>;

@@ -91,31 +91,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
         }
       }
 
-      const existingSupplier = get().suppliers.find((s) => s.name.toLowerCase() === invoice.supplier.toLowerCase());
-      const newCatalogItems = invoice.items.map((item) => ({
-        sku: item.sku, name: item.name, lastCost: item.costUnitUSD
-      }));
-
-      let updatedSuppliers = get().suppliers;
-      if (existingSupplier) {
-        const mergedCatalog = [...(existingSupplier.catalog || [])];
-        newCatalogItems.forEach((newItem) => {
-          const idx = mergedCatalog.findIndex((c) => c.sku === newItem.sku);
-          if (idx >= 0) mergedCatalog[idx] = newItem;
-          else mergedCatalog.push(newItem);
-        });
-        await supabase.from('suppliers').update({ catalog: mergedCatalog }).eq('id', existingSupplier.id);
-        updatedSuppliers = updatedSuppliers.map((s) =>
-          s.id === existingSupplier.id ? { ...s, catalog: mergedCatalog } : s
-        );
-      } else {
-        const { data: newSupplierData } = await supabase.from('suppliers').insert({ name: invoice.supplier, catalog: newCatalogItems }).select().single();
-        if (newSupplierData) {
-          updatedSuppliers = [...updatedSuppliers, { id: newSupplierData.id, name: invoice.supplier, catalog: newCatalogItems }];
-        }
-      }
-
-      // Incremental update: add invoice, update products and suppliers locally
+      // Incremental update: add invoice, update products locally
       const savedInvoice: Invoice = invoiceData ? { ...invoice, id: invoiceData.id } : invoice;
       set((state) => ({
         invoices: [...state.invoices, savedInvoice],
@@ -127,7 +103,6 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
           }),
           ...newProducts
         ],
-        suppliers: updatedSuppliers
       }));
 
       toast.dismiss(loadingToast);

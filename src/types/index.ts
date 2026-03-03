@@ -169,12 +169,20 @@ export interface Sale {
   sellerName?: string;  // ✅ FIX: Snapshot del nombre del vendedor
 }
 
+export type SupplierCategory = 'Importador' | 'Nacional' | 'Fabricante' | 'Distribuidor' | 'Otro';
+
 export interface Supplier {
   id: string;
   name: string;
+  rif?: string;
+  rifType?: RifType;
   contactName?: string;
   phone?: string;
-  catalog: { sku: string; name: string; lastCost: number }[];
+  email?: string;
+  address?: string;
+  category?: SupplierCategory;
+  notes?: string;
+  createdAt?: string;
 }
 
 export interface IncomingItem {
