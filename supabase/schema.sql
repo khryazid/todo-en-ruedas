@@ -43,10 +43,7 @@ CREATE TABLE IF NOT EXISTS public.settings (
     created_at            TIMESTAMPTZ DEFAULT now()
 );
 
--- Fila inicial de configuración (la app espera exactamente 1 fila)
-INSERT INTO public.settings (company_name, rif)
-VALUES ('Glyph Core', 'J-00000000')
-ON CONFLICT DO NOTHING;
+
 
 
 -- ============================================================

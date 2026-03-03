@@ -69,7 +69,6 @@ CREATE TABLE public.settings (
     brand_color            TEXT,
     created_at             TIMESTAMPTZ DEFAULT now()
 );
-INSERT INTO public.settings (company_name, rif) VALUES ('Glyph Core', 'J-00000000');
 
 -- products
 CREATE TABLE public.products (
