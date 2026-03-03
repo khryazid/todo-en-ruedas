@@ -3,19 +3,34 @@
  * @description Operaciones del carrito de compras (POS).
  */
 
-import type { Product, CartItem, Quote } from '../../types';
+import type { Product, CartItem, Quote, PriceList } from '../../types';
 import type { SetState } from '../types';
 
 export const createCartSlice = (set: SetState) => ({
 
   cart: [] as CartItem[],
 
-  addToCart: (product: Product) => set((state) => {
+  addToCart: (product: Product, priceList?: PriceList) => set((state) => {
     const existing = state.cart.find((item) => item.id === product.id);
     const costBase = product.cost + (product.freight || 0);
-    const margin = product.customMargin ?? state.settings.defaultMargin;
-    const vat = product.customVAT ?? state.settings.defaultVAT;
 
+    // customMargin del producto siempre tiene prioridad
+    let margin: number;
+    if (product.customMargin !== undefined && product.customMargin !== null) {
+      margin = product.customMargin;
+    } else if (priceList === 'Mayorista') {
+      margin = state.settings.marginMayorista && state.settings.marginMayorista > 0
+        ? state.settings.marginMayorista
+        : state.settings.defaultMargin * 0.6;
+    } else if (priceList === 'Especial') {
+      margin = state.settings.marginEspecial && state.settings.marginEspecial > 0
+        ? state.settings.marginEspecial
+        : state.settings.defaultMargin * 0.4;
+    } else {
+      margin = state.settings.defaultMargin;
+    }
+
+    const vat = product.customVAT ?? state.settings.defaultVAT;
     const basePrice = Math.round((costBase * (1 + margin / 100) * (1 + vat / 100)) * 100) / 100;
     let priceFinalUSD = basePrice;
 

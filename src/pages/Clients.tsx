@@ -15,7 +15,7 @@ import {
     ShoppingBag, Award, Clock,
     Eye, Printer, Ban, MessageCircle, User, AlertTriangle
 } from 'lucide-react';
-import type { Client, Sale } from '../types';
+import type { Client, Sale, PriceList } from '../types';
 
 export const Clients = () => {
     // AÑADIDO annulSale para poder anular desde el detalle del cliente
@@ -31,7 +31,7 @@ export const Clients = () => {
     const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
 
     // Estado Formulario
-    const initialForm: Client = { id: '', name: '', rif: '', phone: '', address: '', email: '', notes: '' };
+    const initialForm: Client = { id: '', name: '', rif: '', phone: '', address: '', email: '', notes: '', priceList: undefined };
     const [formData, setFormData] = useState<Client>(initialForm);
     const [isEditing, setIsEditing] = useState(false);
 
@@ -148,7 +148,14 @@ export const Clients = () => {
                                         </div>
                                         <div>
                                             <h3 className="font-bold text-gray-800 text-lg leading-tight line-clamp-1">{client.name}</h3>
-                                            <span className="text-xs font-mono font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">{client.rif}</span>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <span className="text-xs font-mono font-bold text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">{client.rif}</span>
+                                                {client.priceList && client.priceList !== 'Detal' && (
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${client.priceList === 'Mayorista' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                                        {client.priceList === 'Mayorista' ? '🏷️' : '⭐'} {client.priceList}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                     <span className={`text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1 ${metrics.tier.color}`}>
@@ -249,6 +256,26 @@ export const Clients = () => {
                                         value={formData.creditLimit ?? ''}
                                         onChange={e => setFormData({ ...formData, creditLimit: Number(e.target.value) || 0 })}
                                     />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1.5">Lista de Precio</label>
+                                <div className="flex gap-2">
+                                    {(['Detal', 'Mayorista', 'Especial'] as PriceList[]).map(pl => (
+                                        <button
+                                            key={pl}
+                                            type="button"
+                                            onClick={() => setFormData({ ...formData, priceList: pl })}
+                                            className={`flex-1 py-2 rounded-xl text-xs font-bold border transition ${(formData.priceList ?? 'Detal') === pl
+                                                    ? pl === 'Detal' ? 'bg-green-600 text-white border-green-600'
+                                                        : pl === 'Mayorista' ? 'bg-blue-600 text-white border-blue-600'
+                                                            : 'bg-purple-600 text-white border-purple-600'
+                                                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                                                }`}
+                                        >
+                                            {pl === 'Detal' ? '🟢' : pl === 'Mayorista' ? '🏷️' : '⭐'} {pl}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                             <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1">Notas Internas</label><textarea className="w-full border-2 border-gray-100 rounded-xl p-3 h-20 resize-none" placeholder="Preferencias, persona de contacto..." value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} /></div>

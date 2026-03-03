@@ -20,6 +20,8 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
     shiftStart: '08:00',
     showSellerCommission: false,
     sellerCommissionPct: 5,
+    marginMayorista: 0,
+    marginEspecial: 0,
   } as AppSettings,
 
   paymentMethods: [] as PaymentMethod[],
@@ -40,6 +42,8 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
         shift_start: newSettings.shiftStart || '08:00',
         show_seller_commission: newSettings.showSellerCommission ?? false,
         seller_commission_pct: newSettings.sellerCommissionPct ?? 5,
+        margin_mayorista: newSettings.marginMayorista ?? 0,
+        margin_especial: newSettings.marginEspecial ?? 0,
       };
 
       // Intentar UPDATE primero (cuando ya existe una fila)

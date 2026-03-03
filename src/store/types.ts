@@ -72,7 +72,7 @@ export interface StoreState {
   deleteClient: (id: string) => Promise<void>;
 
   // --- Cart ---
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product, priceList?: import('../types').PriceList) => void;
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;

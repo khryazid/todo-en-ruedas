@@ -18,6 +18,7 @@ export const createClientSlice = (set: SetState) => ({
         name: client.name, rif: client.rif, phone: client.phone,
         address: client.address, email: client.email, notes: client.notes,
         credit_limit: client.creditLimit ?? 0,
+        price_list: client.priceList ?? null,
       }).select().single();
       if (error) throw error;
       if (data) {
@@ -35,6 +36,10 @@ export const createClientSlice = (set: SetState) => ({
       if ('creditLimit' in updates) {
         payload.credit_limit = updates.creditLimit ?? 0;
         delete payload.creditLimit;
+      }
+      if ('priceList' in updates) {
+        payload.price_list = updates.priceList ?? null;
+        delete payload.priceList;
       }
       const { error } = await supabase.from('clients').update(payload).eq('id', id);
       if (error) throw error;

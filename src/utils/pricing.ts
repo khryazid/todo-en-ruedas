@@ -1,9 +1,11 @@
 /**
  * @file pricing.ts
  * @description Utilidades para cálculo de precios y formateo de moneda.
+ * ✅ PRICE LISTS: calculatePrices acepta priceList opcional para aplicar
+ *    el margen de la lista asignada al cliente (Mayorista / Especial).
  */
 
-import type { Product, AppSettings } from '../types';
+import type { Product, AppSettings, PriceList } from '../types';
 
 export const formatCurrency = (amount: number, currency: 'USD' | 'BS') => {
   if (currency === 'USD') {
@@ -12,9 +14,40 @@ export const formatCurrency = (amount: number, currency: 'USD' | 'BS') => {
   return `Bs. ${amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-export const calculatePrices = (product: Product, settings: AppSettings) => {
+/**
+ * Calcula los precios finales de un producto aplicando márgenes, IVA y tasa de cambio.
+ *
+ * @param product   - El producto a calcular
+ * @param settings  - Configuración global (tasas, márgenes por defecto)
+ * @param priceList - Lista de precio del cliente seleccionado (opcional).
+ *                    Sólo se aplica si el producto NO tiene customMargin propio.
+ */
+export const calculatePrices = (
+  product: Product,
+  settings: AppSettings,
+  priceList?: PriceList
+) => {
   const costUSD = product.cost + (product.freight || 0);
-  const margin = product.customMargin ?? settings.defaultMargin;
+
+  // customMargin del producto siempre tiene prioridad absoluta
+  let margin: number;
+  if (product.customMargin !== undefined && product.customMargin !== null) {
+    margin = product.customMargin;
+  } else if (priceList === 'Mayorista') {
+    // Margen mayorista: valor configurado o 60% del margen base
+    margin = settings.marginMayorista && settings.marginMayorista > 0
+      ? settings.marginMayorista
+      : settings.defaultMargin * 0.6;
+  } else if (priceList === 'Especial') {
+    // Margen especial: valor configurado o 40% del margen base
+    margin = settings.marginEspecial && settings.marginEspecial > 0
+      ? settings.marginEspecial
+      : settings.defaultMargin * 0.4;
+  } else {
+    // 'Detal' o sin lista → margen global
+    margin = settings.defaultMargin;
+  }
+
   const vat = product.customVAT ?? settings.defaultVAT;
 
   // 1. Precio base = Costo + Margen + IVA
@@ -27,10 +60,8 @@ export const calculatePrices = (product: Product, settings: AppSettings) => {
     const tasaBCV = settings.tasaBCV || 0;
 
     if (tasaTH > 0 && tasaBCV > 0) {
-      // Convertir: precio TH en Bs / tasa BCV = precio equivalente en USD al BCV
       finalPriceUSD = (basePrice * tasaTH) / tasaBCV;
     }
-    // Si las tasas no están configuradas, finalPriceUSD = basePrice (sin ajuste)
   }
 
   // Redondear USD a 2 decimales
@@ -44,7 +75,7 @@ export const calculatePrices = (product: Product, settings: AppSettings) => {
 
   return {
     baseCost: costUSD,
-    basePrice,      // Precio base antes de la conversión TH (útil para mostrar P.TH)
+    basePrice,
     finalPriceUSD,
     finalPriceVED,
     margin,

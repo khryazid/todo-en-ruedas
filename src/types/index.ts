@@ -20,6 +20,7 @@ export type RifType = 'J' | 'V' | 'E' | 'G' | 'P' | 'C';
 export type CurrencyView = 'USD' | 'BS';
 export type PaymentCurrency = 'USD' | 'BS';
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'CANCEL' | 'LOGIN' | 'LOGOUT';
+export type PriceList = 'Detal' | 'Mayorista' | 'Especial';
 
 export interface SaleReturn {
   id: string;
@@ -59,6 +60,7 @@ export interface Client {
   email?: string;
   notes?: string;
   creditLimit?: number; // #2 Límite de crédito
+  priceList?: PriceList; // Lista de precio asignada
 }
 
 // ─── GASTOS ───────────────────────────────────────────────────────────────────
@@ -236,6 +238,8 @@ export interface AppSettings {
   sellerCommissionPct?: number;   // Porcentaje de comisión (default 5)
   companyLogo?: string; // URL del logo personalizado
   brandColor?: string;  // Color de marca personalizado
+  marginMayorista?: number; // Margen % para lista Mayorista (0 = usa 60% del defaultMargin)
+  marginEspecial?: number;  // Margen % para lista Especial  (0 = usa 40% del defaultMargin)
 }
 
 export interface CashClose {
