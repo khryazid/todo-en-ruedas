@@ -205,13 +205,13 @@ export const Settings = () => {
                     type="number"
                     min={0}
                     className="w-full border-2 border-blue-50 rounded-xl p-3 text-lg font-bold text-blue-700 outline-none focus:border-blue-300 transition"
-                    value={formData.marginMayorista || ''}
-                    placeholder={String(Math.round((formData.defaultMargin || 30) * 0.6))}
+                    value={formData.marginMayorista ?? 0}
+                    placeholder="0"
                     onChange={e => setFormData({ ...formData, marginMayorista: parseFloat(e.target.value) || 0 })}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-300 font-bold">%</span>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">Si es 0, usa 60% del margen default.</p>
+                <p className="text-[10px] text-gray-400 mt-1">Un 0% aplica precio Detal normal.</p>
               </div>
               <div>
                 <label className="block text-xs font-bold text-purple-600 mb-1 uppercase">⭐ Especial</label>
@@ -220,13 +220,13 @@ export const Settings = () => {
                     type="number"
                     min={0}
                     className="w-full border-2 border-purple-50 rounded-xl p-3 text-lg font-bold text-purple-700 outline-none focus:border-purple-300 transition"
-                    value={formData.marginEspecial || ''}
-                    placeholder={String(Math.round((formData.defaultMargin || 30) * 0.4))}
+                    value={formData.marginEspecial ?? 0}
+                    placeholder="0"
                     onChange={e => setFormData({ ...formData, marginEspecial: parseFloat(e.target.value) || 0 })}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-300 font-bold">%</span>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">Si es 0, usa 40% del margen default.</p>
+                <p className="text-[10px] text-gray-400 mt-1">Un 0% aplica precio Detal normal.</p>
               </div>
             </div>
           </div>

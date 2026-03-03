@@ -103,6 +103,8 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
             shiftStart: settingsData.shift_start || '08:00',
             showSellerCommission: settingsData.show_seller_commission ?? false,
             sellerCommissionPct: settingsData.seller_commission_pct ?? 5,
+            marginMayorista: settingsData.margin_mayorista ?? 0,
+            marginEspecial: settingsData.margin_especial ?? 0,
           }
         }));
       }
