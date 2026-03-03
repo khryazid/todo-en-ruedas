@@ -388,6 +388,11 @@ ALTER TABLE public.audit_logs       ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow authenticated users full access on settings"
     ON public.settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
+-- Permitir lectura a usuarios anónimos estructurando el inicio de sesión
+-- Necesario para que useSetupCheck sepa si el sistema ya fue configurado
+CREATE POLICY "Allow anon read settings"
+    ON public.settings FOR SELECT TO anon USING (true);
+
 CREATE POLICY "Allow authenticated users full access on products"
     ON public.products FOR ALL TO authenticated USING (true) WITH CHECK (true);
 

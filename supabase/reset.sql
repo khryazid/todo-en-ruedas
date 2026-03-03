@@ -345,6 +345,7 @@ ALTER TABLE public.payment_methods  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs       ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "auth_full_settings"        ON public.settings        FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "anon_read_settings"        ON public.settings        FOR SELECT TO anon USING (true);
 CREATE POLICY "auth_full_products"        ON public.products         FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_clients"         ON public.clients          FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_sales"           ON public.sales            FOR ALL TO authenticated USING (true) WITH CHECK (true);
