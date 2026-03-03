@@ -17,7 +17,7 @@ import {
     LayoutDashboard, ShoppingCart, Package, FileText,
     Settings, LogOut, History, PieChart, Users, Wallet,
     Shield, ClipboardList, Award, Menu, X, Search,
-    ChevronDown, UserCircle, Sliders, TrendingDown, Moon, Sun
+    ChevronDown, UserCircle, Sliders, TrendingDown, Moon, Sun, Truck
 } from 'lucide-react';
 import { useDarkMode } from '../../hooks/useDarkMode';
 import type { PermissionType } from '../../utils/permissions';
@@ -39,6 +39,7 @@ const allMenuItems: MenuItem[] = [
 
     // Inventario y Proveedores
     { icon: Package, label: 'Inventario', path: '/inventory', allowedRoles: ['ADMIN', 'MANAGER'] },
+    { icon: Truck, label: 'Proveedores', path: '/suppliers', allowedRoles: ['ADMIN', 'MANAGER'] },
     { icon: FileText, label: 'Facturas', path: '/invoices', allowedRoles: ['ADMIN', 'MANAGER', 'VIEWER'] },
 
     // Contactos y Cuentas

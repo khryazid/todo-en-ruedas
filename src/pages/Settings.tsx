@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import {
   Save, RefreshCw, Percent, Eye, EyeOff, Trash2,
-  CreditCard, Plus, Building2, Clock, Users, Award
+  CreditCard, Plus, Building2, Clock, Users, Award, Tag
 } from 'lucide-react';
 import type { RifType, CurrencyView, PaymentCurrency } from '../types';
 
@@ -191,6 +191,43 @@ export const Settings = () => {
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
               </div>
               <p className="text-[10px] text-gray-400 mt-2 leading-tight">Impuesto al Valor Agregado (Aplica general).</p>
+            </div>
+          </div>
+
+          {/* Márgenes por Lista de Precio */}
+          <div className="mt-4 pt-4 border-t border-gray-50">
+            <p className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1.5"><Tag size={12} /> Márgenes por Lista de Precio</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-blue-600 mb-1 uppercase">🏷️ Mayorista</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    className="w-full border-2 border-blue-50 rounded-xl p-3 text-lg font-bold text-blue-700 outline-none focus:border-blue-300 transition"
+                    value={formData.marginMayorista || ''}
+                    placeholder={String(Math.round((formData.defaultMargin || 30) * 0.6))}
+                    onChange={e => setFormData({ ...formData, marginMayorista: parseFloat(e.target.value) || 0 })}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-300 font-bold">%</span>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">Si es 0, usa 60% del margen default.</p>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-purple-600 mb-1 uppercase">⭐ Especial</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={0}
+                    className="w-full border-2 border-purple-50 rounded-xl p-3 text-lg font-bold text-purple-700 outline-none focus:border-purple-300 transition"
+                    value={formData.marginEspecial || ''}
+                    placeholder={String(Math.round((formData.defaultMargin || 30) * 0.4))}
+                    onChange={e => setFormData({ ...formData, marginEspecial: parseFloat(e.target.value) || 0 })}
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-300 font-bold">%</span>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">Si es 0, usa 40% del margen default.</p>
+              </div>
             </div>
           </div>
         </div>

@@ -529,30 +529,31 @@ export const POS = () => {
                             <UserPlus size={18} />
                         </button>
                     </div>
+                    {/* Client results dropdown — inside ref so click-outside works */}
+                    {showClientList && clientSearch && !selectedClient && (
+                        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-xl shadow-lg z-50 max-h-40 overflow-y-auto">
+                            {filteredClients.length > 0 ? filteredClients.map((c, idx) => (
+                                <button
+                                    key={c.id}
+                                    onClick={() => handleSelectClient(c)}
+                                    className={`w-full text-left px-4 py-2 text-sm border-b border-gray-50 transition ${highlightedClientIndex === idx ? 'bg-blue-100' : 'hover:bg-blue-50'}`}
+                                >
+                                    <span className="font-bold text-gray-800">{c.name}</span>
+                                    <span className="text-gray-400 ml-2 text-xs">{c.rif}</span>
+                                </button>
+                            )) : (
+                                <div className="p-3 text-center text-xs text-gray-400">
+                                    No se encontró. <button onClick={() => { setShowClientList(false); setIsClientModalOpen(true); }} className="text-blue-600 font-bold hover:underline">Registrar Nuevo</button>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
                 {/* 🏷️ BADGE: Lista de Precio activa */}
                 {selectedClient?.priceList && selectedClient.priceList !== 'Detal' && (
                     <div className={`px-3 py-1.5 flex items-center gap-2 text-xs font-bold border-b ${selectedClient.priceList === 'Mayorista' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-purple-50 border-purple-100 text-purple-700'}`}>
                         <span>{selectedClient.priceList === 'Mayorista' ? '🏷️' : '⭐'}</span>
                         <span>Precios {selectedClient.priceList} aplicados al catálogo</span>
-                    </div>
-                )}
-                {showClientList && clientSearch && !selectedClient && (
-                    <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-xl shadow-lg z-50 max-h-40 overflow-y-auto">
-                        {filteredClients.length > 0 ? filteredClients.map((c, idx) => (
-                            <button
-                                key={c.id}
-                                onClick={() => handleSelectClient(c)}
-                                className={`w-full text-left px-4 py-2 text-sm border-b border-gray-50 transition ${highlightedClientIndex === idx ? 'bg-blue-100' : 'hover:bg-blue-50'}`}
-                            >
-                                <span className="font-bold text-gray-800">{c.name}</span>
-                                <span className="text-gray-400 ml-2 text-xs">{c.rif}</span>
-                            </button>
-                        )) : (
-                            <div className="p-3 text-center text-xs text-gray-400">
-                                No se encontró. <button onClick={() => { setShowClientList(false); setIsClientModalOpen(true); }} className="text-blue-600 font-bold hover:underline">Registrar Nuevo</button>
-                            </div>
-                        )}
                     </div>
                 )}
 
