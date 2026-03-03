@@ -29,31 +29,37 @@ export const calculatePrices = (
 ) => {
   const costUSD = product.cost + (product.freight || 0);
 
-  // customMargin del producto siempre tiene prioridad absoluta
-  let margin: number;
-  if (product.customMargin !== undefined && product.customMargin !== null) {
-    margin = product.customMargin;
-  } else if (priceList === 'Mayorista') {
-    // Margen mayorista: valor configurado o 60% del margen base
-    margin = settings.marginMayorista && settings.marginMayorista > 0
-      ? settings.marginMayorista
-      : settings.defaultMargin * 0.6;
-  } else if (priceList === 'Especial') {
-    // Margen especial: valor configurado o 40% del margen base
-    margin = settings.marginEspecial && settings.marginEspecial > 0
-      ? settings.marginEspecial
-      : settings.defaultMargin * 0.4;
-  } else {
-    // 'Detal' o sin lista → margen global
-    margin = settings.defaultMargin;
+  // El margen siempre es el custom o el default
+  const margin: number = product.customMargin !== undefined && product.customMargin !== null
+    ? product.customMargin
+    : settings.defaultMargin;
+
+  // Definir el % de descuento basado en la lista de precio (sólo si no tiene customMargin)
+  let discountPct = 0;
+  if ((product.customMargin === undefined || product.customMargin === null)) {
+    if (priceList === 'Mayorista') {
+      discountPct = settings.marginMayorista && settings.marginMayorista > 0
+        ? settings.marginMayorista
+        : 10; // 10% de descuento por defecto si no se ha configurado
+    } else if (priceList === 'Especial') {
+      discountPct = settings.marginEspecial && settings.marginEspecial > 0
+        ? settings.marginEspecial
+        : 15; // 15% de descuento por defecto
+    }
   }
 
   const vat = product.customVAT ?? settings.defaultVAT;
 
-  // 1. Precio base = Costo + Margen + IVA
-  const basePrice = Math.round((costUSD * (1 + margin / 100) * (1 + vat / 100)) * 100) / 100;
+  // 1. Precio antes de IVA = Costo + Margen
+  const priceBeforeVat = costUSD * (1 + margin / 100);
 
-  // 2. LÓGICA TH (CAMUFLAJE BCV)
+  // 2. Aplicar descuento de lista de precio
+  const discountedPrice = priceBeforeVat * (1 - discountPct / 100);
+
+  // 3. Precio base final = Precio con descuento + IVA
+  const basePrice = Math.round((discountedPrice * (1 + vat / 100)) * 100) / 100;
+
+  // 4. LÓGICA TH (CAMUFLAJE BCV)
   let finalPriceUSD = basePrice;
   if (product.costType === 'TH') {
     const tasaTH = settings.tasaTH || 0;

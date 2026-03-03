@@ -194,9 +194,9 @@ export const Settings = () => {
             </div>
           </div>
 
-          {/* Márgenes por Lista de Precio */}
+          {/* Descuentos por Lista de Precio */}
           <div className="mt-4 pt-4 border-t border-gray-50">
-            <p className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1.5"><Tag size={12} /> Márgenes por Lista de Precio</p>
+            <p className="text-xs font-bold text-gray-400 uppercase mb-3 flex items-center gap-1.5"><Tag size={12} /> Descuentos por Lista de Precio</p>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-blue-600 mb-1 uppercase">🏷️ Mayorista</label>
@@ -211,7 +211,7 @@ export const Settings = () => {
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-300 font-bold">%</span>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">Un 0% aplica precio Detal normal.</p>
+                <p className="text-[10px] text-gray-400 mt-1">% de descuento sobre el precio Detal.</p>
               </div>
               <div>
                 <label className="block text-xs font-bold text-purple-600 mb-1 uppercase">⭐ Especial</label>
@@ -226,7 +226,7 @@ export const Settings = () => {
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-300 font-bold">%</span>
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">Un 0% aplica precio Detal normal.</p>
+                <p className="text-[10px] text-gray-400 mt-1">% de descuento sobre el precio Detal.</p>
               </div>
             </div>
           </div>
