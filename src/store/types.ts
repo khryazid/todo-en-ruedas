@@ -83,6 +83,7 @@ export interface StoreState {
   removeFromCart: (productId: string) => void;
   updateCartQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
+  recalculateCartPrices: (priceList?: import('../types').PriceList) => void;
   loadQuoteIntoCart: (quote: Quote, products: Product[]) => void;
 
   // --- Sales ---

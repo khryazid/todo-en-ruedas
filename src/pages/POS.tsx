@@ -71,7 +71,7 @@ const ProductCard = memo(({ product, priceUSD, onAdd }: ProductCardProps) => {
 // COMPONENTE PRINCIPAL: POS
 // =============================================
 export const POS = () => {
-    const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, completeSale, settings, paymentMethods, sales, addQuote, quotes, applyClientCredit } = useStore();
+    const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, recalculateCartPrices, completeSale, settings, paymentMethods, sales, addQuote, quotes, applyClientCredit } = useStore();
     const location = useLocation();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -96,6 +96,11 @@ export const POS = () => {
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
     const searchRef = useRef<HTMLInputElement>(null);
     const searchContainerRef = useRef<HTMLDivElement>(null);
+
+    // ✅ RECALCULAR PRECIOS DEL CARRITO SI CAMBIA EL CLIENTE
+    useEffect(() => {
+        recalculateCartPrices(selectedClient?.priceList as PriceList | undefined);
+    }, [selectedClient, recalculateCartPrices]);
 
     // ✅ FIX 6.5: Debounce de búsqueda (200ms)
     const debouncedSearch = useDebounce(searchTerm, 200);

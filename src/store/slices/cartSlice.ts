@@ -33,6 +33,13 @@ export const createCartSlice = (set: SetState) => ({
 
   clearCart: () => set({ cart: [] }),
 
+  recalculateCartPrices: (priceList?: PriceList) => set((state) => ({
+    cart: state.cart.map(item => {
+      const { finalPriceUSD: priceFinalUSD } = calculatePrices(item, state.settings, priceList);
+      return { ...item, priceFinalUSD };
+    })
+  })),
+
   loadQuoteIntoCart: (quote: Quote, products: Product[]) => set(() => {
     const newCart: CartItem[] = [];
     for (const item of quote.items) {
