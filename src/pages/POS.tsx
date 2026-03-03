@@ -555,216 +555,215 @@ export const POS = () => {
                         )}
                     </div>
                 )}
-            </div>
 
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50 custom-scrollbar max-h-[20vh] md:max-h-none">
-                {cart.map(item => (
-                    <div key={item.id} className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm animate-in slide-in-from-right-2 fade-in duration-200">
-                        <div className="flex-1 min-w-0 pr-2">
-                            <p className="text-xs font-bold text-gray-800 truncate">{item.name}</p>
-                            <p className="text-[10px] text-gray-400 font-mono">{item.sku}</p>
-                            <p className="text-[11px] text-blue-600 font-black mt-0.5">{formatCurrency(item.priceFinalUSD, 'USD')}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                            <div className="flex items-center border rounded-lg overflow-hidden bg-gray-50">
-                                <button onClick={() => updateCartQuantity(item.id, item.quantity - 1)} className="p-1 hover:bg-gray-200 text-gray-600 transition"><Minus size={12} /></button>
-                                <span className="text-xs font-bold w-6 text-center bg-white border-x border-gray-100 h-full flex items-center justify-center">{item.quantity}</span>
-                                <button onClick={() => {
-                                    const p = products.find(prod => prod.id === item.id);
-                                    if (p && item.quantity + 1 > p.stock) {
-                                        toast.error(`Stock insuficiente. Disponibles: ${p.stock}`);
-                                        return;
-                                    }
-                                    updateCartQuantity(item.id, item.quantity + 1);
-                                }} className="p-1 hover:bg-gray-200 text-gray-600 transition"><Plus size={12} /></button>
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50 custom-scrollbar max-h-[20vh] md:max-h-none">
+                    {cart.map(item => (
+                        <div key={item.id} className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm animate-in slide-in-from-right-2 fade-in duration-200">
+                            <div className="flex-1 min-w-0 pr-2">
+                                <p className="text-xs font-bold text-gray-800 truncate">{item.name}</p>
+                                <p className="text-[10px] text-gray-400 font-mono">{item.sku}</p>
+                                <p className="text-[11px] text-blue-600 font-black mt-0.5">{formatCurrency(item.priceFinalUSD, 'USD')}</p>
                             </div>
-                            <button onClick={() => removeFromCart(item.id)} className="text-[10px] text-red-400 hover:text-red-600 font-bold flex items-center gap-1"><Trash2 size={10} /></button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <div className="p-4 bg-white border-t border-gray-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-                {/* Campo de descuento */}
-                <div className="flex items-center gap-2 mb-3">
-                    <span className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Desc. %</span>
-                    <div className="flex items-center border-2 border-dashed border-gray-200 rounded-lg overflow-hidden flex-1">
-                        <button onClick={() => setDiscountPct(d => Math.max(0, d - 5))} className="px-2 py-1 text-gray-500 hover:bg-gray-100 font-black text-sm transition">−</button>
-                        <input
-                            type="number" min="0" max="100" step="1"
-                            value={discountPct || ''}
-                            onChange={e => setDiscountPct(Math.min(100, Math.max(0, Number(e.target.value))))}
-                            placeholder="0"
-                            className="w-12 text-center font-black text-sm bg-transparent outline-none"
-                        />
-                        <span className="text-gray-400 text-xs font-bold pr-1">%</span>
-                        <button onClick={() => setDiscountPct(d => Math.min(100, d + 5))} className="px-2 py-1 text-gray-500 hover:bg-gray-100 font-black text-sm transition">+</button>
-                    </div>
-                    {discountPct > 0 && (
-                        <span className="text-xs font-black text-red-500 whitespace-nowrap">-{formatCurrency(discountAmount, 'USD')}</span>
-                    )}
-                </div>
-                <div className="flex justify-between items-end pt-1 mb-4">
-                    <div className="text-left">
-                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Total a Pagar</p>
-                        <p className="text-blue-600 font-bold text-sm">Bs. {totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
-                    </div>
-                    <p className="text-3xl font-black text-gray-900 leading-none">{formatCurrency(totalUSD, 'USD')}</p>
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                    <button onClick={clearCart} disabled={cart.length === 0} className="col-span-1 flex items-center justify-center p-3 rounded-xl border border-red-100 text-red-500 bg-red-50 hover:bg-red-100 disabled:opacity-50 transition" title="Vaciar Carrito"><Trash2 size={20} /></button>
-                    <button onClick={handleSaveQuote} disabled={cart.length === 0} className="col-span-1 flex items-center justify-center p-3 rounded-xl border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 shadow-sm disabled:opacity-50 transition" title="Guardar como Cotización"><FileText size={20} /></button>
-                    <button onClick={() => setIsCheckoutModalOpen(true)} disabled={cart.length === 0} className="col-span-2 flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-900 text-white font-bold hover:bg-black shadow-lg disabled:opacity-50 transition active:scale-95 text-sm"><DollarSign size={20} /> COBRAR</button>
-                </div>
-            </div>
-        </div>
-
-            {/* MODAL DE CHECKOUT Y ÉXITO */ }
-    {
-        (isCheckoutModalOpen || completedSale) && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in">
-                <div className="bg-white w-full md:w-[420px] rounded-t-3xl md:rounded-3xl shadow-2xl p-6 animate-in slide-in-from-bottom duration-300">
-                    {completedSale ? (
-                        <div className="text-center">
-                            <CheckCircle className="text-green-500 mx-auto mb-4" size={64} />
-                            <h3 className="text-2xl font-black text-gray-800 mb-2">¡Venta Exitosa!</h3>
-                            <p className="text-gray-500 mb-6">La venta #{completedSale.localId || completedSale.id.slice(-6)} ha sido registrada correctamente.</p>
-
-                            <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-100 shadow-inner">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="text-gray-500 font-bold uppercase text-xs">Total Pagado</span>
-                                    <span className="text-3xl font-black text-gray-900">{formatCurrency(completedSale.paidAmountUSD, 'USD')}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-gray-400">Ref. Bs</span>
-                                    <span className="font-bold text-blue-600">Bs. {((completedSale.paidAmountUSD || 0) * settings.tasaBCV).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                                {(completedSale.totalUSD - completedSale.paidAmountUSD) > 0.01 && (
-                                    <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t border-gray-200">
-                                        <span className="text-red-500 font-bold">Deuda Pendiente</span>
-                                        <span className="font-bold text-red-600">{formatCurrency(completedSale.totalUSD - completedSale.paidAmountUSD, 'USD')}</span>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="space-y-3">
-                                <button
-                                    onClick={async () => {
-                                        if (!selectedClient) {
-                                            alert("Asigna un cliente primero o créalo para poder enviar el recibo.");
+                            <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-center border rounded-lg overflow-hidden bg-gray-50">
+                                    <button onClick={() => updateCartQuantity(item.id, item.quantity - 1)} className="p-1 hover:bg-gray-200 text-gray-600 transition"><Minus size={12} /></button>
+                                    <span className="text-xs font-bold w-6 text-center bg-white border-x border-gray-100 h-full flex items-center justify-center">{item.quantity}</span>
+                                    <button onClick={() => {
+                                        const p = products.find(prod => prod.id === item.id);
+                                        if (p && item.quantity + 1 > p.stock) {
+                                            toast.error(`Stock insuficiente. Disponibles: ${p.stock}`);
                                             return;
                                         }
-                                        await sendToWhatsApp(completedSale);
-                                    }}
-                                    disabled={!selectedClient || !selectedClient.phone}
-                                    className="w-full flex items-center justify-center gap-2 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title={(!selectedClient || !selectedClient.phone) ? "El cliente debe tener un teléfono registrado" : "Enviar por WhatsApp"}
-                                >
-                                    <MessageCircle size={20} /> ENVIAR RECIBO POR WHATSAPP
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        printInvoice(completedSale);
-                                    }}
-                                    className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition"
-                                >
-                                    <Printer size={20} /> IMPRIMIR RECIBO
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setCompletedSale(null);
-                                        clearClient();
-                                    }}
-                                    className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition"
-                                >
-                                    PROCESAR NUEVA VENTA
-                                </button>
+                                        updateCartQuantity(item.id, item.quantity + 1);
+                                    }} className="p-1 hover:bg-gray-200 text-gray-600 transition"><Plus size={12} /></button>
+                                </div>
+                                <button onClick={() => removeFromCart(item.id)} className="text-[10px] text-red-400 hover:text-red-600 font-bold flex items-center gap-1"><Trash2 size={10} /></button>
                             </div>
                         </div>
-                    ) : isCheckoutModalOpen ? (
-                        <>
-                            <button onClick={() => setIsCheckoutModalOpen(false)} className="absolute right-4 top-4 text-gray-400 hover:bg-gray-100 p-2 rounded-full transition"><X size={20} /></button>
-                            <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><ShoppingCart className="text-blue-600" /> Checkout</h2>
+                    ))}
+                </div>
 
-                            {selectedClient && (
-                                <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4 flex flex-col gap-2">
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-blue-200 text-blue-700 p-2 rounded-full"><User size={20} /></div>
-                                        <div>
-                                            <p className="text-[10px] uppercase font-bold text-blue-400">Cliente Asignado</p>
-                                            <p className="font-bold text-blue-900 text-sm">{selectedClient.name}</p>
+                <div className="p-4 bg-white border-t border-gray-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+                    {/* Campo de descuento */}
+                    <div className="flex items-center gap-2 mb-3">
+                        <span className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Desc. %</span>
+                        <div className="flex items-center border-2 border-dashed border-gray-200 rounded-lg overflow-hidden flex-1">
+                            <button onClick={() => setDiscountPct(d => Math.max(0, d - 5))} className="px-2 py-1 text-gray-500 hover:bg-gray-100 font-black text-sm transition">−</button>
+                            <input
+                                type="number" min="0" max="100" step="1"
+                                value={discountPct || ''}
+                                onChange={e => setDiscountPct(Math.min(100, Math.max(0, Number(e.target.value))))}
+                                placeholder="0"
+                                className="w-12 text-center font-black text-sm bg-transparent outline-none"
+                            />
+                            <span className="text-gray-400 text-xs font-bold pr-1">%</span>
+                            <button onClick={() => setDiscountPct(d => Math.min(100, d + 5))} className="px-2 py-1 text-gray-500 hover:bg-gray-100 font-black text-sm transition">+</button>
+                        </div>
+                        {discountPct > 0 && (
+                            <span className="text-xs font-black text-red-500 whitespace-nowrap">-{formatCurrency(discountAmount, 'USD')}</span>
+                        )}
+                    </div>
+                    <div className="flex justify-between items-end pt-1 mb-4">
+                        <div className="text-left">
+                            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Total a Pagar</p>
+                            <p className="text-blue-600 font-bold text-sm">Bs. {totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                        </div>
+                        <p className="text-3xl font-black text-gray-900 leading-none">{formatCurrency(totalUSD, 'USD')}</p>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                        <button onClick={clearCart} disabled={cart.length === 0} className="col-span-1 flex items-center justify-center p-3 rounded-xl border border-red-100 text-red-500 bg-red-50 hover:bg-red-100 disabled:opacity-50 transition" title="Vaciar Carrito"><Trash2 size={20} /></button>
+                        <button onClick={handleSaveQuote} disabled={cart.length === 0} className="col-span-1 flex items-center justify-center p-3 rounded-xl border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 shadow-sm disabled:opacity-50 transition" title="Guardar como Cotización"><FileText size={20} /></button>
+                        <button onClick={() => setIsCheckoutModalOpen(true)} disabled={cart.length === 0} className="col-span-2 flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-900 text-white font-bold hover:bg-black shadow-lg disabled:opacity-50 transition active:scale-95 text-sm"><DollarSign size={20} /> COBRAR</button>
+                    </div>
+                </div>{/* end cart column */}
+            </div>{/* end main flex */}
+
+            {/* MODAL DE CHECKOUT Y ÉXITO */}
+            {
+                (isCheckoutModalOpen || completedSale) && (
+                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in">
+                        <div className="bg-white w-full md:w-[420px] rounded-t-3xl md:rounded-3xl shadow-2xl p-6 animate-in slide-in-from-bottom duration-300">
+                            {completedSale ? (
+                                <div className="text-center">
+                                    <CheckCircle className="text-green-500 mx-auto mb-4" size={64} />
+                                    <h3 className="text-2xl font-black text-gray-800 mb-2">¡Venta Exitosa!</h3>
+                                    <p className="text-gray-500 mb-6">La venta #{completedSale.localId || completedSale.id.slice(-6)} ha sido registrada correctamente.</p>
+
+                                    <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-100 shadow-inner">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-gray-500 font-bold uppercase text-xs">Total Pagado</span>
+                                            <span className="text-3xl font-black text-gray-900">{formatCurrency(completedSale.paidAmountUSD, 'USD')}</span>
                                         </div>
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-gray-400">Ref. Bs</span>
+                                            <span className="font-bold text-blue-600">Bs. {((completedSale.paidAmountUSD || 0) * settings.tasaBCV).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                        {(completedSale.totalUSD - completedSale.paidAmountUSD) > 0.01 && (
+                                            <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t border-gray-200">
+                                                <span className="text-red-500 font-bold">Deuda Pendiente</span>
+                                                <span className="font-bold text-red-600">{formatCurrency(completedSale.totalUSD - completedSale.paidAmountUSD, 'USD')}</span>
+                                            </div>
+                                        )}
                                     </div>
-                                    {(selectedClient.creditLimit ?? 0) > 0 && (
-                                        <div className="flex justify-between items-center text-xs mt-1 pt-2 border-t border-blue-200/50">
-                                            <span className="text-blue-700 font-medium">Límite: <span className="font-bold">{formatCurrency(selectedClient.creditLimit!, 'USD')}</span></span>
-                                            <span className={`font-bold ${currentClientDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>Deuda: {formatCurrency(currentClientDebt, 'USD')}</span>
+
+                                    <div className="space-y-3">
+                                        <button
+                                            onClick={async () => {
+                                                if (!selectedClient) {
+                                                    alert("Asigna un cliente primero o créalo para poder enviar el recibo.");
+                                                    return;
+                                                }
+                                                await sendToWhatsApp(completedSale);
+                                            }}
+                                            disabled={!selectedClient || !selectedClient.phone}
+                                            className="w-full flex items-center justify-center gap-2 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title={(!selectedClient || !selectedClient.phone) ? "El cliente debe tener un teléfono registrado" : "Enviar por WhatsApp"}
+                                        >
+                                            <MessageCircle size={20} /> ENVIAR RECIBO POR WHATSAPP
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                printInvoice(completedSale);
+                                            }}
+                                            className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition"
+                                        >
+                                            <Printer size={20} /> IMPRIMIR RECIBO
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setCompletedSale(null);
+                                                clearClient();
+                                            }}
+                                            className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition"
+                                        >
+                                            PROCESAR NUEVA VENTA
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : isCheckoutModalOpen ? (
+                                <>
+                                    <button onClick={() => setIsCheckoutModalOpen(false)} className="absolute right-4 top-4 text-gray-400 hover:bg-gray-100 p-2 rounded-full transition"><X size={20} /></button>
+                                    <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><ShoppingCart className="text-blue-600" /> Checkout</h2>
+
+                                    {selectedClient && (
+                                        <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4 flex flex-col gap-2">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-blue-200 text-blue-700 p-2 rounded-full"><User size={20} /></div>
+                                                <div>
+                                                    <p className="text-[10px] uppercase font-bold text-blue-400">Cliente Asignado</p>
+                                                    <p className="font-bold text-blue-900 text-sm">{selectedClient.name}</p>
+                                                </div>
+                                            </div>
+                                            {(selectedClient.creditLimit ?? 0) > 0 && (
+                                                <div className="flex justify-between items-center text-xs mt-1 pt-2 border-t border-blue-200/50">
+                                                    <span className="text-blue-700 font-medium">Límite: <span className="font-bold">{formatCurrency(selectedClient.creditLimit!, 'USD')}</span></span>
+                                                    <span className={`font-bold ${currentClientDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>Deuda: {formatCurrency(currentClientDebt, 'USD')}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
-                                </div>
-                            )}
 
-                            <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-100 shadow-inner">
-                                <div className="flex justify-between items-center mb-2">
-                                    <span className="text-gray-500 font-bold uppercase text-xs">Total Venta</span>
-                                    <span className="text-3xl font-black text-gray-900">{formatCurrency(totalUSD, 'USD')}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-gray-400">Ref. Bs</span>
-                                    <span className="font-bold text-blue-600">Bs. {totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4 mb-6">
-                                <label className="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 transition border-gray-100">
-                                    <input type="checkbox" checked={isCreditSale} onChange={(e) => setIsCreditSale(e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                                    <span className="font-bold text-gray-700">Venta a Crédito / Fiado</span>
-                                </label>
-
-                                {isCreditSale && (
-                                    <div className="pl-8 animate-in slide-in-from-top-2">
-                                        <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Abono Inicial (Dejar en 0 si no paga nada)</label>
-                                        <div className="flex gap-2 items-center">
-                                            <span className="font-bold text-gray-400">$</span>
-                                            <input type="number" step="0.01" className="w-full border-b-2 border-gray-200 outline-none focus:border-blue-500 font-bold text-lg py-1 bg-transparent" placeholder="0.00" value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
+                                    <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-100 shadow-inner">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <span className="text-gray-500 font-bold uppercase text-xs">Total Venta</span>
+                                            <span className="text-3xl font-black text-gray-900">{formatCurrency(totalUSD, 'USD')}</span>
                                         </div>
-                                        <div className="mt-2 text-right">
-                                            <span className="text-xs font-bold text-red-500">Resta por Cobrar: {formatCurrency(Math.max(0, totalUSD - (parseFloat(initialPayment) || 0)), 'USD')}</span>
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-gray-400">Ref. Bs</span>
+                                            <span className="font-bold text-blue-600">Bs. {totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                     </div>
-                                )}
-                            </div>
 
-                            <p className="text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Método de Pago {isCreditSale && "(del Abono)"}</p>
-                            <div className="space-y-2 mb-6 max-h-[140px] overflow-y-auto pr-1 custom-scrollbar">
-                                {paymentMethods.map(method => (
-                                    <button key={method.id} onClick={() => setSelectedPaymentMethod(method.name)} className={`w-full p-3 rounded-xl border-2 flex items-center justify-between transition-all ${selectedPaymentMethod === method.name ? 'border-red-500 bg-red-50' : 'border-gray-100 bg-white hover:border-gray-300'}`}>
-                                        <div className="flex items-center gap-3"><span className={`font-bold text-sm ${selectedPaymentMethod === method.name ? 'text-red-900' : 'text-gray-700'}`}>{method.name}</span></div>
-                                        {selectedPaymentMethod === method.name && <CheckCircle size={18} className="text-red-600" />}
+                                    <div className="space-y-4 mb-6">
+                                        <label className="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 transition border-gray-100">
+                                            <input type="checkbox" checked={isCreditSale} onChange={(e) => setIsCreditSale(e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                            <span className="font-bold text-gray-700">Venta a Crédito / Fiado</span>
+                                        </label>
+
+                                        {isCreditSale && (
+                                            <div className="pl-8 animate-in slide-in-from-top-2">
+                                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Abono Inicial (Dejar en 0 si no paga nada)</label>
+                                                <div className="flex gap-2 items-center">
+                                                    <span className="font-bold text-gray-400">$</span>
+                                                    <input type="number" step="0.01" className="w-full border-b-2 border-gray-200 outline-none focus:border-blue-500 font-bold text-lg py-1 bg-transparent" placeholder="0.00" value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
+                                                </div>
+                                                <div className="mt-2 text-right">
+                                                    <span className="text-xs font-bold text-red-500">Resta por Cobrar: {formatCurrency(Math.max(0, totalUSD - (parseFloat(initialPayment) || 0)), 'USD')}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <p className="text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Método de Pago {isCreditSale && "(del Abono)"}</p>
+                                    <div className="space-y-2 mb-6 max-h-[140px] overflow-y-auto pr-1 custom-scrollbar">
+                                        {paymentMethods.map(method => (
+                                            <button key={method.id} onClick={() => setSelectedPaymentMethod(method.name)} className={`w-full p-3 rounded-xl border-2 flex items-center justify-between transition-all ${selectedPaymentMethod === method.name ? 'border-red-500 bg-red-50' : 'border-gray-100 bg-white hover:border-gray-300'}`}>
+                                                <div className="flex items-center gap-3"><span className={`font-bold text-sm ${selectedPaymentMethod === method.name ? 'text-red-900' : 'text-gray-700'}`}>{method.name}</span></div>
+                                                {selectedPaymentMethod === method.name && <CheckCircle size={18} className="text-red-600" />}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    <button onClick={handleCheckout} className={`w-full py-4 text-white font-bold rounded-xl text-lg shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 ${isCreditSale ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'}`}>
+                                        <CheckCircle size={24} /> {isCreditSale ? 'REGISTRAR DEUDA' : 'CONFIRMAR VENTA'}
                                     </button>
-                                ))}
-                            </div>
+                                </>
+                            ) : null}
+                        </div>
+                    </div>
+                )
+            }
 
-                            <button onClick={handleCheckout} className={`w-full py-4 text-white font-bold rounded-xl text-lg shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 ${isCreditSale ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'}`}>
-                                <CheckCircle size={24} /> {isCreditSale ? 'REGISTRAR DEUDA' : 'CONFIRMAR VENTA'}
-                            </button>
-                        </>
-                    ) : null}
-                </div>
-            </div>
-        )
-    }
-
-    {/* MODAL DE CREACIÓN RÁPIDA DE CLIENTE */ }
-    <QuickClientModal
-        isOpen={isClientModalOpen}
-        onClose={() => setIsClientModalOpen(false)}
-        onClientCreated={(newClient) => {
-            // Seleccionar automáticamente al cliente en el input del buscador
-            setSelectedClient(newClient as Client);
-            setClientSearch(newClient.name);
-        }}
-    />
+            {/* MODAL DE CREACIÓN RÁPIDA DE CLIENTE */}
+            <QuickClientModal
+                isOpen={isClientModalOpen}
+                onClose={() => setIsClientModalOpen(false)}
+                onClientCreated={(newClient) => {
+                    // Seleccionar automáticamente al cliente en el input del buscador
+                    setSelectedClient(newClient as Client);
+                    setClientSearch(newClient.name);
+                }}
+            />
         </div >
     );
 };
