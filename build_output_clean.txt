@@ -1,0 +1,12 @@
+
+> todo-en-ruedas@0.0.0 build
+> tsc -b && vite build
+
+src/pages/Sales.tsx(169,59): error TS2345: Argument of type 'Sale[]' is not assignable to parameter of type '{ date: string; localId?: string | undefined; id: string; clientName?: string | undefined; totalUSD: number; items?: { quantity: number; }[] | undefined; }[]'.
+  Type 'Sale' is not assignable to type '{ date: string; localId?: string | undefined; id: string; clientName?: string | undefined; totalUSD: number; items?: { quantity: number; }[] | undefined; }'.
+    Types of property 'localId' are incompatible.
+      Type 'number | undefined' is not assignable to type 'string | undefined'.
+        Type 'number' is not assignable to type 'string'.
+src/store/useStore.ts(41,27): error TS2554: Expected 1 arguments, but got 2.
+src/store/useStore.ts(44,29): error TS2554: Expected 1 arguments, but got 2.
+src/store/useStore.ts(47,30): error TS2554: Expected 1 arguments, but got 2.

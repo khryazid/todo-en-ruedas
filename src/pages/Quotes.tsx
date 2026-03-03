@@ -4,6 +4,7 @@
  */
 
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { printMobileQuote } from '../utils/quoteGenerator';
@@ -27,7 +28,8 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; color: string; icon: R
 const STATUS_ORDER: QuoteStatus[] = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'];
 
 export const Quotes = () => {
-    const { quotes, products, clients, settings, addQuote, updateQuote, deleteQuote, convertQuoteToSale, paymentMethods } = useStore();
+    const { quotes, products, clients, settings, addQuote, updateQuote, deleteQuote, convertQuoteToSale, paymentMethods, loadQuoteIntoCart } = useStore();
+    const navigate = useNavigate();
 
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [viewQuote, setViewQuote] = useState<Quote | null>(null);
@@ -440,38 +442,15 @@ export const Quotes = () => {
                         <div className="p-4 border-t bg-gray-50 space-y-2">
                             {/* Botón Convertir a Venta */}
                             {viewQuote.status !== 'ACCEPTED' && viewQuote.status !== 'REJECTED' && viewQuote.status !== 'EXPIRED' && (
-                                <>
-                                    {showConvertModal ? (
-                                        <div className="flex gap-2 animate-in fade-in">
-                                            <select
-                                                className="flex-1 border-2 border-blue-200 rounded-xl px-3 py-2 text-sm font-bold bg-white outline-none"
-                                                value={convertPayMethod}
-                                                onChange={e => setConvertPayMethod(e.target.value)}
-                                            >
-                                                {paymentMethods.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
-                                            </select>
-                                            <button
-                                                onClick={async () => {
-                                                    if (!convertPayMethod && paymentMethods.length > 0) setConvertPayMethod(paymentMethods[0].name);
-                                                    const method = convertPayMethod || paymentMethods[0]?.name || 'Efectivo';
-                                                    const ok = await convertQuoteToSale(viewQuote.id, method);
-                                                    if (ok) { setViewQuote(null); setShowConvertModal(false); }
-                                                }}
-                                                className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition"
-                                            >
-                                                ✓ Confirmar
-                                            </button>
-                                            <button onClick={() => setShowConvertModal(false)} className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-gray-500 font-bold text-sm hover:bg-gray-50 transition">✕</button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={() => { setConvertPayMethod(paymentMethods[0]?.name || 'Efectivo'); setShowConvertModal(true); }}
-                                            className="w-full py-2.5 bg-blue-50 border border-blue-200 text-blue-700 font-bold rounded-xl hover:bg-blue-100 flex justify-center items-center gap-2 transition text-sm"
-                                        >
-                                            <ShoppingBag size={16} /> Convertir en Venta
-                                        </button>
-                                    )}
-                                </>
+                                <button
+                                    onClick={() => {
+                                        loadQuoteIntoCart(viewQuote, products);
+                                        navigate('/sales', { state: { clientId: viewQuote.clientId } });
+                                    }}
+                                    className="w-full py-2.5 bg-blue-50 border border-blue-200 text-blue-700 font-bold rounded-xl hover:bg-blue-100 flex justify-center items-center gap-2 transition text-sm shadow-sm"
+                                >
+                                    <ShoppingBag size={16} /> Cargar en Punto de Venta (POS)
+                                </button>
                             )}
                             <div className="flex gap-2">
                                 <button

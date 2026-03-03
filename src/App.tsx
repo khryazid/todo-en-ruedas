@@ -221,8 +221,8 @@ function App() {
                         {/* Página de acceso denegado explícita */}
                         <Route path="/access-denied" element={<AccessDenied />} />
 
-                        {/* Catch-all: redirige a /sales (funciona para todos los roles) */}
-                        <Route path="*" element={<Navigate to="/sales" replace />} />
+                        {/* Catch-all: redirige a /dashboard (funciona en cascada con RoleRoute para roles sin acceso) */}
+                        <Route path="*" element={<Navigate to="/dashboard" replace />} />
 
                       </Routes>
                     </Suspense>

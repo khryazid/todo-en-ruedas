@@ -18,7 +18,8 @@ export const QuickClientModal = ({ isOpen, onClose, onClientCreated }: QuickClie
         name: '',
         rifType: 'V',
         rifNumber: '',
-        phone: ''
+        phone: '',
+        creditLimit: 0,
     });
 
     if (!isOpen) return null;
@@ -44,7 +45,8 @@ export const QuickClientModal = ({ isOpen, onClose, onClientCreated }: QuickClie
                 phone: formData.phone,
                 address: '',
                 email: '',
-                notes: 'Creado rápidamente desde POS'
+                notes: 'Creado rápidamente desde POS',
+                creditLimit: formData.creditLimit
             });
 
             // Buscar el cliente recién creado en el estado (o reconstruirlo para selección inmediata)
@@ -131,6 +133,21 @@ export const QuickClientModal = ({ isOpen, onClose, onClientCreated }: QuickClie
                                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
                                 className="w-full pl-10 pr-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition font-medium"
                                 placeholder="Ej: 04141234567"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-1">Límite de Crédito USD</label>
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                            <input
+                                type="number"
+                                min="0" step="10"
+                                value={formData.creditLimit}
+                                onChange={e => setFormData({ ...formData, creditLimit: parseFloat(e.target.value) || 0 })}
+                                className="w-full pl-8 pr-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition font-medium"
+                                placeholder="0.00"
                             />
                         </div>
                     </div>

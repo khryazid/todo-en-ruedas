@@ -3,7 +3,7 @@
  * @description Página de configuración inicial (primer usuario ADMIN)
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 // No router hooks needed here anymore
 import { useStore } from '../store/useStore';
 import { Building2, User, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
@@ -21,8 +21,18 @@ export const Setup = () => {
         fullName: '',
         email: '',
         password: '',
-        confirmPassword: ''
+        confirmPassword: '',
+        defaultMargin: 30,
+        defaultVAT: 16
     });
+
+    // #8 Mensaje de bienvenida inicial
+    useEffect(() => {
+        if (!sessionStorage.getItem('setup_welcome_shown')) {
+            toast('¡Bienvenido! Por favor configura el sistema con los datos de tu empresa.', { icon: '👋', duration: 4000 });
+            sessionStorage.setItem('setup_welcome_shown', 'true');
+        }
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -53,7 +63,9 @@ export const Setup = () => {
                 address: formData.address,
                 fullName: formData.fullName,
                 email: formData.email,
-                password: formData.password
+                password: formData.password,
+                defaultMargin: formData.defaultMargin,
+                defaultVAT: formData.defaultVAT
             });
 
             if (success) {
@@ -83,7 +95,7 @@ export const Setup = () => {
                         <Building2 className="h-8 w-8 text-white" />
                     </div>
                     <h1 className="text-3xl font-black text-white tracking-tight">
-                        TODO EN <span className="text-brand-500">RUEDAS</span>
+                        GLYPH <span className="text-brand-500">CORE</span>
                     </h1>
                     <p className="text-gray-400 mt-2 text-sm">Sistema de Gestión Empresarial</p>
                 </div>
@@ -233,6 +245,35 @@ export const Setup = () => {
                                     required
                                     minLength={6}
                                 />
+                            </div>
+                        </div>
+
+                        { /* Configuración Global */}
+                        <div className="pt-2 border-t border-white/10 mt-4">
+                            <h3 className="text-sm font-bold text-white mb-3">Valores por Defecto</h3>
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-medium text-gray-200 mb-2">Margen de Ganancia (%)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={formData.defaultMargin}
+                                        onChange={(e) => setFormData({ ...formData, defaultMargin: parseFloat(e.target.value) || 0 })}
+                                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                                        required
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-xs font-medium text-gray-200 mb-2">Impuesto (IVA %) *</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={formData.defaultVAT}
+                                        onChange={(e) => setFormData({ ...formData, defaultVAT: parseFloat(e.target.value) || 0 })}
+                                        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
+                                        required
+                                    />
+                                </div>
                             </div>
                         </div>
 

@@ -203,12 +203,12 @@ export const Sidebar = memo(() => {
         <div className={`border-b border-gray-800 flex items-center ${isCollapsed ? 'justify-center p-4' : 'justify-between p-6'}`}>
           {isCollapsed ? (
             <div className="text-center">
-              <span className="text-xl font-black text-red-600">TR</span>
+              <span className="text-xl font-black text-red-600">GC</span>
             </div>
           ) : (
             <div className="text-center flex-1">
               <h1 className="text-2xl font-black tracking-tighter text-white">
-                TODO EN <span className="text-red-600">RUEDAS</span>
+                GLYPH <span className="text-red-600">CORE</span>
               </h1>
               <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mt-1">
                 Sistema de Gestión

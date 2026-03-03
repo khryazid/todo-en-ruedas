@@ -130,7 +130,8 @@ export const Inventory = () => {
 
   const handleInvoiceSubmit = async () => {
     if (!invoiceHeader.number || !invoiceHeader.supplier || invoiceItems.length === 0) {
-      return alert("⚠️ Faltan datos obligatorios (Proveedor, Número o Productos).");
+      toast.error("⚠️ Faltan datos obligatorios (Proveedor, Número o Productos).");
+      return;
     }
 
     const subtotal = invoiceItems.reduce((acc, i) => acc + (i.quantity * i.costUnitUSD), 0);

@@ -10,14 +10,17 @@
  */
 
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import { useLocation } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { printInvoice, sendToWhatsApp } from '../utils/ticketGenerator';
 import {
-    ShoppingCart, User, Search, Printer,
-    CheckCircle, X, UserPlus, Minus, Plus, Trash2, MessageCircle, DollarSign
+    ShoppingCart, User, Search, Printer, FileText,
+    CheckCircle, X, UserPlus, Minus, Plus, Trash2, MessageCircle, DollarSign,
+    LayoutGrid, List, Star, Barcode
 } from 'lucide-react';
-import type { Product, Client, Sale } from '../types';
+import type { Product, Client, Sale, Quote } from '../types';
 import { QuickClientModal } from '../components/QuickClientModal';
 
 // =============================================
@@ -68,22 +71,30 @@ const ProductCard = memo(({ product, priceUSD, onAdd }: ProductCardProps) => {
 // COMPONENTE PRINCIPAL: POS
 // =============================================
 export const POS = () => {
-    const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, completeSale, settings, paymentMethods, sales } = useStore();
+    const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, completeSale, settings, paymentMethods, sales, addQuote, quotes } = useStore();
+    const location = useLocation();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(paymentMethods.length > 0 ? paymentMethods[0].name : 'Efectivo');
     const [isCreditSale, setIsCreditSale] = useState(false);
     const [initialPayment, setInitialPayment] = useState('');
-    const [discountPct, setDiscountPct] = useState(0); // #3 Descuento global %
+    const [discountPct, setDiscountPct] = useState(0);
 
     const [clientSearch, setClientSearch] = useState('');
     const [selectedClient, setSelectedClient] = useState<Client | null>(null);
     const [showClientList, setShowClientList] = useState(false);
     const [isClientModalOpen, setIsClientModalOpen] = useState(false);
     const [highlightedClientIndex, setHighlightedClientIndex] = useState(-1);
-    const [completedSale, setCompletedSale] = useState<Sale | null>(null); // ✅ Para la vista post-venta
+    const [completedSale, setCompletedSale] = useState<Sale | null>(null);
     const clientListRef = useRef<HTMLDivElement>(null);
+
+    // 🆕 MEJORAS UX POS
+    const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
+    const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+    const searchRef = useRef<HTMLInputElement>(null);
+    const searchContainerRef = useRef<HTMLDivElement>(null);
 
     // ✅ FIX 6.5: Debounce de búsqueda (200ms)
     const debouncedSearch = useDebounce(searchTerm, 200);
@@ -113,6 +124,18 @@ export const POS = () => {
         setShowClientList(false);
         setHighlightedClientIndex(-1);
     }, []);
+
+    useEffect(() => {
+        // Hydrate from quote transfer
+        if (location.state?.clientId && clients.length > 0) {
+            const clientMatch = clients.find(c => c.id === location.state.clientId);
+            if (clientMatch) {
+                handleSelectClient(clientMatch);
+                // Clear state so it doesn't re-apply if we navigate away and back
+                window.history.replaceState({}, document.title);
+            }
+        }
+    }, [location.state?.clientId, clients, handleSelectClient]);
 
     const clearClient = useCallback(() => {
         setSelectedClient(null);
@@ -150,20 +173,78 @@ export const POS = () => {
         }));
     }, [products, settings]);
 
-    // ✅ FIX 6.2: Filtrar sobre la lista ya precalculada con el término debounced
+    // 🆕 Categorías únicas para tabs
+    const categories = useMemo(() => {
+        const cats = [...new Set(products.map(p => p.category || 'General'))].sort();
+        return ['Todos', ...cats];
+    }, [products]);
+
+    // 🆕 Top 8 más vendidos (calculado desde historial)
+    const topSold = useMemo(() => {
+        const counter: Record<string, { product: Product; count: number; priceUSD: number }> = {};
+        for (const sale of sales) {
+            for (const item of sale.items) {
+                const p = products.find(prod => prod.sku === item.sku);
+                if (!p) continue;
+                if (!counter[p.id]) {
+                    const priceUSD = calculatePrices(p, settings).finalPriceUSD;
+                    counter[p.id] = { product: p, count: 0, priceUSD };
+                }
+                counter[p.id].count += item.quantity;
+            }
+        }
+        return Object.values(counter)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 8);
+    }, [sales, products, settings]);
+
+    // 🆕 Filtrar con búsqueda debounced + categoría seleccionada
     const filteredProducts = useMemo(() => {
-        if (!debouncedSearch) return productsWithPrices;
+        let list = productsWithPrices;
+        if (selectedCategory !== 'Todos') {
+            list = list.filter(({ product: p }) => (p.category || 'General') === selectedCategory);
+        }
+        if (!debouncedSearch) return list;
         const term = debouncedSearch.toLowerCase();
-        return productsWithPrices.filter(({ product: p }) =>
+        return list.filter(({ product: p }) =>
             (p.name || '').toLowerCase().includes(term) ||
             (p.sku || '').toLowerCase().includes(term)
         );
-    }, [productsWithPrices, debouncedSearch]);
+    }, [productsWithPrices, debouncedSearch, selectedCategory]);
 
-    // ✅ FIX 6.6: Handler estable para addToCart
+    // 🆕 Dropdown instantáneo: top 8 resultados mientras escribe
+    const dropdownResults = useMemo(() => {
+        if (!searchTerm || searchTerm.length < 2) return [];
+        const term = searchTerm.toLowerCase();
+        return productsWithPrices
+            .filter(({ product: p }) =>
+                (p.name || '').toLowerCase().includes(term) ||
+                (p.sku || '').toLowerCase().includes(term)
+            )
+            .slice(0, 8);
+    }, [productsWithPrices, searchTerm]);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleOutside = (e: MouseEvent) => {
+            if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+                setShowSearchDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleOutside);
+        return () => document.removeEventListener('mousedown', handleOutside);
+    }, []);
+
+    // ✅ FIX: Handler estable para addToCart con validación de stock
     const handleAddToCart = useCallback((product: Product) => {
+        const itemInCart = cart.find(item => item.id === product.id);
+        const currentQty = itemInCart ? itemInCart.quantity : 0;
+        if (currentQty + 1 > product.stock) {
+            toast.error(`Stock insuficiente. Disponibles: ${product.stock}`);
+            return;
+        }
         addToCart(product);
-    }, [addToCart]);
+    }, [addToCart, cart]);
 
     // Totales con descuento (#3)
     const subtotalUSD = Math.round(cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0) * 100) / 100;
@@ -190,7 +271,10 @@ export const POS = () => {
     })();
 
     const handleCheckout = useCallback(async () => {
-        if (isCreditSale && !selectedClient) return alert('⚠️ Para vender a crédito, DEBES seleccionar un Cliente registrado.');
+        if (isCreditSale && !selectedClient) {
+            toast.error('⚠️ Para vender a crédito, DEBES seleccionar un Cliente registrado.');
+            return;
+        }
 
         // #2 Validación de límite de crédito
         if (isCreditSale && selectedClient && (selectedClient.creditLimit ?? 0) > 0) {
@@ -222,36 +306,192 @@ export const POS = () => {
         }
     }, [isCreditSale, selectedClient, totalUSD, initialPayment, selectedPaymentMethod, completeSale, sales]);
 
+    // ✅ FIX: Guardar carrito como cotización
+    const handleSaveQuote = useCallback(async () => {
+        if (cart.length === 0) return;
+
+        const nextNumber = quotes.length === 0 ? 'COT-001' : `COT-${String(Math.max(...quotes.map(q => parseInt(q.number.replace('COT-', '')) || 0)) + 1).padStart(3, '0')}`;
+
+        const validUntil = new Date();
+        validUntil.setDate(validUntil.getDate() + 7); // Default 7 days
+
+        const quote: Quote = {
+            id: crypto.randomUUID(),
+            number: nextNumber,
+            date: new Date().toISOString(),
+            validUntil: validUntil.toISOString(),
+            clientId: selectedClient?.id,
+            clientName: selectedClient?.name,
+            items: cart.map(item => ({
+                productId: item.id,
+                sku: item.sku,
+                name: item.name,
+                quantity: item.quantity,
+                priceFinalUSD: item.priceFinalUSD,
+                discountPct: item.discountPct,
+            })),
+            totalUSD: totalUSD,
+            totalBs: totalBs,
+            status: 'DRAFT',
+        };
+
+        await addQuote(quote);
+        clearCart();
+    }, [cart, selectedClient, quotes, totalUSD, totalBs, clearCart, addQuote]);
+
     return (
         <div className="flex flex-col md:flex-row h-[calc(100vh-3.5rem)] bg-gray-100 w-full overflow-hidden">
             {/* IZQUIERDA: CATÁLOGO */}
             <div className="flex-1 flex flex-col min-h-0">
-                <div className="p-3 bg-white border-b border-gray-200 shadow-sm z-10">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                        <input
-                            type="text"
-                            placeholder="Buscar producto o SKU..."
-                            className="w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-xl outline-none focus:ring-2 focus:ring-red-500 text-sm font-medium"
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            autoFocus
-                        />
-                        {searchTerm && <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"><X size={16} /></button>}
+
+                {/* BARRA SUPERIOR: BÚSQUEDA + TOGGLE */}
+                <div className="p-3 bg-white border-b border-gray-200 shadow-sm z-20 space-y-2">
+                    <div className="flex gap-2">
+                        {/* Smart Search con Dropdown */}
+                        <div ref={searchContainerRef} className="relative flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+                            <input
+                                ref={searchRef}
+                                type="text"
+                                placeholder="Buscar por nombre o código (SKU)..."
+                                className="w-full pl-10 pr-8 py-2.5 bg-gray-100 border-2 border-transparent rounded-xl outline-none focus:border-red-400 focus:bg-white text-sm font-medium transition-all"
+                                value={searchTerm}
+                                onChange={e => { setSearchTerm(e.target.value); setShowSearchDropdown(true); }}
+                                onFocus={() => searchTerm.length >= 2 && setShowSearchDropdown(true)}
+                                onKeyDown={e => { if (e.key === 'Escape') { setSearchTerm(''); setShowSearchDropdown(false); } }}
+                                autoFocus
+                            />
+                            {searchTerm && (
+                                <button onClick={() => { setSearchTerm(''); setShowSearchDropdown(false); searchRef.current?.focus(); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 transition">
+                                    <X size={16} />
+                                </button>
+                            )}
+
+                            {/* DROPDOWN INSTANTÁNEO */}
+                            {showSearchDropdown && dropdownResults.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                                    <p className="px-4 pt-3 pb-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Resultados rápidos — click para agregar</p>
+                                    {dropdownResults.map(({ product: p, priceUSD }) => (
+                                        <button
+                                            key={p.id}
+                                            onClick={() => { handleAddToCart(p); setSearchTerm(''); setShowSearchDropdown(false); searchRef.current?.focus(); }}
+                                            className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-red-50 text-left transition group ${p.stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                            disabled={p.stock === 0}
+                                        >
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 group-hover:bg-red-100 transition">
+                                                    <Barcode size={14} className="text-gray-500 group-hover:text-red-600" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-bold text-gray-800 truncate group-hover:text-red-700">{p.name}</p>
+                                                    <p className="text-[10px] text-gray-400 font-mono">{p.sku} · {p.stock > 0 ? `${p.stock} disponibles` : 'Sin Stock'}</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-sm font-black text-gray-900 pl-3 flex-shrink-0">${priceUSD.toFixed(2)}</span>
+                                        </button>
+                                    ))}
+                                    <div className="border-t border-gray-100 p-2">
+                                        <button onClick={() => setShowSearchDropdown(false)} className="w-full text-xs text-gray-400 py-1 hover:text-gray-600 transition">
+                                            Ver todos los resultados en el catálogo ↓
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Toggle Grid / Lista */}
+                        <div className="flex border-2 border-gray-200 rounded-xl overflow-hidden flex-shrink-0">
+                            <button onClick={() => setViewMode('grid')} title="Cuadrícula" className={`p-2.5 transition ${viewMode === 'grid' ? 'bg-gray-900 text-white' : 'bg-white text-gray-400 hover:bg-gray-100'}`}>
+                                <LayoutGrid size={18} />
+                            </button>
+                            <button onClick={() => setViewMode('list')} title="Lista Compacta" className={`p-2.5 transition ${viewMode === 'list' ? 'bg-gray-900 text-white' : 'bg-white text-gray-400 hover:bg-gray-100'}`}>
+                                <List size={18} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* TABS DE CATEGORÍAS */}
+                    <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                        {categories.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setSelectedCategory(cat)}
+                                className={`flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-2 md:p-4 custom-scrollbar bg-gray-50">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4 pb-20 md:pb-0">
-                        {filteredProducts.slice(0, 100).map(({ product, priceUSD }) => (
-                            <ProductCard
-                                key={product.id}
-                                product={product}
-                                priceUSD={priceUSD}
-                                onAdd={handleAddToCart}
-                            />
-                        ))}
+                {/* BAR TOP VENDIDOS */}
+                {!searchTerm && topSold.length > 0 && (
+                    <div className="px-3 pt-2.5 pb-2 bg-white border-b border-amber-100">
+                        <p className="text-[9px] font-bold text-amber-600 uppercase tracking-widest flex items-center gap-1 mb-1.5">
+                            <Star size={10} fill="currentColor" /> Más Vendidos
+                        </p>
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                            {topSold.map(({ product: p, priceUSD }) => (
+                                <button
+                                    key={p.id}
+                                    onClick={() => handleAddToCart(p)}
+                                    disabled={p.stock === 0}
+                                    title={p.name}
+                                    className={`flex-shrink-0 flex items-center gap-2 pl-3 pr-4 py-2 rounded-xl border text-left transition active:scale-95 max-w-[180px] ${p.stock === 0 ? 'opacity-40 cursor-not-allowed bg-gray-50 border-gray-200' : 'bg-amber-50 border-amber-200 hover:bg-amber-100'}`}
+                                >
+                                    <Star size={13} className="text-amber-500 flex-shrink-0" fill="currentColor" />
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] font-bold text-gray-800 truncate leading-tight">{p.name}</p>
+                                        <p className="text-[10px] font-black text-amber-700">${priceUSD.toFixed(2)}</p>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
                     </div>
+                )}
+
+                {/* CATÁLOGO: GRID o LISTA */}
+                <div className="flex-1 overflow-y-auto p-2 md:p-3 bg-gray-50">
+                    {filteredProducts.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full py-20 text-gray-400 gap-3">
+                            <Search size={40} strokeWidth={1} />
+                            <p className="font-bold text-sm">Sin resultados para "{searchTerm}"</p>
+                        </div>
+                    ) : viewMode === 'grid' ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 md:gap-3 pb-20 md:pb-0">
+                            {filteredProducts.slice(0, 120).map(({ product, priceUSD }) => (
+                                <ProductCard key={product.id} product={product} priceUSD={priceUSD} onAdd={handleAddToCart} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="space-y-1 pb-20 md:pb-0">
+                            {filteredProducts.slice(0, 200).map(({ product: p, priceUSD }) => {
+                                const isOutOfStock = p.stock === 0;
+                                return (
+                                    <button
+                                        key={p.id}
+                                        onClick={() => !isOutOfStock && handleAddToCart(p)}
+                                        disabled={isOutOfStock}
+                                        className={`w-full flex items-center justify-between px-4 py-2.5 bg-white rounded-xl border text-left transition-all active:scale-[.99] group ${isOutOfStock ? 'opacity-50 cursor-not-allowed border-gray-100' : 'border-gray-100 hover:border-red-200 hover:shadow-sm'}`}
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 group-hover:bg-red-50 transition">
+                                                <Plus size={14} className="text-gray-400 group-hover:text-red-500" strokeWidth={2.5} />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-bold text-gray-800 truncate group-hover:text-red-700 transition">{p.name}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[9px] font-mono text-gray-400">{p.sku}</span>
+                                                    <span className={`text-[9px] font-bold px-1.5 rounded-full ${p.stock <= p.minStock ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`}>{p.stock} un.</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <span className="text-sm font-black text-gray-900 pl-3 flex-shrink-0">${priceUSD.toFixed(2)}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -320,7 +560,14 @@ export const POS = () => {
                                 <div className="flex items-center border rounded-lg overflow-hidden bg-gray-50">
                                     <button onClick={() => updateCartQuantity(item.id, item.quantity - 1)} className="p-1 hover:bg-gray-200 text-gray-600 transition"><Minus size={12} /></button>
                                     <span className="text-xs font-bold w-6 text-center bg-white border-x border-gray-100 h-full flex items-center justify-center">{item.quantity}</span>
-                                    <button onClick={() => updateCartQuantity(item.id, item.quantity + 1)} className="p-1 hover:bg-gray-200 text-gray-600 transition"><Plus size={12} /></button>
+                                    <button onClick={() => {
+                                        const p = products.find(prod => prod.id === item.id);
+                                        if (p && item.quantity + 1 > p.stock) {
+                                            toast.error(`Stock insuficiente. Disponibles: ${p.stock}`);
+                                            return;
+                                        }
+                                        updateCartQuantity(item.id, item.quantity + 1);
+                                    }} className="p-1 hover:bg-gray-200 text-gray-600 transition"><Plus size={12} /></button>
                                 </div>
                                 <button onClick={() => removeFromCart(item.id)} className="text-[10px] text-red-400 hover:text-red-600 font-bold flex items-center gap-1"><Trash2 size={10} /></button>
                             </div>
@@ -355,9 +602,10 @@ export const POS = () => {
                         </div>
                         <p className="text-3xl font-black text-gray-900 leading-none">{formatCurrency(totalUSD, 'USD')}</p>
                     </div>
-                    <div className="grid grid-cols-4 gap-3">
-                        <button onClick={clearCart} disabled={cart.length === 0} className="col-span-1 flex items-center justify-center p-3 rounded-xl border border-red-100 text-red-500 bg-red-50 hover:bg-red-100 disabled:opacity-50 transition"><Trash2 size={20} /></button>
-                        <button onClick={() => setIsCheckoutModalOpen(true)} disabled={cart.length === 0} className="col-span-3 flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-900 text-white font-bold hover:bg-black shadow-lg disabled:opacity-50 transition active:scale-95"><DollarSign size={20} /> COBRAR</button>
+                    <div className="grid grid-cols-4 gap-2">
+                        <button onClick={clearCart} disabled={cart.length === 0} className="col-span-1 flex items-center justify-center p-3 rounded-xl border border-red-100 text-red-500 bg-red-50 hover:bg-red-100 disabled:opacity-50 transition" title="Vaciar Carrito"><Trash2 size={20} /></button>
+                        <button onClick={handleSaveQuote} disabled={cart.length === 0} className="col-span-1 flex items-center justify-center p-3 rounded-xl border border-blue-200 text-blue-600 bg-blue-50 hover:bg-blue-100 shadow-sm disabled:opacity-50 transition" title="Guardar como Cotización"><FileText size={20} /></button>
+                        <button onClick={() => setIsCheckoutModalOpen(true)} disabled={cart.length === 0} className="col-span-2 flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-900 text-white font-bold hover:bg-black shadow-lg disabled:opacity-50 transition active:scale-95 text-sm"><DollarSign size={20} /> COBRAR</button>
                     </div>
                 </div>
             </div>

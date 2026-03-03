@@ -104,6 +104,7 @@ export interface RecurringExpense {
 export interface CartItem extends Product {
   quantity: number;
   priceFinalUSD: number;
+  discountPct?: number;
 }
 
 // ─── COTIZACIONES ────────────────────────────────────────────────────────────

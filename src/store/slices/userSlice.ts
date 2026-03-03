@@ -107,6 +107,8 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
         fullName: string;
         email: string;
         password: string;
+        defaultMargin: number;
+        defaultVAT: number;
     }) => {
         try {
             // 1. Verificar que realmente sea primera vez
@@ -178,8 +180,8 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                     tasa_bcv: 36.0,
                     tasa_monitor: 38.0,
                     show_monitor_rate: false,
-                    default_margin: 30,
-                    default_vat: 16,
+                    default_margin: setupData.defaultMargin,
+                    default_vat: setupData.defaultVAT,
                     printer_currency: 'USD',
                 });
 

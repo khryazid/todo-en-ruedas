@@ -67,10 +67,12 @@ export const createProductSlice = (set: SetState, get: GetState) => ({
     try {
       const { error } = await supabase.from('products').delete().eq('id', id);
       if (error) {
-        if (error.code === '23503' || error.message.includes('foreign key constraint')) {
-          throw new Error("No puedes borrar un producto que ya tiene ventas en el historial. Déjalo en Stock 0 o edita su nombre.");
+        if (error.code === '23503' || (error.message && error.message.includes('foreign key constraint'))) {
+          toast.error("No puedes borrar un producto con historial de ventas. Déjalo en Stock 0 o edita su nombre.", { duration: 5000 });
+          return;
         }
-        throw error;
+        toast.error("Error al eliminar: " + error.message);
+        return;
       }
       set((state) => ({ products: state.products.filter((p) => p.id !== id) }));
       toast.success("Producto eliminado");

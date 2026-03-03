@@ -561,7 +561,7 @@ export const printInventoryReportA4 = (products: { sku: string; name: string; ca
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF HISTORIAL DE VENTAS A4
 // ─────────────────────────────────────────────────────────────────────────────
-export const printSalesReportA4 = (sales: { date: string; localId?: string; id: string; clientName?: string; totalUSD: number; items?: { quantity: number; }[]; }[], companyName: string) => {
+export const printSalesReportA4 = (sales: { date: string; localId?: string | number; id: string; clientName?: string; totalUSD: number; items?: { quantity: number; }[]; }[], companyName: string) => {
     let html = `
         <div style="font-family:Inter,system-ui,sans-serif;max-width:800px;margin:0 auto;color:#111827;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:20px;border-bottom:3px solid #dc2626;">

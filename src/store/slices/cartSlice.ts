@@ -3,7 +3,7 @@
  * @description Operaciones del carrito de compras (POS).
  */
 
-import type { Product, CartItem } from '../../types';
+import type { Product, CartItem, Quote } from '../../types';
 import type { SetState } from '../types';
 
 export const createCartSlice = (set: SetState) => ({
@@ -41,4 +41,21 @@ export const createCartSlice = (set: SetState) => ({
   })),
 
   clearCart: () => set({ cart: [] }),
+
+  loadQuoteIntoCart: (quote: Quote, products: Product[]) => set(() => {
+    const newCart: CartItem[] = [];
+    for (const item of quote.items) {
+      const p = products.find(prod => prod.id === item.productId);
+      if (p) {
+        newCart.push({
+          ...p,
+          quantity: item.quantity,
+          priceFinalUSD: item.priceFinalUSD,
+          discountPct: item.discountPct,
+        });
+      }
+    }
+    // Also, when loaded from quote, we should only bring items that exist in our products db.
+    return { cart: newCart };
+  }),
 });
