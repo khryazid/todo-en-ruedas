@@ -439,6 +439,37 @@ CREATE POLICY "Allow authenticated users full access on audit_logs"
     ON public.audit_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 
+-- ============================================================
+-- 17. FUNCIONES (RPC)
+-- ============================================================
+-- Habilitar pgcrypto para encriptar contraseñas
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+CREATE OR REPLACE FUNCTION public.admin_update_user_password(target_user_id UUID, new_password TEXT)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- Verificar que quien llama tiene rol ADMIN o es el propio dueño
+  IF auth.uid() != target_user_id THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM public.users 
+      WHERE id = auth.uid() AND role = 'ADMIN'
+    ) THEN
+      RAISE EXCEPTION 'Permiso denegado. Solo administradores pueden cambiar contraseñas de otros usuarios.';
+    END IF;
+  END IF;
+
+  -- Actualizar en la tabla auth.users
+  UPDATE auth.users
+  SET encrypted_password = crypt(new_password, gen_salt('bf'))
+  WHERE id = target_user_id;
+END;
+$$;
+
+
 -- ====================================================================
 -- FIN DEL SCRIPT — Todo en Ruedas v1.0 (Sprint A.4)
 -- ====================================================================

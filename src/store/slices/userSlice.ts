@@ -433,8 +433,9 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
      */
     changeUserPassword: async (userId: string, newPassword: string) => {
         try {
-            const { error } = await supabase.auth.admin.updateUserById(userId, {
-                password: newPassword
+            const { error } = await supabase.rpc('admin_update_user_password', {
+                target_user_id: userId,
+                new_password: newPassword
             });
 
             if (error) throw error;
