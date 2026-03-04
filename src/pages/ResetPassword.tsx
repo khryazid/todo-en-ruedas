@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 export const ResetPassword = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const { updateRecoveredPassword, isLoading, user } = useStore();
+    const { updateRecoveredPassword, logout, isLoading, user } = useStore();
     const navigate = useNavigate();
 
     // Verificamos si realmente hay una sesión de recuperación activa
@@ -38,8 +38,9 @@ export const ResetPassword = () => {
 
         const success = await updateRecoveredPassword(password);
         if (success) {
-            // El usuario ya está logueado por el token mágico, así que lo mandamos al dashboard
-            navigate('/dashboard');
+            // Cerramos la sesión temporal de recuperación y lo mandamos al login local
+            await logout();
+            navigate('/login');
         }
     };
 
