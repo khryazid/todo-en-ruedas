@@ -97,6 +97,9 @@ function App() {
       />
 
       <Routes>
+        {/* Siempre permitimos la ruta de reset-password para que pueda capturar el token del email */}
+        <Route path="/reset-password" element={<ResetPassword />} />
+
         {/* Ruta de Setup - Primera prioridad si necesita configuración */}
         {needsSetup ? (
           <>
@@ -107,7 +110,6 @@ function App() {
           /* Ruta de Login - Si no necesita setup pero no está autenticado */
           <>
             <Route path="/login" element={<Login />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </>
         ) : (
