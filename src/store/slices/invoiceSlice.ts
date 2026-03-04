@@ -28,9 +28,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
       if (!existingSupplier) {
         // Create the missing supplier on the fly
         const { data: supData, error: supError } = await supabase.from('suppliers').insert({
-          name: invoice.supplier.trim() || 'Proveedor Automático',
-          category: 'General',
-          payment_terms: 'Contado'
+          name: invoice.supplier.trim() || 'Proveedor Automático'
         }).select().single();
 
         if (supError) throw new Error(`No se pudo crear el proveedor: ${supError.message}`);
