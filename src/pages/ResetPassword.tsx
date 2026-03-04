@@ -7,17 +7,21 @@ import toast from 'react-hot-toast';
 export const ResetPassword = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const { updateRecoveredPassword, isLoading } = useStore();
+    const { updateRecoveredPassword, isLoading, user } = useStore();
     const navigate = useNavigate();
 
-    // Verificamos de forma estricta que traiga el hash en la URL para evitar acceso manual a la pantalla
+    // Verificamos si realmente hay una sesión de recuperación activa
     useEffect(() => {
-        const hash = window.location.hash;
-        if (!hash || !hash.includes('access_token')) {
-            toast.error('Enlace de recuperación inválido o expirado');
-            navigate('/login');
-        }
-    }, [navigate]);
+        // Damos un pequeño margen de tiempo para que Supabase inicialice la sesión
+        const timer = setTimeout(() => {
+            if (!user && !window.location.hash.includes('access_token')) {
+                toast.error('Enlace de recuperación inválido o expirado');
+                navigate('/login');
+            }
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [user, navigate]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

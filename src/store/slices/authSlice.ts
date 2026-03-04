@@ -27,7 +27,6 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
 
       // CRÍTICO: Cargar datos del usuario actual primero
       await get().fetchCurrentUserData();
-      // Luego intentar cargar datos iniciales (puede fallar si no hay settings)
       try {
         await get().fetchInitialData();
       } catch (error) {
@@ -37,6 +36,21 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     } else {
       set({ user: null, isLoading: false });
     }
+
+    // Escuchar cambios de estado (como cuando el usuario hace clic en el enlace de recuperación y Supabase procesa el token detrás de escena)
+    supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Supabase Auth Event:', event);
+      if (event === 'PASSWORD_RECOVERY') {
+        // En este punto, Supabase verificó el token y creó una sesión temporal.
+        // Permitiremos que el usuario siga a /reset-password.
+        set({ user: session?.user ?? null, isLoading: false });
+      } else if (event === 'SIGNED_OUT') {
+        set({ user: null, cart: [], products: [], sales: [], currentUserData: null });
+      } else if (event === 'SIGNED_IN' && session) {
+        set({ user: session.user });
+      }
+    });
+
   },
 
   login: async (email: string, password: string) => {
