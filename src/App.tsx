@@ -18,10 +18,10 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { RoleRoute } from './components/RoleRoute';
 import { Permission } from './utils/permissions';
 
-// Páginas cargadas de inmediato (rutas principales)
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Setup } from './pages/Setup';
+import { ResetPassword } from './pages/ResetPassword';
 
 // Páginas con carga diferida (se descargan cuando el usuario navega)
 const POS = lazy(() => import('./pages/POS').then(m => ({ default: m.POS })));
@@ -107,6 +107,7 @@ function App() {
           /* Ruta de Login - Si no necesita setup pero no está autenticado */
           <>
             <Route path="/login" element={<Login />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </>
         ) : (

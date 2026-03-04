@@ -62,6 +62,46 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     return true;
   },
 
+  sendPasswordResetEmail: async (email: string) => {
+    set({ isLoading: true });
+
+    // Configura redirect_to con la URL actual dinámica + /reset-password
+    const redirectUrl = `${window.location.origin}/reset-password`;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl
+    });
+
+    set({ isLoading: false });
+
+    if (error) {
+      console.error('Error enviando email recovery:', error);
+      toast.error(`No se pudo enviar el correo: ${error.message}`);
+      return false;
+    }
+
+    toast.success('Te hemos enviado un enlace de recuperación al correo.');
+    return true;
+  },
+
+  updateRecoveredPassword: async (newPassword: string) => {
+    set({ isLoading: true });
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword
+    });
+
+    set({ isLoading: false });
+
+    if (error) {
+      console.error('Error al actualizar contraseña recuperada:', error);
+      toast.error(`Error al guardar: ${error.message}`);
+      return false;
+    }
+
+    toast.success('Tu contraseña se ha restablecido correctamente.');
+    return true;
+  },
+
   logout: async () => {
     await supabase.auth.signOut();
     set({ user: null, cart: [], products: [], sales: [], currentUserData: null });

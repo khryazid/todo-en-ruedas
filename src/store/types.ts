@@ -35,6 +35,8 @@ export interface StoreState {
   checkSession: () => Promise<void>;
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  sendPasswordResetEmail: (email: string) => Promise<boolean>;
+  updateRecoveredPassword: (newPassword: string) => Promise<boolean>;
   fetchInitialData: () => Promise<void>;
 
   // --- Settings ---
