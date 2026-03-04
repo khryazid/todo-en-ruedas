@@ -16,9 +16,37 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
   addInvoice: async (invoice: Invoice) => {
     const loadingToast = toast.loading("Registrando factura...");
     try {
+      // 1. Resolve Supplier UUID (invoices expects UUID, products expects string name)
+      let supplierId = invoice.supplier;
+      let supplierName = invoice.supplier;
+
+      let existingSupplier = get().suppliers.find(s =>
+        s.name.trim().toLowerCase() === invoice.supplier.trim().toLowerCase() ||
+        s.id === invoice.supplier
+      );
+
+      if (!existingSupplier) {
+        // Create the missing supplier on the fly
+        const { data: supData, error: supError } = await supabase.from('suppliers').insert({
+          name: invoice.supplier.trim() || 'Proveedor Automático',
+          category: 'General',
+          payment_terms: 'Contado'
+        }).select().single();
+
+        if (supError) throw new Error(`No se pudo crear el proveedor: ${supError.message}`);
+        existingSupplier = supData as Supplier;
+
+        // Update local state so it appears in Dropdowns
+        set(state => ({ suppliers: [...state.suppliers, existingSupplier as Supplier] }));
+      }
+
+      supplierId = existingSupplier!.id;
+      supplierName = existingSupplier!.name;
+
+      // 2. Insert Invoice using the UUID
       const { data: invoiceData, error } = await supabase.from('invoices').insert({
         number: invoice.number,
-        supplier: invoice.supplier,
+        supplier: supplierId,
         date_issue: invoice.dateIssue,
         date_due: invoice.dateDue,
         status: invoice.status,
@@ -70,7 +98,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
             min_stock: item.minStock,
             category: 'General',
             cost_type: invoice.costType,
-            supplier: invoice.supplier,
+            supplier: supplierName, // Products table expects TEXT for supplier
             freight: unitFreight
           }).select().single();
 
@@ -84,7 +112,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
               minStock: item.minStock,
               category: 'General',
               costType: invoice.costType,
-              supplier: invoice.supplier,
+              supplier: supplierName,
               freight: unitFreight
             });
           }
@@ -92,7 +120,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
       }
 
       // Incremental update: add invoice, update products locally
-      const savedInvoice: Invoice = invoiceData ? { ...invoice, id: invoiceData.id } : invoice;
+      const savedInvoice: Invoice = invoiceData ? { ...invoice, id: invoiceData.id, supplier: supplierName } : { ...invoice, supplier: supplierName };
       set((state) => ({
         invoices: [...state.invoices, savedInvoice],
         products: [

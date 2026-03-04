@@ -601,6 +601,10 @@ export const Inventory = () => {
                       >
                         <option value="" disabled>Seleccionar...</option>
                         {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        {/* Si la IA escaneó un proveedor que no está en la base de datos, mostramos su texto como una opción válida temporalmente para evitar que el select devuelva un valor falso */}
+                        {invoiceHeader.supplier && !suppliers.some(s => s.name === invoiceHeader.supplier) && invoiceHeader.supplier !== 'NEW' && invoiceHeader.supplier !== '' && (
+                          <option value={invoiceHeader.supplier}>{invoiceHeader.supplier} (Escaneado IA)</option>
+                        )}
                         <option value="NEW" className="text-red-600 font-bold">➕ Agregar Nuevo Proveedor...</option>
                       </select>
                     )}
@@ -646,7 +650,7 @@ export const Inventory = () => {
                   <thead className="bg-gray-50 text-xs text-gray-400 uppercase font-bold"><tr><th className="p-3 text-left">Código</th><th className="p-3 text-left">Descripción</th><th className="p-3 text-center">Cant.</th><th className="p-3 text-center text-red-500">Min</th><th className="p-3 text-right">Costo</th><th className="p-3 text-right">Subtotal</th><th className="p-3"></th></tr></thead>
                   <tbody className="divide-y divide-gray-100">
                     {invoiceItems.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
+                      <tr key={item.id} className="hover:bg-gray-50">
                         <td className="p-3"><input className="w-full bg-transparent font-mono text-xs text-gray-500 outline-none" value={item.sku} onChange={e => handleInvoiceItemChange(idx, 'sku', e.target.value)} /></td>
                         <td className="p-3"><input className="w-full bg-transparent font-medium text-gray-700 outline-none focus:ring-1 rounded" value={item.name} onChange={e => handleInvoiceItemChange(idx, 'name', e.target.value)} /></td>
                         <td className="p-3"><input type="number" className="w-full border border-gray-200 rounded p-1 text-center font-bold bg-white" value={item.quantity} onChange={e => handleInvoiceItemChange(idx, 'quantity', parseFloat(e.target.value) || 0)} /></td>
