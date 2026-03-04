@@ -323,12 +323,12 @@ export const Quotes = () => {
                                                     className="col-span-2 border border-gray-200 rounded-lg text-center p-1 text-sm font-bold w-full"
                                                 />
                                                 <input type="number" min={0} step={0.01} value={item.priceFinalUSD}
-                                                    onChange={e => updateItemPrice(item.productId, parseFloat(e.target.value) || 0)}
+                                                    onChange={e => updateItemPrice(item.productId, e.target.value === '' ? ('' as any) : parseFloat(e.target.value))}
                                                     className="col-span-2 border border-gray-200 rounded-lg text-center p-1 text-sm font-bold w-full"
                                                 />
                                                 <div className="col-span-2 relative">
                                                     <input type="number" min={0} max={100} step={1} value={item.discountPct ?? ''}
-                                                        onChange={e => updateItemDiscount(item.productId, parseFloat(e.target.value) || 0)}
+                                                        onChange={e => updateItemDiscount(item.productId, e.target.value === '' ? ('' as any) : parseFloat(e.target.value))}
                                                         placeholder="0"
                                                         className="border border-red-200 rounded-lg text-center p-1 text-sm font-bold w-full text-red-600 focus:border-red-400 outline-none"
                                                     />

@@ -131,7 +131,7 @@ export const Settings = () => {
                   step="0.01"
                   className="w-full pl-12 pr-4 py-3 border-2 border-blue-100 rounded-xl focus:border-blue-500 outline-none text-xl font-black text-gray-800 transition"
                   value={formData.tasaBCV || ''}
-                  onChange={e => setFormData({ ...formData, tasaBCV: parseFloat(e.target.value) || 0 })}
+                  onChange={e => setFormData({ ...formData, tasaBCV: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
                 />
               </div>
             </div>
@@ -152,7 +152,7 @@ export const Settings = () => {
                   step="0.01"
                   className="w-full pl-12 pr-4 py-3 border-2 border-gray-100 rounded-xl focus:border-gray-400 outline-none text-xl font-black text-gray-600 transition"
                   value={formData.tasaTH || ''}
-                  onChange={e => setFormData({ ...formData, tasaTH: parseFloat(e.target.value) || 0 })}
+                  onChange={e => setFormData({ ...formData, tasaTH: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
                   disabled={!formData.showMonitorRate}
                 />
               </div>
@@ -173,7 +173,7 @@ export const Settings = () => {
                   type="number"
                   className="w-full border-2 border-orange-50 rounded-xl p-3 text-lg font-bold text-gray-800 outline-none focus:border-orange-300 transition"
                   value={formData.defaultMargin || ''}
-                  onChange={e => setFormData({ ...formData, defaultMargin: parseFloat(e.target.value) || 0 })}
+                  onChange={e => setFormData({ ...formData, defaultMargin: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
               </div>
@@ -186,7 +186,7 @@ export const Settings = () => {
                   type="number"
                   className="w-full border-2 border-orange-50 rounded-xl p-3 text-lg font-bold text-gray-800 outline-none focus:border-orange-300 transition"
                   value={formData.defaultVAT || ''}
-                  onChange={e => setFormData({ ...formData, defaultVAT: parseFloat(e.target.value) || 0 })}
+                  onChange={e => setFormData({ ...formData, defaultVAT: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
               </div>
@@ -207,7 +207,7 @@ export const Settings = () => {
                     className="w-full border-2 border-blue-50 rounded-xl p-3 text-lg font-bold text-blue-700 outline-none focus:border-blue-300 transition"
                     value={formData.marginMayorista ?? 0}
                     placeholder="0"
-                    onChange={e => setFormData({ ...formData, marginMayorista: parseFloat(e.target.value) || 0 })}
+                    onChange={e => setFormData({ ...formData, marginMayorista: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-300 font-bold">%</span>
                 </div>
@@ -222,7 +222,7 @@ export const Settings = () => {
                     className="w-full border-2 border-purple-50 rounded-xl p-3 text-lg font-bold text-purple-700 outline-none focus:border-purple-300 transition"
                     value={formData.marginEspecial ?? 0}
                     placeholder="0"
-                    onChange={e => setFormData({ ...formData, marginEspecial: parseFloat(e.target.value) || 0 })}
+                    onChange={e => setFormData({ ...formData, marginEspecial: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-300 font-bold">%</span>
                 </div>
@@ -297,7 +297,7 @@ export const Settings = () => {
                     step={0.5}
                     className="w-full border-2 border-green-100 rounded-xl p-3 text-xl font-black text-green-700 outline-none focus:border-green-400 transition"
                     value={formData.sellerCommissionPct ?? 5}
-                    onChange={e => setFormData({ ...formData, sellerCommissionPct: parseFloat(e.target.value) || 0 })}
+                    onChange={e => setFormData({ ...formData, sellerCommissionPct: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
                   />
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-lg">%</span>
                 </div>

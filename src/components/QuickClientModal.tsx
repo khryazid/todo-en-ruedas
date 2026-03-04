@@ -145,7 +145,7 @@ export const QuickClientModal = ({ isOpen, onClose, onClientCreated }: QuickClie
                                 type="number"
                                 min="0" step="10"
                                 value={formData.creditLimit}
-                                onChange={e => setFormData({ ...formData, creditLimit: parseFloat(e.target.value) || 0 })}
+                                onChange={e => setFormData({ ...formData, creditLimit: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
                                 className="w-full pl-8 pr-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition font-medium"
                                 placeholder="0.00"
                             />
