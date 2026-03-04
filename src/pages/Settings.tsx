@@ -332,7 +332,7 @@ export const Settings = () => {
               </div>
             ))}
           </div>
-          <form onSubmit={handleAddMethod} className="flex gap-2 bg-gray-50 p-3 rounded-xl border border-gray-100">
+          <form onSubmit={handleAddMethod} className="flex flex-col sm:flex-row gap-2 bg-gray-50 p-3 rounded-xl border border-gray-100">
             <input
               type="text"
               placeholder="Ej: Binance, Zelle..."

@@ -282,7 +282,7 @@ export const Inventory = () => {
           <h2 className="text-2xl font-black text-gray-800 tracking-tight">Inventario</h2>
           <p className="text-gray-500 font-medium">Gestión de existencias y costos</p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap overflow-x-auto pb-2 md:pb-0 gap-2 w-full md:w-auto">
           <label
             className="px-4 py-3 bg-white border-2 border-dashed border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-bold flex justify-center items-center gap-2 transition cursor-pointer"
             title="Importar productos desde CSV"
