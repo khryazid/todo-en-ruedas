@@ -393,6 +393,33 @@ END;
 $$;
 
 
+CREATE OR REPLACE FUNCTION public.admin_update_user_email(target_user_id UUID, new_email TEXT)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.users 
+    WHERE id = auth.uid() AND role = 'ADMIN'
+  ) THEN
+    IF auth.uid() != target_user_id THEN
+      RAISE EXCEPTION 'Permiso denegado. Solo administradores pueden cambiar correos electrónicos de otros usuarios.';
+    END IF;
+  END IF;
+
+  UPDATE auth.users
+  SET email = new_email, email_confirmed_at = now()
+  WHERE id = target_user_id;
+  
+  UPDATE public.users
+  SET email = new_email
+  WHERE id = target_user_id;
+END;
+$$;
+
+
 -- ====================================================================
 -- FIN DEL RESET — Todo en Ruedas v1.0 (Sprint A.4)
 -- ====================================================================

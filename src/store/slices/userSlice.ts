@@ -321,30 +321,45 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
         }
     },
 
-    /**
-     * Actualiza un usuario existente
-     */
     updateUser: async (userId: string, updates: {
         fullName?: string;
+        email?: string;
         role?: AppUser['role'];
         isActive?: boolean;
     }) => {
         try {
 
+            // 1. Si enviaron un cambio de correo, usamos el RPC seguro para Auth
+            if (updates.email) {
+                const { error: emailError } = await supabase.rpc('admin_update_user_email', {
+                    target_user_id: userId,
+                    new_email: updates.email
+                });
 
+                if (emailError) {
+                    console.error('❌ Error al actualizar correo en Auth:', emailError);
+                    throw new Error('No se pudo actualizar el correo de autenticación: ' + emailError.message);
+                }
+            }
+
+            // 2. Actualizamos el resto de la base de datos pública
             const updateData: Record<string, unknown> = {};
             if (updates.fullName !== undefined) updateData.full_name = updates.fullName;
             if (updates.role !== undefined) updateData.role = updates.role;
             if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
+            // El RPC de correo también actualiza public.users, pero podemos redundarlo o dejar que sea el único
 
-            const { error } = await supabase
-                .from('users')
-                .update(updateData)
-                .eq('id', userId);
+            // Si hay campos regulares que actualizar además del email:
+            if (Object.keys(updateData).length > 0) {
+                const { error } = await supabase
+                    .from('users')
+                    .update(updateData)
+                    .eq('id', userId);
 
-            if (error) {
-                console.error('❌ Error al actualizar usuario:', error);
-                throw error;
+                if (error) {
+                    console.error('❌ Error al actualizar datos públicos del usuario:', error);
+                    throw error;
+                }
             }
 
 

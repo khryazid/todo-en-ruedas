@@ -13,7 +13,7 @@ import type { AppUser, UserRole } from '../types';
 
 export const Users = () => {
     const { users, currentUserData, fetchUsers, createUser, updateUser, deactivateUser, activateUser, changeUserPassword } = useStore();
-    const { canManageUsers, isManager } = usePermissions();
+    const { canManageUsers, isManager, isAdmin } = usePermissions();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -153,16 +153,18 @@ export const Users = () => {
                                                     >
                                                         <Edit2 className="h-4 w-4" />
                                                     </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedUser(user);
-                                                            setShowPasswordModal(true);
-                                                        }}
-                                                        className="text-purple-600 hover:text-purple-900"
-                                                        title="Cambiar contraseña"
-                                                    >
-                                                        <Key className="h-4 w-4" />
-                                                    </button>
+                                                    {isAdmin && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedUser(user);
+                                                                setShowPasswordModal(true);
+                                                            }}
+                                                            className="text-purple-600 hover:text-purple-900"
+                                                            title="Cambiar contraseña"
+                                                        >
+                                                            <Key className="h-4 w-4" />
+                                                        </button>
+                                                    )}
                                                     <button
                                                         onClick={() => {
                                                             if (user.isActive) {
@@ -325,14 +327,14 @@ const CreateUserModal = ({ onClose, onCreate }: {
     );
 };
 
-// Edit User Modal Component
 const EditUserModal = ({ user, onClose, onUpdate }: {
     user: AppUser;
     onClose: () => void;
-    onUpdate: (userId: string, updates: Partial<AppUser>) => Promise<boolean>;
+    onUpdate: (userId: string, updates: Partial<AppUser> & { email?: string }) => Promise<boolean>;
 }) => {
     const [formData, setFormData] = useState({
         fullName: user.fullName,
+        email: user.email,
         role: user.role
     });
 
@@ -353,6 +355,16 @@ const EditUserModal = ({ user, onClose, onUpdate }: {
                             type="text"
                             value={formData.fullName}
                             onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <input
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                             required
                         />
