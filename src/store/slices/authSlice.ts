@@ -57,7 +57,11 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     set({ isLoading: true });
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      toast.error("Error: Credenciales inválidas 🔒");
+      if (error.message.includes('Email not confirmed')) {
+        toast.error("Debes confirmar tu correo electrónico antes de iniciar sesión. Revisa tu bandeja de entrada. 📧");
+      } else {
+        toast.error("Error: Credenciales inválidas 🔒");
+      }
       set({ isLoading: false });
       return false;
     }

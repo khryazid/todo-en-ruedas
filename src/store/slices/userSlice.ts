@@ -297,7 +297,7 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             await get().fetchUsers();
 
 
-            toast.success(`Usuario ${userData.fullName} creado exitosamente`);
+            toast.success(`Usuario ${userData.fullName} creado. Se envió un correo de validación.`);
             return true;
         } catch (error: unknown) {
             console.error('❌ Error al crear usuario:', error);
