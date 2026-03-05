@@ -69,4 +69,3 @@ Single source of truth: `src/types/index.ts`. Key types: `Product`, `Sale`, `Sal
 - **No path aliases** — use relative imports
 - **Styling:** Tailwind utility classes only. Brand color is red (`brand-600: #dc2626`)
 - **Error feedback:** `react-hot-toast` for all user-facing messages
-- **No git operations** — the user handles all git commands manually
