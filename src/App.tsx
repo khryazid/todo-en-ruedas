@@ -103,7 +103,7 @@ function App() {
         {/* Ruta de Setup - Primera prioridad si necesita configuración */}
         {needsSetup ? (
           <>
-            <Route path="/setup" element={<Setup />} />
+            <Route path="/setup" element={<ErrorBoundary><Setup /></ErrorBoundary>} />
             <Route path="*" element={<Navigate to="/setup" replace />} />
           </>
         ) : !user ? (

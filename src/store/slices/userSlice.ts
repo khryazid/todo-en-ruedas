@@ -9,6 +9,36 @@ import type { SetState, GetState } from '../types';
 import type { AppUser } from '../../types';
 import { logAudit } from '../../utils/audit';
 
+const mapSetupErrorMessage = (error: unknown): string => {
+    const message = error instanceof Error ? error.message : String(error || '');
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes('email rate limit exceeded') || normalized.includes('rate limit')) {
+        return 'Demasiados intentos de registro en poco tiempo. Espera unos minutos e intenta de nuevo.';
+    }
+
+    if (normalized.includes('user already registered')) {
+        return 'Este correo ya esta registrado.';
+    }
+
+    return message || 'Error desconocido';
+};
+
+const getSetupErrorReason = (error: unknown): 'RATE_LIMIT' | 'USER_EXISTS' | 'OTHER' => {
+    const message = error instanceof Error ? error.message : String(error || '');
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes('email rate limit exceeded') || normalized.includes('rate limit')) {
+        return 'RATE_LIMIT';
+    }
+
+    if (normalized.includes('user already registered')) {
+        return 'USER_EXISTS';
+    }
+
+    return 'OTHER';
+};
+
 export const createUserSlice = (set: SetState, get: GetState) => ({
 
     users: [] as AppUser[],
@@ -109,7 +139,7 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
         password: string;
         defaultMargin: number;
         defaultVAT: number;
-    }) => {
+    }): Promise<{ success: boolean; reason?: 'RATE_LIMIT' | 'USER_EXISTS' | 'OTHER' }> => {
         try {
             // 1. Verificar que realmente sea primera vez
             const { count } = await supabase
@@ -118,7 +148,7 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
 
             if (count && count > 0) {
                 toast.error('Ya existe un usuario administrador');
-                return false;
+                return { success: false, reason: 'USER_EXISTS' };
             }
 
             // 2. Crear usuario en Supabase Auth
@@ -133,7 +163,10 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                 }
             });
 
-            if (authError) throw authError;
+            if (authError) {
+                toast.error(`Error en configuracion inicial: ${mapSetupErrorMessage(authError)}`);
+                return { success: false, reason: getSetupErrorReason(authError) };
+            }
             if (!authData.user) throw new Error('No se pudo crear el usuario');
 
 
@@ -214,12 +247,12 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             // Dar un momento para que el estado se actualice antes de retornar
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            return true;
+            return { success: true };
         } catch (error: unknown) {
             console.error('Error en setup inicial:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            const errorMessage = mapSetupErrorMessage(error);
             toast.error(`Error en configuración inicial: ${errorMessage}`);
-            return false;
+            return { success: false, reason: getSetupErrorReason(error) };
         }
     },
 

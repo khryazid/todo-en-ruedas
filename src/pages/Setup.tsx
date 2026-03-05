@@ -10,10 +10,13 @@ import { Building2, User, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { fromEditableNumberValue, toEditableNumberValue } from '../utils/editableNumber';
 
+const SETUP_RATE_LIMIT_COOLDOWN_SECONDS = 120;
+
 export const Setup = () => {
     const setupFirstAdmin = useStore(s => s.setupFirstAdmin);
 
     const [isLoading, setIsLoading] = useState(false);
+    const [cooldownSeconds, setCooldownSeconds] = useState(0);
     const [formData, setFormData] = useState({
         companyName: '',
         rif: '',
@@ -35,6 +38,15 @@ export const Setup = () => {
         }
     }, []);
 
+    useEffect(() => {
+        if (cooldownSeconds <= 0) return;
+        const intervalId = window.setInterval(() => {
+            setCooldownSeconds((current) => Math.max(0, current - 1));
+        }, 1000);
+
+        return () => window.clearInterval(intervalId);
+    }, [cooldownSeconds]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -54,10 +66,15 @@ export const Setup = () => {
             return;
         }
 
+        if (cooldownSeconds > 0) {
+            toast.error(`Espera ${cooldownSeconds}s antes de reintentar.`);
+            return;
+        }
+
         setIsLoading(true);
 
         try {
-            const success = await setupFirstAdmin({
+            const result = await setupFirstAdmin({
                 companyName: formData.companyName,
                 rif: formData.rif,
                 rifType: formData.rifType,
@@ -69,10 +86,13 @@ export const Setup = () => {
                 defaultVAT: formData.defaultVAT
             });
 
-            if (success) {
+            if (result.success) {
                 // Forzar recarga completa para que App.tsx detecte la sesión
                 window.location.href = '/dashboard';
             } else {
+                if (result.reason === 'RATE_LIMIT') {
+                    setCooldownSeconds(SETUP_RATE_LIMIT_COOLDOWN_SECONDS);
+                }
                 setIsLoading(false);
             }
         } catch (error) {
@@ -281,13 +301,17 @@ export const Setup = () => {
                         {/* Submit Button */}
                         <button
                             type="submit"
-                            disabled={isLoading}
+                            disabled={isLoading || cooldownSeconds > 0}
                             className="w-full py-3 px-4 bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-semibold rounded-xl shadow-lg shadow-brand-600/50 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {isLoading ? (
                                 <>
                                     <Loader2 className="h-5 w-5 animate-spin" />
                                     Configurando...
+                                </>
+                            ) : cooldownSeconds > 0 ? (
+                                <>
+                                    Reintentar en {cooldownSeconds}s
                                 </>
                             ) : (
                                 <>

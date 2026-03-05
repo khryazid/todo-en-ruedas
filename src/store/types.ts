@@ -141,7 +141,7 @@ export interface StoreState {
   // --- Users ---
   fetchUsers: () => Promise<void>;
   fetchCurrentUserData: () => Promise<void>;
-  setupFirstAdmin: (setupData: { companyName: string; rif: string; rifType: 'J' | 'V' | 'E' | 'G' | 'P' | 'C'; address: string; fullName: string; email: string; password: string; defaultMargin: number; defaultVAT: number; }) => Promise<boolean>;
+  setupFirstAdmin: (setupData: { companyName: string; rif: string; rifType: 'J' | 'V' | 'E' | 'G' | 'P' | 'C'; address: string; fullName: string; email: string; password: string; defaultMargin: number; defaultVAT: number; }) => Promise<{ success: boolean; reason?: 'RATE_LIMIT' | 'USER_EXISTS' | 'OTHER' }>;
   createUser: (userData: { email: string; password: string; fullName: string; role: AppUser['role'] }) => Promise<boolean>;
   updateUser: (userId: string, updates: Partial<AppUser>) => Promise<boolean>;
   deactivateUser: (userId: string) => Promise<void>;
