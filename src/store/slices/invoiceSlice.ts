@@ -16,9 +16,33 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
   addInvoice: async (invoice: Invoice) => {
     const loadingToast = toast.loading("Registrando factura...");
     try {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const normalize = (value: string) => value.trim().toLowerCase();
+      const suppliers = get().suppliers;
+      const supplierById = suppliers.find((s) => s.id === invoice.supplier);
+      const supplierByName = suppliers.find((s) => normalize(s.name) === normalize(invoice.supplier));
+
+      const supplierId = uuidRegex.test(invoice.supplier)
+        ? invoice.supplier
+        : supplierByName?.id ?? null;
+
+      let supplierName = supplierById?.name ?? supplierByName?.name ?? invoice.supplier;
+
+      if (supplierId && uuidRegex.test(supplierId) && (!supplierById?.name)) {
+        const { data: supplierFromDb } = await supabase
+          .from('suppliers')
+          .select('name')
+          .eq('id', supplierId)
+          .maybeSingle();
+
+        if (supplierFromDb?.name) {
+          supplierName = supplierFromDb.name;
+        }
+      }
+
       const { data: invoiceData, error } = await supabase.from('invoices').insert({
         number: invoice.number,
-        supplier: invoice.supplier,
+        supplier: supplierId,
         date_issue: invoice.dateIssue,
         date_due: invoice.dateDue,
         status: invoice.status,
@@ -35,9 +59,8 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
       if (error) throw error;
 
       const totalItemsQuantity = invoice.items.reduce((acc, item) => acc + item.quantity, 0);
-      const totalLogisticsUSD = invoice.freightTotalUSD + (invoice.taxTotalUSD || 0);
       const unitFreight = totalItemsQuantity > 0
-        ? Math.round((totalLogisticsUSD / totalItemsQuantity) * 100) / 100
+        ? Math.round((invoice.freightTotalUSD / totalItemsQuantity) * 100) / 100
         : 0;
 
       // Track product updates for incremental state update
@@ -70,7 +93,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
             min_stock: item.minStock,
             category: 'General',
             cost_type: invoice.costType,
-            supplier: invoice.supplier,
+            supplier: supplierName,
             freight: unitFreight
           }).select().single();
 
@@ -84,7 +107,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
               minStock: item.minStock,
               category: 'General',
               costType: invoice.costType,
-              supplier: invoice.supplier,
+              supplier: supplierName,
               freight: unitFreight
             });
           }
@@ -92,7 +115,33 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
       }
 
       // Incremental update: add invoice, update products locally
-      const savedInvoice: Invoice = invoiceData ? { ...invoice, id: invoiceData.id } : invoice;
+      const savedInvoice: Invoice = invoiceData ? { ...invoice, id: invoiceData.id, supplier: supplierName } : { ...invoice, supplier: supplierName };
+
+      if (savedInvoice.paidAmountUSD > 0) {
+        const initialPayment = (savedInvoice.payments || [])[0];
+        const paymentMethod = initialPayment?.method || 'Inicial';
+        const methodCurrency = get().paymentMethods.find((method) => method.name === paymentMethod)?.currency || 'USD';
+        const fxRateUsed = initialPayment?.fxRateUsed || get().settings.tasaBCV;
+        const amountBS = methodCurrency === 'BS'
+          ? (initialPayment?.amountBS ?? Math.round((savedInvoice.paidAmountUSD * fxRateUsed) * 100) / 100)
+          : undefined;
+
+        await get().recordCashMovement({
+          date: savedInvoice.dateIssue,
+          direction: 'OUT',
+          kind: 'ABONO_PROVEEDOR',
+          amountUSD: savedInvoice.paidAmountUSD,
+          amountBS,
+          currency: methodCurrency,
+          paymentMethod,
+          description: `Abono inicial a proveedor (${supplierName}) · Factura #${savedInvoice.number}`,
+          referenceType: 'invoice-payment',
+          referenceId: `${savedInvoice.id}:initial`,
+          userId: get().currentUserData?.id,
+          sellerName: get().currentUserData?.fullName,
+        });
+      }
+
       set((state) => ({
         invoices: [...state.invoices, savedInvoice],
         products: [
@@ -119,9 +168,33 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
   updateInvoice: async (invoice: Invoice) => {
     const loadingToast = toast.loading("Actualizando factura...");
     try {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      const normalize = (value: string) => value.trim().toLowerCase();
+      const suppliers = get().suppliers;
+      const supplierById = suppliers.find((s) => s.id === invoice.supplier);
+      const supplierByName = suppliers.find((s) => normalize(s.name) === normalize(invoice.supplier));
+
+      const supplierId = uuidRegex.test(invoice.supplier)
+        ? invoice.supplier
+        : supplierByName?.id ?? null;
+
+      let supplierName = supplierById?.name ?? supplierByName?.name ?? invoice.supplier;
+
+      if (supplierId && uuidRegex.test(supplierId) && (!supplierById?.name)) {
+        const { data: supplierFromDb } = await supabase
+          .from('suppliers')
+          .select('name')
+          .eq('id', supplierId)
+          .maybeSingle();
+
+        if (supplierFromDb?.name) {
+          supplierName = supplierFromDb.name;
+        }
+      }
+
       const { error } = await supabase.from('invoices').update({
         number: invoice.number,
-        supplier: invoice.supplier,
+        supplier: supplierId,
         date_due: invoice.dateDue,
         status: invoice.status,
         items: invoice.items,
@@ -135,7 +208,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
 
       if (error) throw error;
 
-      set((state) => ({ invoices: state.invoices.map((i) => i.id === invoice.id ? invoice : i) }));
+      set((state) => ({ invoices: state.invoices.map((i) => i.id === invoice.id ? { ...invoice, supplier: supplierName } : i) }));
       toast.dismiss(loadingToast);
     } catch (error: unknown) {
       toast.dismiss(loadingToast);
@@ -178,6 +251,27 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
       }).eq('id', invoiceId);
 
       if (error) throw error;
+
+      const methodCurrency = get().paymentMethods.find((method) => method.name === payment.method)?.currency || 'USD';
+      const fxRateUsed = payment.fxRateUsed || get().settings.tasaBCV;
+      const amountBS = methodCurrency === 'BS'
+        ? (payment.amountBS ?? Math.round((payment.amountUSD * fxRateUsed) * 100) / 100)
+        : undefined;
+
+      await get().recordCashMovement({
+        date: payment.date,
+        direction: 'OUT',
+        kind: 'ABONO_PROVEEDOR',
+        amountUSD: payment.amountUSD,
+        amountBS,
+        currency: methodCurrency,
+        paymentMethod: payment.method,
+        description: `Abono a proveedor (${invoice.supplier}) · Factura #${invoice.number}`,
+        referenceType: 'invoice-payment',
+        referenceId: payment.id,
+        userId: get().currentUserData?.id,
+        sellerName: get().currentUserData?.fullName,
+      });
 
       set((state) => ({
         invoices: state.invoices.map((i) =>

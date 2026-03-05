@@ -111,6 +111,28 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
       const lastId = get().sales.length > 0 ? (get().sales[0].localId || 0) : 0;
       const calculatedLocalId = saleData.local_id ? saleData.local_id : lastId + 1;
 
+      if (paidAmount > 0) {
+        const methodCurrency = get().paymentMethods.find((method) => method.name === paymentMethod)?.currency || 'USD';
+        const amountBS = methodCurrency === 'BS'
+          ? Math.round((paidAmount * settings.tasaBCV) * 100) / 100
+          : undefined;
+
+        await get().recordCashMovement({
+          date: saleData.date,
+          direction: 'IN',
+          kind: 'VENTA_COBRADA',
+          amountUSD: paidAmount,
+          amountBS,
+          currency: methodCurrency,
+          paymentMethod,
+          description: `Cobro inicial de venta #${calculatedLocalId || saleData.id.slice(-6)}`,
+          referenceType: 'sale-payment',
+          referenceId: `${saleData.id}:initial`,
+          userId: currentUserData?.id,
+          sellerName: currentUserData?.fullName,
+        });
+      }
+
       // Incremental update: build sale locally and update stock
       const newSale: Sale = {
         id: saleData.id,
@@ -251,6 +273,26 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         amount_usd: payment.amountUSD,
         method: payment.method,
         note: payment.note
+      });
+
+      const methodCurrency = get().paymentMethods.find((method) => method.name === payment.method)?.currency || 'USD';
+      const amountBS = methodCurrency === 'BS'
+        ? Math.round((payment.amountUSD * get().settings.tasaBCV) * 100) / 100
+        : undefined;
+
+      await get().recordCashMovement({
+        date: payment.date,
+        direction: 'IN',
+        kind: 'ABONO_CLIENTE',
+        amountUSD: payment.amountUSD,
+        amountBS,
+        currency: methodCurrency,
+        paymentMethod: payment.method,
+        description: `Abono de cliente a venta #${sale.localId || sale.id.slice(-6)}`,
+        referenceType: 'sale-payment',
+        referenceId: payment.id,
+        userId: sale.userId,
+        sellerName: sale.sellerName,
       });
 
       const newPaid = sale.paidAmountUSD + payment.amountUSD;

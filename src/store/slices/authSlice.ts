@@ -45,7 +45,7 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
         // Permitiremos que el usuario siga a /reset-password.
         set({ user: session?.user ?? null, isLoading: false });
       } else if (event === 'SIGNED_OUT') {
-        set({ user: null, cart: [], products: [], sales: [], currentUserData: null });
+        set({ user: null, cart: [], products: [], sales: [], cashLedger: [], currentUserData: null });
       } else if (event === 'SIGNED_IN' && session) {
         set({ user: session.user });
       }
@@ -122,7 +122,7 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
 
   logout: async () => {
     await supabase.auth.signOut();
-    set({ user: null, cart: [], products: [], sales: [], currentUserData: null });
+    set({ user: null, cart: [], products: [], sales: [], cashLedger: [], currentUserData: null });
     toast.success("Sesión cerrada");
   },
 
@@ -196,7 +196,10 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
       if (paymentMethodsData && paymentMethodsData.length > 0) {
         set({
           paymentMethods: paymentMethodsData.map((pm) => ({
-            id: pm.id, name: pm.name, currency: pm.currency
+            id: pm.id,
+            name: pm.name,
+            currency: pm.currency,
+            commissionPct: Number(pm.commission_pct) || 0,
           }))
         });
       }
@@ -205,6 +208,7 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
         set({
           invoices: invoicesData.map((inv) => ({
             ...inv,
+            supplier: suppliersData?.find((s) => s.id === inv.supplier)?.name || inv.supplier,
             subtotalUSD: inv.subtotal_usd,
             freightTotalUSD: inv.freight_total_usd,
             totalUSD: inv.total_usd,
@@ -261,37 +265,9 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     } catch (e) { console.warn('fetchQuotes:', e); }
     try {
       await get().fetchExpenses();
-
-      // ✅ FUNCIONALIDAD PENDIENTE IMPLEMENTADA: Alerta de gastos recurrentes al iniciar sesión
-      const expenses = get().expenses;
-      const today = new Date();
-      const currentMonth = today.getMonth();
-      const currentYear = today.getFullYear();
-
-      // Buscamos gastos que estén marcados como recurrentes
-      const recurringExpensesDef = expenses.filter(e => e.isRecurring);
-
-      // Filtramos cuáles de esos gastos NO han sido pagados este mes
-      const unpaidRecurring = recurringExpensesDef.filter(recurring => {
-        // Buscamos si existe un pago para esta categoría recurrente en el mes actual
-        const hasPaidThisMonth = expenses.some(e => {
-          const expenseDate = new Date(e.date);
-          return e.category === recurring.category &&
-            expenseDate.getMonth() === currentMonth &&
-            expenseDate.getFullYear() === currentYear &&
-            e.id !== recurring.id; // Asegurarse de no contarse a sí mismo si ya se registró hoy
-        });
-        return !hasPaidThisMonth;
-      });
-
-      if (unpaidRecurring.length > 0) {
-        const uniqueCategories = Array.from(new Set(unpaidRecurring.map(e => e.category)));
-        toast('Tienes gastos recurrentes pendientes este mes:\n' + uniqueCategories.join(', '), {
-          icon: '🗓️',
-          duration: 8000
-        });
-      }
-
     } catch (e) { console.warn('fetchExpenses:', e); }
+    try {
+      await get().fetchCashLedger();
+    } catch (e) { console.warn('fetchCashLedger:', e); }
   },
 });

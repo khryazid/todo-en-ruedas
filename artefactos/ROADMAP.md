@@ -1,0 +1,127 @@
+# 🗺️ Roadmap de Mejoras — Glyph Core
+
+> **Uso:** Marca cada ítem al completarlo. Añade notas de progreso donde necesites.
+
+---
+
+## 🔴 Sprint A — Alta Prioridad (Negocios reales lo necesitan)
+
+### ~~Módulo de Proveedores~~ ✅ Completado
+- [x] Crear ficha completa de Proveedor (RIF, teléfono, contacto, dirección)
+- [x] Historial de compras por proveedor
+- [x] Deuda total acumulada por proveedor (diferente a Ctas por Pagar por factura)
+- [x] Vista de "Proveedor" en página propia vinculada — `/suppliers`
+
+### ~~Listas de Precio por Cliente~~ ✅ Completado
+- [x] Definir al menos 3 listas de precio: Detal, Mayorista, Especial
+- [x] Asignar lista de precio a cada cliente desde su ficha
+- [x] POS aplica automáticamente el precio según la lista del cliente seleccionado
+- [x] Mostrar en el carrito qué lista de precio se está usando (badge colorido)
+
+### ~~Movimientos de Inventario (Log)~~ ✅ Completado
+- [x] Registrar toda entrada/salida de stock con motivo: Venta, Compra, Ajuste Manual, Merma, Devolución
+- [x] Vista de historial de movimientos por producto
+- [x] Ajuste manual de stock con campo "Motivo" obligatorio (ej: conteo físico)
+- [x] Exportar log de movimientos a CSV
+
+### ~~Notas de Crédito / Devoluciones~~ ✅ Completado
+- [x] Flujo de devolución parcial o total de productos de una venta
+- [x] Opciones: devolver a stock + generar saldo a favor ó devolver a stock + reembolso
+- [x] Saldo a favor del cliente visible en su ficha y aplicable en la próxima venta
+- [x] Nota de crédito generada con número propio (NC-001)
+
+---
+
+## 🟡 Sprint B — Media Prioridad (Alto valor gerencial)
+
+### Dashboard Avanzado
+- [ ] **Margen de ganancia real** del período (ingresos − costo de lo vendido)
+- [ ] Comparativa vs período anterior (ej: "Esta semana vs semana pasada: +12%")
+- [ ] Rentabilidad por categoría de producto
+- [ ] Velocidad de rotación de inventario (días promedio para vender un producto)
+- [ ] Ticket promedio por vendedor (no solo total sino eficiencia por operación)
+- [ ] Proyección del mes (si sigo este ritmo, ¿cuánto vendo?)
+
+### Metas y Presupuesto
+- [ ] El Admin define una meta de ventas mensual en USD
+- [ ] Dashboard muestra barra de progreso: "Llevas X% de tu meta de $X este mes"
+- [ ] Meta por vendedor (cuota individual)
+- [ ] Alerta cuando se alcanza el 100% de la meta
+
+### Estado de Resultados Exportable
+- [ ] Reporte mensual: Ingresos − Costo de Ventas − Gastos Operativos = Utilidad Neta
+- [ ] Reporte de IVA: IVA cobrado en ventas vs IVA pagado en compras
+- [ ] Informe de inventario valorado (foto del stock a fecha de corte)
+- [ ] Todo exportable en PDF con logo de la empresa
+
+### Centro de Notificaciones Persistente
+- [ ] Icono de campana en el TopBar con contador de alertas no leídas
+- [ ] Tipos de alerta: Stock agotado, Deuda vencida +30 días, Factura de proveedor por vencer
+- [ ] Notificación al completar una meta
+- [ ] Marcar alertas como leídas / descartadas
+
+### Auditoría y Trazabilidad (Financiera + Seguridad)
+- [ ] Log de ajustes manuales de caja (antes/después + motivo)
+- [ ] Log de cambio de tasas BCV/TH y origen (manual/sistema)
+- [ ] Log de cambio de comisión por método de pago
+- [ ] Log de anulaciones de venta, devolución y reverso de movimientos
+- [ ] Log de cambios críticos en productos: costo, margen, IVA y `costType`
+- [ ] Log de edición de pagos con `fxRateUsed` en gastos y facturas
+- [ ] Log de cambio de rol/permisos de usuarios
+- [ ] Log de intentos de login fallidos y bloqueo/desbloqueo de usuario
+
+---
+
+## 🟢 Sprint C — Premium (Diferenciadores del producto)
+
+### Modo Offline / PWA Real
+- [ ] Configurar `vite-plugin-pwa` (ya está en package.json sin usar)
+- [ ] Service Worker que cachea productos y clientes al conectarse
+- [ ] El POS puede procesar ventas offline y las sincroniza al recuperar internet
+- [ ] Indicador visible en el TopBar cuando está en modo offline
+
+### Descuentos Programados
+- [ ] Crear reglas de descuento: por producto, por categoría, por rango de fechas
+- [ ] El POS aplica automáticamente el descuento si la regla está activa
+- [ ] Vista de gestión de promociones activas e históricas
+
+### WhatsApp Automatizado
+- [ ] Recordatorio de deuda: botón "Notificar por WhatsApp" en Cuentas por Cobrar (ya pre-llena el mensaje)
+- [ ] Enviar cotización en PDF por WhatsApp directamente desde el módulo de Cotizaciones
+- [ ] Template editable del mensaje de cobro en Configuración
+
+### Múltiples Bodegas / Ubicaciones
+- [ ] Crear ubicaciones (ej: Tienda, Almacén, Sucursal 2)
+- [ ] Stock separado por ubicación por producto
+- [ ] Transferencia de stock entre ubicaciones con trazabilidad
+- [ ] POS puede seleccionar desde qué ubicación despacha
+
+### Vista Tablet / Caja Optimizada
+- [ ] Layout de POS alternativo tipo "pantalla partida" adaptado para tablet en horizontal
+- [ ] Modo quiosco: ocultar sidebar y header para dejar solo el POS visible
+
+### Caja Chica (Petty Cash)
+- [ ] Fondo fijo de caja con apertura diaria (monto inicial)
+- [ ] Entradas y salidas del fondo pequeño a lo largo del día
+- [ ] Cuadre de caja chica separado del Cierre Z principal
+
+---
+
+## ✅ Ya Implementado (referencia)
+
+| Módulo | Estado |
+|--------|--------|
+| POS con carrito, crédito, descuento global | ✅ |
+| POS: Búsqueda con dropdown instantáneo | ✅ |
+| POS: Categorías, Top Vendidos, Vista Lista | ✅ |
+| Inventario + Compras + Costo Promedio | ✅ |
+| Historial de Ventas + Anulaciones | ✅ |
+| Cuentas por Cobrar + Abonos | ✅ |
+| Gastos con recurrentes y moneda dual | ✅ |
+| Cierre de Caja Diario (Z/X) | ✅ |
+| Roles RBAC (Admin/Manager/Seller/Viewer) | ✅ |
+| Cotizaciones + Conversión a Venta | ✅ |
+| Comisiones de Vendedores | ✅ |
+| Auditoría de Acciones | ✅ |
+| Renombrado a Glyph Core en toda la UI | ✅ |
+All bugs QA Report (10 ítems) corregidos | ✅ |

@@ -8,7 +8,7 @@ import type { User } from '@supabase/supabase-js';
 import type {
   Product, CartItem, Sale, Invoice, Payment, AppSettings,
   Supplier, PaymentMethod, Client, AppUser, Quote, SaleReturn, Expense, CashClose,
-  StockMovement, ReturnOption
+  StockMovement, ReturnOption, CashLedgerEntry, CashDirection, CashLedgerKind
 } from '../types';
 
 export type SetState = (partial: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void;
@@ -42,7 +42,8 @@ export interface StoreState {
   // --- Settings ---
   updateSettings: (settings: AppSettings) => Promise<void>;
   performDailyClose: (turnData?: { totalUSD: number; totalBs: number; txCount: number }) => Promise<CashClose | null>;
-  addPaymentMethod: (name: string, currency: 'USD' | 'BS') => Promise<void>;
+  addPaymentMethod: (name: string, currency: 'USD' | 'BS', commissionPct?: number) => Promise<void>;
+  updatePaymentMethodCommission: (id: string, commissionPct: number) => Promise<void>;
   deletePaymentMethod: (id: string) => Promise<void>;
 
   // --- Quotes ---
@@ -68,6 +69,37 @@ export interface StoreState {
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
   updateExpense: (id: string, updates: Partial<Expense>) => Promise<void>;
   deleteExpense: (id: string) => Promise<void>;
+
+  // --- Cash Ledger ---
+  cashLedger: CashLedgerEntry[];
+  fetchCashLedger: () => Promise<void>;
+  recordCashMovement: (entry: {
+    date: string;
+    direction: CashDirection;
+    kind: CashLedgerKind;
+    amountUSD: number;
+    amountBS?: number;
+    currency: 'USD' | 'BS';
+    paymentMethod: string;
+    description: string;
+    referenceType?: string;
+    referenceId?: string;
+    userId?: string;
+    sellerName?: string;
+  }) => Promise<CashLedgerEntry | null>;
+  upsertCashMovementByReference: (referenceType: string, referenceId: string, entry: {
+    date: string;
+    direction: CashDirection;
+    kind: CashLedgerKind;
+    amountUSD: number;
+    amountBS?: number;
+    currency: 'USD' | 'BS';
+    paymentMethod: string;
+    description: string;
+    userId?: string;
+    sellerName?: string;
+  }) => Promise<CashLedgerEntry | null>;
+  deleteCashMovementByReference: (referenceType: string, referenceId: string) => Promise<void>;
 
   // --- Products ---
   addProduct: (product: Product) => Promise<void>;

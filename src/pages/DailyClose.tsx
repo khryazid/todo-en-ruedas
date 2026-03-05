@@ -69,6 +69,7 @@ export const DailyClose = () => {
     // --- CÁLCULOS DEL TURNO ACTUAL ---
     const totalUSD = currentShiftSales.reduce((acc, s) => acc + s.totalUSD, 0);
     const totalBs = currentShiftSales.reduce((acc, s) => acc + s.totalVED, 0);
+    const totalBsByRate = totalUSD * settings.tasaBCV;
 
     // Gastos del turno actual
     const shiftExpenses = useMemo(() => {
@@ -80,13 +81,18 @@ export const DailyClose = () => {
     const netProfitUSD = totalUSD - totalExpensesUSD;
 
     const breakdown = (() => {
-        const map: Record<string, number> = {};
-        paymentMethods.forEach(pm => map[pm.name] = 0);
+        const map: Record<string, { amountUSD: number; currency: 'USD' | 'BS' }> = {};
+        paymentMethods.forEach(pm => {
+            map[pm.name] = { amountUSD: 0, currency: pm.currency };
+        });
         currentShiftSales.forEach(sale => {
             const paid = sale.paidAmountUSD;
             if (paid > 0) {
                 const method = sale.paymentMethod;
-                map[method] = (map[method] || 0) + paid;
+                if (!map[method]) {
+                    map[method] = { amountUSD: 0, currency: 'USD' };
+                }
+                map[method].amountUSD += paid;
             }
         });
         return map;
@@ -128,7 +134,9 @@ export const DailyClose = () => {
                 totalUSD,
                 totalBs,
                 itemsCount: currentShiftSales.length,
-                breakdown,
+                breakdown: Object.fromEntries(
+                    Object.entries(breakdown).map(([method, info]) => [method, info.amountUSD])
+                ),
                 reportNumber: reportIdentifier,
                 paymentMethods
             });
@@ -188,7 +196,9 @@ export const DailyClose = () => {
             totalUSD,
             totalBs,
             txCount: currentShiftSales.length,
-            breakdown,
+            breakdown: Object.fromEntries(
+                Object.entries(breakdown).map(([method, info]) => [method, info.amountUSD])
+            ),
             sellerBreakdown,
             companyName: settings.companyName || 'Glyph Core',
             reportNumber: currentReportId,
@@ -251,8 +261,9 @@ export const DailyClose = () => {
                         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
                             <p className="text-xs text-gray-400 uppercase font-bold mb-1">Ref. en Bolívares</p>
                             <h3 className="text-3xl font-black text-gray-800">Bs. {totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</h3>
-                            <p className="text-xs text-orange-500 mt-2 font-medium bg-orange-50 inline-block px-2 py-1 rounded">
-                                *Acumulado del turno actual
+                            <p className="text-xs text-gray-600 mt-2 font-medium">{formatCurrency(totalUSD, 'USD')} × Bs. {settings.tasaBCV.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            <p className="text-xs text-orange-500 mt-1 font-medium bg-orange-50 inline-block px-2 py-1 rounded">
+                                = Bs. {totalBsByRate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (referencia por tasa)
                             </p>
                         </div>
                     </div>
@@ -289,10 +300,21 @@ export const DailyClose = () => {
                             <h3 className="font-bold text-gray-800 text-sm">Desglose por Método de Pago</h3>
                         </div>
                         <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {Object.entries(breakdown).map(([method, amount]) => (
+                            {Object.entries(breakdown).map(([method, info]) => (
                                 <div key={method} className="flex justify-between items-center p-3 border rounded-xl bg-gray-50/30">
-                                    <span className="font-bold text-gray-600 text-sm">{method}</span>
-                                    <span className="font-mono font-bold text-gray-800">{formatCurrency(amount, 'USD')}</span>
+                                    <div>
+                                        <span className="font-bold text-gray-600 text-sm block">{method}</span>
+                                        <span className="text-[11px] text-gray-500">
+                                            {info.currency === 'BS'
+                                                ? `${formatCurrency(info.amountUSD, 'USD')} × Bs. ${settings.tasaBCV.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                                : formatCurrency(info.amountUSD, 'USD')}
+                                        </span>
+                                    </div>
+                                    <span className="font-mono font-bold text-gray-800">
+                                        {info.currency === 'BS'
+                                            ? `Bs. ${(info.amountUSD * settings.tasaBCV).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                            : formatCurrency(info.amountUSD, 'USD')}
+                                    </span>
                                 </div>
                             ))}
                             {Object.keys(breakdown).length === 0 && <p className="text-gray-400 text-sm p-2">Sin movimientos.</p>}
@@ -329,6 +351,12 @@ export const DailyClose = () => {
                                         <div className="text-right flex-shrink-0 mr-2">
                                             <p className="font-bold text-gray-800">Cierre Z - {formatCurrency(c.totalUSD, 'USD')}</p>
                                             <p className="text-xs text-gray-400 font-mono">#{c.sequenceNumber || c.id.slice(-6)} ({c.txCount} tx)</p>
+                                            <p className="text-[10px] text-gray-500">
+                                                Tasa implícita:{' '}
+                                                {c.totalUSD > 0
+                                                    ? `Bs. ${(c.totalBs / c.totalUSD).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / $1`
+                                                    : 'N/A'}
+                                            </p>
                                         </div>
                                         {/* Botón reimprimir */}
                                         <button

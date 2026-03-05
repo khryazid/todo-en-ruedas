@@ -1,6 +1,4 @@
-// @ts-nocheck
 /* global Deno */
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const corsHeaders = {

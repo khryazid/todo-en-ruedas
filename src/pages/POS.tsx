@@ -9,63 +9,22 @@
  *   6.6 — useCallback: handlers estables entre renders
  */
 
-import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { printInvoice, sendToWhatsApp } from '../utils/ticketGenerator';
 import {
-    ShoppingCart, User, Search, Printer, FileText,
-    CheckCircle, X, UserPlus, Minus, Plus, Trash2, MessageCircle, DollarSign,
+    User, Search, FileText,
+    X, UserPlus, Minus, Plus, Trash2, DollarSign,
     LayoutGrid, List, Star, Barcode
 } from 'lucide-react';
 import type { Product, Client, Sale, Quote, PriceList } from '../types';
 import { QuickClientModal } from '../components/QuickClientModal';
-
-// =============================================
-// HOOK: useDebounce
-// =============================================
-function useDebounce(value: string, delay: number) {
-    const [debounced, setDebounced] = useState(value);
-    useEffect(() => {
-        const timer = setTimeout(() => setDebounced(value), delay);
-        return () => clearTimeout(timer);
-    }, [value, delay]);
-    return debounced;
-}
-
-// =============================================
-// COMPONENTE MEMOIZADO: ProductCard
-// =============================================
-interface ProductCardProps {
-    product: Product;
-    priceUSD: number;
-    onAdd: (product: Product) => void;
-}
-
-const ProductCard = memo(({ product, priceUSD, onAdd }: ProductCardProps) => {
-    const isOutOfStock = product.stock === 0;
-
-    return (
-        <div
-            onClick={() => !isOutOfStock && onAdd(product)}
-            className={`relative flex flex-col justify-between p-3 md:p-4 rounded-2xl border shadow-sm transition-all duration-200 active:scale-95 cursor-pointer h-full group select-none ${isOutOfStock ? 'bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed' : 'bg-white border-gray-100 hover:shadow-md hover:border-red-200'}`}
-        >
-            <div>
-                <div className="flex justify-between items-start mb-1">
-                    <span className="text-[10px] font-mono font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{product.sku}</span>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${product.stock <= product.minStock ? 'bg-orange-50 text-orange-700 border-orange-100' : 'bg-green-50 text-green-700 border-green-100'}`}>{product.stock} un.</span>
-                </div>
-                <h3 className="text-xs md:text-sm font-bold text-gray-700 leading-snug line-clamp-3 min-h-[2.5rem] mb-2 group-hover:text-red-600 transition-colors" title={product.name}>{product.name}</h3>
-            </div>
-            <div className="mt-auto pt-3 border-t border-dashed border-gray-100 flex justify-between items-end">
-                <div className="flex flex-col"><span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Precio</span><span className="text-base md:text-lg font-black text-gray-900 leading-none">{formatCurrency(priceUSD, 'USD')}</span></div>
-                {!isOutOfStock && <div className="bg-red-50 text-red-600 w-8 h-8 rounded-xl flex items-center justify-center shadow-sm group-hover:bg-red-600 group-hover:text-white transition-all duration-300"><Plus size={18} strokeWidth={3} /></div>}
-            </div>
-        </div>
-    );
-});
+import { useDebounce } from '../hooks/useDebounce';
+import { ProductCard } from '../components/pos/ProductCard';
+import { POSCheckoutModal } from '../components/pos/POSCheckoutModal';
 
 // =============================================
 // COMPONENTE PRINCIPAL: POS
@@ -127,25 +86,39 @@ export const POS = () => {
     const handleSelectClient = useCallback((client: Client) => {
         setSelectedClient(client);
         setClientSearch(client.name);
+        setApplyCredit(false);
         setShowClientList(false);
         setHighlightedClientIndex(-1);
     }, []);
 
     useEffect(() => {
         // Hydrate from quote transfer
-        if (location.state?.clientId && clients.length > 0) {
-            const clientMatch = clients.find(c => c.id === location.state.clientId);
-            if (clientMatch) {
+        if (clients.length === 0) return;
+
+        let clientMatch: Client | undefined;
+
+        if (location.state?.clientId) {
+            clientMatch = clients.find(c => c.id === location.state.clientId);
+        }
+
+        if (!clientMatch && location.state?.clientName) {
+            const stateClientName = String(location.state.clientName).trim().toLowerCase();
+            clientMatch = clients.find(c => c.name.trim().toLowerCase() === stateClientName);
+        }
+
+        if (clientMatch) {
+            setTimeout(() => {
                 handleSelectClient(clientMatch);
                 // Clear state so it doesn't re-apply if we navigate away and back
                 window.history.replaceState({}, document.title);
-            }
+            }, 0);
         }
-    }, [location.state?.clientId, clients, handleSelectClient]);
+    }, [location.state?.clientId, location.state?.clientName, clients, handleSelectClient]);
 
     const clearClient = useCallback(() => {
         setSelectedClient(null);
         setClientSearch('');
+        setApplyCredit(false);
         setShowClientList(false);
         setHighlightedClientIndex(-1);
     }, []);
@@ -271,9 +244,6 @@ export const POS = () => {
         }
     }, [isCheckoutModalOpen, completedSale]);
 
-    // Reset applyCredit when selectedClient changes
-    useEffect(() => { setApplyCredit(false); }, [selectedClient]);
-
     const currentClientDebt = (() => {
         if (!selectedClient) return 0;
         return sales
@@ -281,7 +251,13 @@ export const POS = () => {
             .reduce((acc, s) => acc + (s.totalUSD - s.paidAmountUSD), 0);
     })();
 
-    const handleCheckout = useCallback(async () => {
+    const effectivePaymentMethod = useMemo(() => {
+        const hasSelected = paymentMethods.some((method) => method.name === selectedPaymentMethod);
+        if (hasSelected) return selectedPaymentMethod;
+        return paymentMethods[0]?.name || selectedPaymentMethod || 'Efectivo';
+    }, [paymentMethods, selectedPaymentMethod]);
+
+    const handleCheckout = async () => {
         if (isCreditSale && !selectedClient) {
             toast.error('⚠️ Para vender a crédito, DEBES seleccionar un Cliente registrado.');
             return;
@@ -313,7 +289,7 @@ export const POS = () => {
             paymentAmount = abono;
         }
 
-        const sale = await completeSale(selectedPaymentMethod, selectedClient?.id, paymentAmount);
+        const sale = await completeSale(effectivePaymentMethod, selectedClient?.id, paymentAmount);
         if (sale) {
             // Deduct credit used from client balance
             if (creditUsed > 0 && selectedClient) {
@@ -324,7 +300,7 @@ export const POS = () => {
         } else {
             setIsCheckoutModalOpen(false);
         }
-    }, [isCreditSale, selectedClient, totalUSD, initialPayment, selectedPaymentMethod, completeSale, sales, applyCredit, applyClientCredit]);
+    };
 
     // ✅ FIX: Guardar carrito como cotización
     const handleSaveQuote = useCallback(async () => {
@@ -359,10 +335,29 @@ export const POS = () => {
         clearCart();
     }, [cart, selectedClient, quotes, totalUSD, totalBs, clearCart, addQuote]);
 
+    const handleSendWhatsAppReceipt = async () => {
+        if (!completedSale) return;
+        if (!selectedClient) {
+            alert('Asigna un cliente primero o créalo para poder enviar el recibo.');
+            return;
+        }
+        await sendToWhatsApp(completedSale);
+    };
+
+    const handlePrintReceipt = () => {
+        if (!completedSale) return;
+        printInvoice(completedSale);
+    };
+
+    const handleNewSale = () => {
+        setCompletedSale(null);
+        clearClient();
+    };
+
     return (
         <div className="flex flex-col md:flex-row h-[calc(100vh-3.5rem)] bg-gray-100 w-full overflow-hidden">
             {/* IZQUIERDA: CATÁLOGO */}
-            <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 flex flex-col min-h-0 min-w-0">
 
                 {/* BARRA SUPERIOR: BÚSQUEDA + TOGGLE */}
                 <div className="p-3 bg-white border-b border-gray-200 shadow-sm z-20 space-y-2">
@@ -516,7 +511,7 @@ export const POS = () => {
             </div>
 
             {/* DERECHA: CARRITO */}
-            <div className="w-full md:w-[380px] bg-white border-t md:border-t-0 md:border-l border-gray-200 flex flex-col shadow-[0_-4px_20px_rgba(0,0,0,0.1)] md:shadow-none z-20">
+            <div className="w-full md:w-[380px] md:flex-shrink-0 bg-white border-t md:border-t-0 md:border-l border-gray-200 flex flex-col shadow-[0_-4px_20px_rgba(0,0,0,0.1)] md:shadow-none z-20">
                 <div className="p-3 bg-blue-50/50 border-b border-blue-100 flex items-center gap-2 relative" ref={clientListRef}>
                     <User size={18} className="text-blue-600 flex-shrink-0" />
                     <div className="relative flex-1 flex gap-2">
@@ -530,7 +525,7 @@ export const POS = () => {
                                     setClientSearch(e.target.value);
                                     setShowClientList(true);
                                     setHighlightedClientIndex(-1);
-                                    if (e.target.value === '') setSelectedClient(null);
+                                    if (e.target.value === '') clearClient();
                                 }}
                                 onFocus={() => setShowClientList(true)}
                                 onKeyDown={handleClientKeyDown}
@@ -655,141 +650,27 @@ export const POS = () => {
                 </div>{/* end cart column */}
             </div>{/* end main flex */}
 
-            {/* MODAL DE CHECKOUT Y ÉXITO */}
-            {
-                (isCheckoutModalOpen || completedSale) && (
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in">
-                        <div className="bg-white w-full md:w-[420px] rounded-t-3xl md:rounded-3xl shadow-2xl p-6 animate-in slide-in-from-bottom duration-300">
-                            {completedSale ? (
-                                <div className="text-center">
-                                    <CheckCircle className="text-green-500 mx-auto mb-4" size={64} />
-                                    <h3 className="text-2xl font-black text-gray-800 mb-2">¡Venta Exitosa!</h3>
-                                    <p className="text-gray-500 mb-6">La venta #{completedSale.localId || completedSale.id.slice(-6)} ha sido registrada correctamente.</p>
-
-                                    <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-100 shadow-inner">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-gray-500 font-bold uppercase text-xs">Total Pagado</span>
-                                            <span className="text-3xl font-black text-gray-900">{formatCurrency(completedSale.paidAmountUSD, 'USD')}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-400">Ref. Bs</span>
-                                            <span className="font-bold text-blue-600">Bs. {((completedSale.paidAmountUSD || 0) * settings.tasaBCV).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
-                                        </div>
-                                        {(completedSale.totalUSD - completedSale.paidAmountUSD) > 0.01 && (
-                                            <div className="flex justify-between items-center text-sm mt-2 pt-2 border-t border-gray-200">
-                                                <span className="text-red-500 font-bold">Deuda Pendiente</span>
-                                                <span className="font-bold text-red-600">{formatCurrency(completedSale.totalUSD - completedSale.paidAmountUSD, 'USD')}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <button
-                                            onClick={async () => {
-                                                if (!selectedClient) {
-                                                    alert("Asigna un cliente primero o créalo para poder enviar el recibo.");
-                                                    return;
-                                                }
-                                                await sendToWhatsApp(completedSale);
-                                            }}
-                                            disabled={!selectedClient || !selectedClient.phone}
-                                            className="w-full flex items-center justify-center gap-2 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                                            title={(!selectedClient || !selectedClient.phone) ? "El cliente debe tener un teléfono registrado" : "Enviar por WhatsApp"}
-                                        >
-                                            <MessageCircle size={20} /> ENVIAR RECIBO POR WHATSAPP
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                printInvoice(completedSale);
-                                            }}
-                                            className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition"
-                                        >
-                                            <Printer size={20} /> IMPRIMIR RECIBO
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setCompletedSale(null);
-                                                clearClient();
-                                            }}
-                                            className="w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition"
-                                        >
-                                            PROCESAR NUEVA VENTA
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : isCheckoutModalOpen ? (
-                                <>
-                                    <button onClick={() => setIsCheckoutModalOpen(false)} className="absolute right-4 top-4 text-gray-400 hover:bg-gray-100 p-2 rounded-full transition"><X size={20} /></button>
-                                    <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><ShoppingCart className="text-blue-600" /> Checkout</h2>
-
-                                    {selectedClient && (
-                                        <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4 flex flex-col gap-2">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-blue-200 text-blue-700 p-2 rounded-full"><User size={20} /></div>
-                                                <div>
-                                                    <p className="text-[10px] uppercase font-bold text-blue-400">Cliente Asignado</p>
-                                                    <p className="font-bold text-blue-900 text-sm">{selectedClient.name}</p>
-                                                </div>
-                                            </div>
-                                            {(selectedClient.creditLimit ?? 0) > 0 && (
-                                                <div className="flex justify-between items-center text-xs mt-1 pt-2 border-t border-blue-200/50">
-                                                    <span className="text-blue-700 font-medium">Límite: <span className="font-bold">{formatCurrency(selectedClient.creditLimit!, 'USD')}</span></span>
-                                                    <span className={`font-bold ${currentClientDebt > 0 ? 'text-red-600' : 'text-green-600'}`}>Deuda: {formatCurrency(currentClientDebt, 'USD')}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    <div className="bg-gray-50 p-4 rounded-xl mb-6 border border-gray-100 shadow-inner">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <span className="text-gray-500 font-bold uppercase text-xs">Total Venta</span>
-                                            <span className="text-3xl font-black text-gray-900">{formatCurrency(totalUSD, 'USD')}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-400">Ref. Bs</span>
-                                            <span className="font-bold text-blue-600">Bs. {totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4 mb-6">
-                                        <label className="flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer hover:bg-gray-50 transition border-gray-100">
-                                            <input type="checkbox" checked={isCreditSale} onChange={(e) => setIsCreditSale(e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                                            <span className="font-bold text-gray-700">Venta a Crédito / Fiado</span>
-                                        </label>
-
-                                        {isCreditSale && (
-                                            <div className="pl-8 animate-in slide-in-from-top-2">
-                                                <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Abono Inicial (Dejar en 0 si no paga nada)</label>
-                                                <div className="flex gap-2 items-center">
-                                                    <span className="font-bold text-gray-400">$</span>
-                                                    <input type="number" step="0.01" className="w-full border-b-2 border-gray-200 outline-none focus:border-blue-500 font-bold text-lg py-1 bg-transparent" placeholder="0.00" value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
-                                                </div>
-                                                <div className="mt-2 text-right">
-                                                    <span className="text-xs font-bold text-red-500">Resta por Cobrar: {formatCurrency(Math.max(0, totalUSD - (parseFloat(initialPayment) || 0)), 'USD')}</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <p className="text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Método de Pago {isCreditSale && "(del Abono)"}</p>
-                                    <div className="space-y-2 mb-6 max-h-[140px] overflow-y-auto pr-1 custom-scrollbar">
-                                        {paymentMethods.map(method => (
-                                            <button key={method.id} onClick={() => setSelectedPaymentMethod(method.name)} className={`w-full p-3 rounded-xl border-2 flex items-center justify-between transition-all ${selectedPaymentMethod === method.name ? 'border-red-500 bg-red-50' : 'border-gray-100 bg-white hover:border-gray-300'}`}>
-                                                <div className="flex items-center gap-3"><span className={`font-bold text-sm ${selectedPaymentMethod === method.name ? 'text-red-900' : 'text-gray-700'}`}>{method.name}</span></div>
-                                                {selectedPaymentMethod === method.name && <CheckCircle size={18} className="text-red-600" />}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    <button onClick={handleCheckout} className={`w-full py-4 text-white font-bold rounded-xl text-lg shadow-xl active:scale-95 transition-transform flex items-center justify-center gap-2 ${isCreditSale ? 'bg-orange-600 hover:bg-orange-700 shadow-orange-200' : 'bg-green-600 hover:bg-green-700 shadow-green-200'}`}>
-                                        <CheckCircle size={24} /> {isCreditSale ? 'REGISTRAR DEUDA' : 'CONFIRMAR VENTA'}
-                                    </button>
-                                </>
-                            ) : null}
-                        </div>
-                    </div>
-                )
-            }
+            <POSCheckoutModal
+                isOpen={isCheckoutModalOpen}
+                completedSale={completedSale}
+                selectedClient={selectedClient}
+                settings={settings}
+                totalUSD={totalUSD}
+                totalBs={totalBs}
+                currentClientDebt={currentClientDebt}
+                isCreditSale={isCreditSale}
+                setIsCreditSale={setIsCreditSale}
+                initialPayment={initialPayment}
+                setInitialPayment={setInitialPayment}
+                paymentMethods={paymentMethods}
+                selectedPaymentMethod={effectivePaymentMethod}
+                setSelectedPaymentMethod={setSelectedPaymentMethod}
+                onCloseCheckout={() => setIsCheckoutModalOpen(false)}
+                onCheckout={handleCheckout}
+                onNewSale={handleNewSale}
+                onSendWhatsApp={handleSendWhatsAppReceipt}
+                onPrint={handlePrintReceipt}
+            />
 
             {/* MODAL DE CREACIÓN RÁPIDA DE CLIENTE */}
             <QuickClientModal
@@ -799,6 +680,7 @@ export const POS = () => {
                     // Seleccionar automáticamente al cliente en el input del buscador
                     setSelectedClient(newClient as Client);
                     setClientSearch(newClient.name);
+                    setApplyCredit(false);
                 }}
             />
         </div >

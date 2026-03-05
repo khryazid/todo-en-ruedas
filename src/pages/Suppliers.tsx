@@ -28,7 +28,11 @@ const CATEGORY_COLORS: Record<SupplierCategory, string> = {
     Otro: 'bg-gray-100 text-gray-500',
 };
 
-const emptyForm: Omit<Supplier, 'id' | 'createdAt'> = {
+type SupplierForm = Omit<Supplier, 'id' | 'createdAt'> & {
+    category?: SupplierCategory | '';
+};
+
+const emptyForm: SupplierForm = {
     name: '',
     rif: '',
     rifType: 'J',
@@ -36,7 +40,7 @@ const emptyForm: Omit<Supplier, 'id' | 'createdAt'> = {
     phone: '',
     email: '',
     address: '',
-    category: 'Otro',
+    category: '',
     notes: '',
 };
 
@@ -48,7 +52,7 @@ export const Suppliers = () => {
     const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [form, setForm] = useState(emptyForm);
+    const [form, setForm] = useState<SupplierForm>(emptyForm);
     const [isSaving, setIsSaving] = useState(false);
 
     // ── Per-supplier metrics from invoices ──────────────────────────────────
@@ -106,7 +110,7 @@ export const Suppliers = () => {
             phone: sup.phone || '',
             email: sup.email || '',
             address: sup.address || '',
-            category: sup.category || 'Otro',
+            category: sup.category || '',
             notes: sup.notes || '',
         });
         setEditingId(sup.id);
@@ -115,15 +119,33 @@ export const Suppliers = () => {
 
     const handleSave = async () => {
         if (!form.name.trim()) return toast.error('El nombre del proveedor es obligatorio');
+
+        const clean = (value?: string | null) => {
+            const v = (value ?? '').trim();
+            return v ? v : undefined;
+        };
+
+        const payload: Omit<Supplier, 'id' | 'createdAt'> = {
+            name: form.name.trim(),
+            rif: clean(form.rif),
+            rifType: clean(form.rif) ? (form.rifType || 'J') : undefined,
+            contactName: clean(form.contactName),
+            phone: clean(form.phone),
+            email: clean(form.email),
+            address: clean(form.address),
+            category: form.category ? form.category as SupplierCategory : undefined,
+            notes: clean(form.notes),
+        };
+
         setIsSaving(true);
         try {
             if (editingId) {
-                await updateSupplier(editingId, form);
+                await updateSupplier(editingId, payload);
                 if (selectedSupplier?.id === editingId) {
-                    setSelectedSupplier(prev => prev ? { ...prev, ...form } : null);
+                    setSelectedSupplier(prev => prev ? { ...prev, ...payload } : null);
                 }
             } else {
-                await addSupplier(form);
+                await addSupplier(payload);
             }
             setIsModalOpen(false);
         } finally {
@@ -470,6 +492,13 @@ export const Suppliers = () => {
                                     <Tag size={12} /> Categoría
                                 </label>
                                 <div className="flex gap-2 flex-wrap">
+                                    <button
+                                        type="button"
+                                        onClick={() => setForm(f => ({ ...f, category: '' }))}
+                                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border ${!form.category ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
+                                    >
+                                        Sin categoría
+                                    </button>
                                     {SUPPLIER_CATEGORIES.map(cat => (
                                         <button
                                             key={cat}
