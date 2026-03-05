@@ -60,8 +60,6 @@
 - [ ] Notificación al completar una meta
 - [ ] Marcar alertas como leídas / descartadas
 
-<<<<<<< HEAD
-=======
 ### Auditoría y Trazabilidad (Financiera + Seguridad)
 - [ ] Log de ajustes manuales de caja (antes/después + motivo)
 - [ ] Log de cambio de tasas BCV/TH y origen (manual/sistema)
@@ -71,8 +69,6 @@
 - [ ] Log de edición de pagos con `fxRateUsed` en gastos y facturas
 - [ ] Log de cambio de rol/permisos de usuarios
 - [ ] Log de intentos de login fallidos y bloqueo/desbloqueo de usuario
-
->>>>>>> 0e911b75304e66608cea02315e4c44d15f48f5eb
 ---
 
 ## 🟢 Sprint C — Premium (Diferenciadores del producto)
