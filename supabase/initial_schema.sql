@@ -23,7 +23,10 @@ CREATE TABLE IF NOT EXISTS public.settings (
     default_margin NUMERIC DEFAULT 30,
     default_vat NUMERIC DEFAULT 16,
     printer_currency TEXT DEFAULT 'BS',
+    show_seller_commission BOOLEAN DEFAULT false,
     seller_commission_pct NUMERIC DEFAULT 5,
+    margin_mayorista NUMERIC DEFAULT 0,
+    margin_especial NUMERIC DEFAULT 0,
     company_logo TEXT,
     brand_color TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
@@ -55,7 +58,9 @@ CREATE TABLE IF NOT EXISTS public.clients (
     address TEXT,
     email TEXT,
     notes TEXT,
+    price_list TEXT DEFAULT 'Detal' CHECK (price_list IN ('Detal','Mayorista','Especial')),
     credit_limit NUMERIC DEFAULT 0,
+    credit_balance NUMERIC DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -116,6 +121,49 @@ CREATE TABLE IF NOT EXISTS public.quotes (
     seller_name TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- 8. TABLA GASTOS Y PLANTILLAS RECURRENTES (expenses)
+CREATE SEQUENCE IF NOT EXISTS public.nc_number_seq START 1;
+
+CREATE TABLE IF NOT EXISTS public.returns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sale_id UUID NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
+    date TIMESTAMPTZ DEFAULT now(),
+    client_id UUID REFERENCES public.clients(id) ON DELETE SET NULL,
+    nc_number TEXT,
+    option TEXT DEFAULT 'REEMBOLSO' CHECK (option IN ('CREDIT','REEMBOLSO')),
+    reason TEXT,
+    refund_amount_usd NUMERIC(10,2) NOT NULL DEFAULT 0,
+    type TEXT DEFAULT 'PARTIAL' CHECK (type IN ('FULL','PARTIAL')),
+    items JSONB NOT NULL DEFAULT '[]',
+    user_id UUID,
+    seller_name TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_returns_sale_id ON public.returns(sale_id);
+CREATE INDEX IF NOT EXISTS idx_returns_client_id ON public.returns(client_id);
+CREATE INDEX IF NOT EXISTS idx_returns_date ON public.returns(date);
+
+CREATE TABLE IF NOT EXISTS public.stock_movements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
+    sku TEXT NOT NULL,
+    product_name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK (type IN ('SALE','RETURN','PURCHASE','ADJUSTMENT','SHRINKAGE','MANUAL')),
+    qty_before NUMERIC NOT NULL,
+    qty_change NUMERIC NOT NULL,
+    qty_after NUMERIC NOT NULL,
+    reference_id TEXT,
+    reason TEXT,
+    created_by UUID,
+    seller_name TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON public.stock_movements(product_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_type ON public.stock_movements(type);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_created_at ON public.stock_movements(created_at);
 
 -- 8. TABLA GASTOS Y PLANTILLAS RECURRENTES (expenses)
 CREATE TABLE IF NOT EXISTS public.expenses (

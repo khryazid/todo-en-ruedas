@@ -26,6 +26,7 @@ DROP TABLE IF EXISTS public.payments         CASCADE;
 DROP TABLE IF EXISTS public.sale_items       CASCADE;
 DROP TABLE IF EXISTS public.sales            CASCADE;
 DROP TABLE IF EXISTS public.quotes           CASCADE;
+DROP TABLE IF EXISTS public.recurring_expenses CASCADE;
 DROP TABLE IF EXISTS public.expenses         CASCADE;
 DROP TABLE IF EXISTS public.cash_closes      CASCADE;
 DROP TABLE IF EXISTS public.cash_ledger      CASCADE;
@@ -182,6 +183,7 @@ CREATE SEQUENCE public.nc_number_seq START 1;
 CREATE TABLE public.returns (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sale_id           UUID NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
+    date              TIMESTAMPTZ DEFAULT now(),
     client_id         UUID REFERENCES public.clients(id) ON DELETE SET NULL,
     nc_number         TEXT,
     option            TEXT DEFAULT 'REEMBOLSO' CHECK (option IN ('CREDIT','REEMBOLSO')),
@@ -189,10 +191,13 @@ CREATE TABLE public.returns (
     refund_amount_usd NUMERIC(10,2) NOT NULL DEFAULT 0,
     type              TEXT DEFAULT 'PARTIAL' CHECK (type IN ('FULL','PARTIAL')),
     items             JSONB NOT NULL DEFAULT '[]',
+    user_id           UUID,
+    seller_name       TEXT,
     created_at        TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX idx_returns_sale_id   ON public.returns(sale_id);
 CREATE INDEX idx_returns_client_id ON public.returns(client_id);
+CREATE INDEX idx_returns_date      ON public.returns(date);
 
 -- stock_movements
 CREATE TABLE public.stock_movements (
@@ -202,13 +207,13 @@ CREATE TABLE public.stock_movements (
     product_name TEXT NOT NULL,
     type         TEXT NOT NULL
                      CHECK (type IN ('SALE','RETURN','PURCHASE','ADJUSTMENT','SHRINKAGE','MANUAL')),
-    quantity     NUMERIC NOT NULL,
-    before_stock NUMERIC NOT NULL,
-    after_stock  NUMERIC NOT NULL,
+    qty_before   NUMERIC NOT NULL,
+    qty_change   NUMERIC NOT NULL,
+    qty_after    NUMERIC NOT NULL,
     reference_id TEXT,
-    note         TEXT,
-    user_id      UUID,
-    user_name    TEXT,
+    reason       TEXT,
+    created_by   UUID,
+    seller_name  TEXT,
     created_at   TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX idx_stock_movements_product_id ON public.stock_movements(product_id);

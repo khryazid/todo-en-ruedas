@@ -3,6 +3,54 @@
 
 ---
 
+## TL;DR Operativo (1 pantalla)
+
+### Comandos minimos
+- `npm run dev`
+- `npm run lint`
+- `npx tsc --noEmit`
+- `npm run build`
+
+### Puntos de entrada
+- App/rutas: `src/App.tsx`
+- Store root: `src/store/useStore.ts`
+- Tipos globales: `src/types/index.ts`
+- Backend client: `src/supabase/client.ts`
+- Realtime: `src/hooks/useRealtimeSync.ts`
+- Permisos: `src/utils/permissions.ts`
+- Pricing bimoneda: `src/utils/pricing.ts`
+
+### Si vas a agregar una feature
+1. Tipo en `src/types/index.ts`
+2. Slice en `src/store/slices/`
+3. Conectar en `src/store/useStore.ts` y `src/store/types.ts`
+4. Cargar en `fetchInitialData` (`src/store/slices/authSlice.ts`) si aplica
+5. Ruta en `src/App.tsx` + menu en `src/components/layout/TopBar.tsx`
+6. Permisos en `src/utils/permissions.ts` + `RoleRoute`
+7. Migracion Supabase en `supabase/migrations/`
+
+### Flujos sensibles (no romper)
+- Venta: `saleSlice.completeSale` + RPC `process_sale_atomic`
+- Compra/factura: `invoiceSlice.addInvoice`
+- Devolucion/NC: `returnSlice.addReturn`
+- Setup inicial: `useSetupCheck` + `setupFirstAdmin`
+
+### Contrato tecnico
+- DB: `snake_case` | Frontend: `camelCase`
+- UI en espanol + feedback con `react-hot-toast`
+- RBAC en frontend y RLS en Supabase deben mantenerse alineados
+
+### Smoke test rapido
+- Login y carga inicial
+- POS vende y descuenta stock
+- Venta credito + abono
+- Factura compra sube stock
+- Gasto impacta `cash_ledger`
+- Cotizacion convierte a venta
+- Devolucion genera NC y repone stock
+
+---
+
 ## 1. Qué es esto
 
 Sistema POS + Inventario + Cotizaciones + Gastos para negocio venezolano bimonetario (USD/VES). En producción activa. El dueño habla español.

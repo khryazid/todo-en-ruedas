@@ -137,7 +137,12 @@ export const Expenses = () => {
 
         return () => {
             cancelled = true;
-            void supabase.removeChannel(recurringChannel);
+            void supabase.removeChannel(recurringChannel).catch((error: unknown) => {
+                const message = error instanceof Error ? error.message : String(error);
+                if (import.meta.env.DEV && !message.toLowerCase().includes('closed before the connection is established')) {
+                    console.warn('removeChannel(expenses-recurring):', error);
+                }
+            });
         };
     }, [defaultPaymentMethod]);
 

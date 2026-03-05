@@ -235,7 +235,12 @@ export const useRealtimeSync = () => {
       pendingHighTablesRef.current.clear();
       pendingNormalTablesRef.current.clear();
       triggerSyncRef.current = null;
-      void supabase.removeChannel(channel);
+      void supabase.removeChannel(channel).catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        if (import.meta.env.DEV && !message.toLowerCase().includes('closed before the connection is established')) {
+          console.warn('removeChannel(global-sync):', error);
+        }
+      });
     };
   }, [
     user,

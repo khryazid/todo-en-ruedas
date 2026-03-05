@@ -39,7 +39,9 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
 
     // Escuchar cambios de estado (como cuando el usuario hace clic en el enlace de recuperación y Supabase procesa el token detrás de escena)
     supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Supabase Auth Event:', event);
+      if (import.meta.env.DEV) {
+        console.log('Supabase Auth Event:', event);
+      }
       if (event === 'PASSWORD_RECOVERY') {
         // En este punto, Supabase verificó el token y creó una sesión temporal.
         // Permitiremos que el usuario siga a /reset-password.
