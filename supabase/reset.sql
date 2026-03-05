@@ -236,6 +236,24 @@ CREATE TABLE public.expenses (
 CREATE INDEX idx_expenses_date     ON public.expenses(date);
 CREATE INDEX idx_expenses_category ON public.expenses(category);
 
+-- recurring_expenses
+CREATE TABLE public.recurring_expenses (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    description    TEXT NOT NULL,
+    category       TEXT NOT NULL,
+    amount_usd     NUMERIC(10,2) NOT NULL,
+    amount_bs      NUMERIC(10,2),
+    currency       TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS')),
+    payment_method TEXT NOT NULL,
+    day_of_month   INTEGER CHECK (day_of_month BETWEEN 1 AND 31),
+    is_active      BOOLEAN DEFAULT true,
+    created_by     UUID,
+    created_at     TIMESTAMPTZ DEFAULT now(),
+    updated_at     TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_recurring_expenses_active ON public.recurring_expenses(is_active);
+CREATE INDEX idx_recurring_expenses_day_of_month ON public.recurring_expenses(day_of_month);
+
 -- cash_closes
 CREATE TABLE public.cash_closes (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -372,6 +390,7 @@ ALTER TABLE public.quotes           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.returns          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stock_movements  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.expenses         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recurring_expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cash_closes      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cash_ledger      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users            ENABLE ROW LEVEL SECURITY;
@@ -391,6 +410,7 @@ CREATE POLICY "auth_full_quotes"          ON public.quotes           FOR ALL TO 
 CREATE POLICY "auth_full_returns"         ON public.returns          FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_stock_movements" ON public.stock_movements  FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_expenses"        ON public.expenses         FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_full_recurring_expenses" ON public.recurring_expenses FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_cash_closes"     ON public.cash_closes      FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_cash_ledger"     ON public.cash_ledger      FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_users"           ON public.users            FOR ALL TO authenticated USING (true) WITH CHECK (true);

@@ -248,6 +248,28 @@ CREATE INDEX IF NOT EXISTS idx_expenses_category ON public.expenses(category);
 
 
 -- ============================================================
+-- 10.5 PLANTILLAS DE GASTOS RECURRENTES (recurring_expenses)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.recurring_expenses (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    description    TEXT NOT NULL,
+    category       TEXT NOT NULL,
+    amount_usd     NUMERIC(10,2) NOT NULL,
+    amount_bs      NUMERIC(10,2),
+    currency       TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS')),
+    payment_method TEXT NOT NULL,
+    day_of_month   INTEGER CHECK (day_of_month BETWEEN 1 AND 31),
+    is_active      BOOLEAN DEFAULT true,
+    created_by     UUID,
+    created_at     TIMESTAMPTZ DEFAULT now(),
+    updated_at     TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_recurring_expenses_active ON public.recurring_expenses(is_active);
+CREATE INDEX IF NOT EXISTS idx_recurring_expenses_day_of_month ON public.recurring_expenses(day_of_month);
+
+
+-- ============================================================
 -- 11. CIERRES DE CAJA (cash_closes)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.cash_closes (
@@ -408,6 +430,7 @@ ALTER TABLE public.quotes           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.returns          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stock_movements  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.expenses         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recurring_expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cash_closes      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cash_ledger      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users            ENABLE ROW LEVEL SECURITY;
@@ -452,6 +475,9 @@ CREATE POLICY "Allow authenticated users full access on stock_movements"
 
 CREATE POLICY "Allow authenticated users full access on expenses"
     ON public.expenses FOR ALL TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Allow authenticated users full access on recurring_expenses"
+    ON public.recurring_expenses FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 CREATE POLICY "Allow authenticated users full access on cash_closes"
     ON public.cash_closes FOR ALL TO authenticated USING (true) WITH CHECK (true);

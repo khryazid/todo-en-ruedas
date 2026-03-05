@@ -3,7 +3,7 @@
  * @description Centro de Comando Completo.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { logAudit } from '../utils/audit';
@@ -22,6 +22,8 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 import { deriveRecurringTemplatesFromExpenses, getPendingRecurringForMonth, loadRecurringTemplates } from '../utils/recurringExpenses';
+import { supabase } from '../supabase/client';
+import type { RecurringExpense } from '../types';
 
 export const Dashboard = () => {
   const { sales, products, invoices, clients, expenses, cashLedger, paymentMethods, settings, currentUserData, deleteCashMovement } = useStore();
@@ -57,8 +59,43 @@ export const Dashboard = () => {
   const [customEndDay, setCustomEndDay] = useState(initialDay);
   const [customEndMonth, setCustomEndMonth] = useState(initialMonth);
   const [customEndYear, setCustomEndYear] = useState(initialYear);
+  const [remoteRecurringTemplates, setRemoteRecurringTemplates] = useState<RecurringExpense[]>([]);
 
   const MAX_CHART_DAYS = 180;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchRecurringTemplates = async () => {
+      const { data, error } = await supabase
+        .from('recurring_expenses')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (cancelled || error) return;
+
+      const mapped = (data || []).map((row) => ({
+        id: row.id as string,
+        description: row.description as string,
+        category: (row.category as string) || 'Otro',
+        amountUSD: Number(row.amount_usd) || 0,
+        amountBS: row.amount_bs ? Number(row.amount_bs) : undefined,
+        currency: (row.currency as RecurringExpense['currency']) || 'USD',
+        paymentMethod: (row.payment_method as string) || 'Efectivo USD',
+        dayOfMonth: row.day_of_month ? Number(row.day_of_month) : undefined,
+        active: row.is_active !== false,
+      } satisfies RecurringExpense));
+
+      setRemoteRecurringTemplates(mapped);
+    };
+
+    fetchRecurringTemplates();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // --- 2. LÓGICA DE FECHAS ---
   const toLocalDateKey = (date: Date) => {
@@ -519,7 +556,9 @@ export const Dashboard = () => {
 
   const pendingRecurringExpenses = useMemo(() => {
     const localTemplates = loadRecurringTemplates();
-    const templates = localTemplates.length > 0 ? localTemplates : deriveRecurringTemplatesFromExpenses(expenses);
+    const templates = localTemplates.length > 0
+      ? localTemplates
+      : (remoteRecurringTemplates.length > 0 ? remoteRecurringTemplates : deriveRecurringTemplatesFromExpenses(expenses));
     return getPendingRecurringForMonth(templates, expenses, new Date())
       .sort((a, b) => {
         const aDay = a.dayOfMonth ?? 99;
@@ -527,7 +566,7 @@ export const Dashboard = () => {
         if (aDay !== bDay) return aDay - bDay;
         return a.description.localeCompare(b.description, 'es', { sensitivity: 'base' });
       });
-  }, [expenses]);
+  }, [expenses, remoteRecurringTemplates]);
 
   const currentMonthLabel = useMemo(() => {
     return new Date().toLocaleDateString('es-VE', { month: 'long', year: 'numeric' });
