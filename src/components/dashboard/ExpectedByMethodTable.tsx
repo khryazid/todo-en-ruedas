@@ -29,6 +29,8 @@ type ExpectedByMethodTableProps = {
   cutoffLabel: string;
   movementsByMethod: Record<string, MethodMovement[]>;
   onAdjustMethod: (method: string) => void;
+  isAdmin: boolean;
+  onDeleteMovement: (movement: MethodMovement, method: string) => void;
 };
 
 export const ExpectedByMethodTable = ({
@@ -37,6 +39,8 @@ export const ExpectedByMethodTable = ({
   cutoffLabel,
   movementsByMethod,
   onAdjustMethod,
+  isAdmin,
+  onDeleteMovement,
 }: ExpectedByMethodTableProps) => {
   const [expandedMethod, setExpandedMethod] = useState<string | null>(null);
   const [detailFiltersByMethod, setDetailFiltersByMethod] = useState<Record<string, 'ALL' | 'EXPENSES' | 'SALES'>>({});
@@ -157,10 +161,24 @@ export const ExpectedByMethodTable = ({
                                   <p className="text-xs font-bold text-gray-700 truncate">{movement.kind} · {movement.description}</p>
                                   <p className="text-[10px] text-gray-400">{new Date(movement.date).toLocaleString('es-VE')}</p>
                                 </div>
-                                <p className={`text-xs font-black whitespace-nowrap ${movement.direction === 'IN' ? 'text-green-700' : 'text-red-700'}`}>
-                                  {movement.direction === 'IN' ? '+' : '-'}
-                                  {formatCurrency(row.currency === 'BS' ? (movement.amountBS ?? 0) : movement.amountUSD, row.currency)}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className={`text-xs font-black whitespace-nowrap ${movement.direction === 'IN' ? 'text-green-700' : 'text-red-700'}`}>
+                                    {movement.direction === 'IN' ? '+' : '-'}
+                                    {formatCurrency(row.currency === 'BS' ? (movement.amountBS ?? 0) : movement.amountUSD, row.currency)}
+                                  </p>
+                                  {isAdmin && movement.kind === 'AJUSTE' && (
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        onDeleteMovement(movement, row.method);
+                                      }}
+                                      className="text-[10px] font-black uppercase px-2 py-1 rounded-md border border-red-200 text-red-700 bg-red-50 hover:bg-red-100"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>

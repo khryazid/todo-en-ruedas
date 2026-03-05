@@ -100,6 +100,7 @@ export interface StoreState {
     sellerName?: string;
   }) => Promise<CashLedgerEntry | null>;
   deleteCashMovementByReference: (referenceType: string, referenceId: string) => Promise<void>;
+  deleteCashMovement: (id: string) => Promise<boolean>;
 
   // --- Products ---
   addProduct: (product: Product) => Promise<void>;
