@@ -1,9 +1,10 @@
 /**
  * @file Invoices.tsx
  */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
+import { fromEditableNumberValue, toEditableNumberValue } from '../utils/editableNumber';
 import {
     FileText, TrendingDown,
     Save, X, Trash2, Edit, History, Truck, Wallet, RefreshCw, Zap, Filter, Search
@@ -12,8 +13,33 @@ import { useLocation } from 'react-router-dom';
 import type { Invoice, Payment, IncomingItem } from '../types';
 
 export const Invoices = () => {
-    const { invoices, products, registerPayment, updateInvoice, updateProduct, paymentMethods, deleteInvoice } = useStore(); // <--- AÑADIDO deleteInvoice
+    const { invoices, products, registerPayment, updateInvoice, updateProduct, paymentMethods, settings, deleteInvoice } = useStore(); // <--- AÑADIDO deleteInvoice
     const location = useLocation();
+
+    const normalizeInvoiceForEdit = (invoice: Invoice): Invoice => {
+        const items = Array.isArray(invoice.items) ? invoice.items : [];
+        const payments = Array.isArray(invoice.payments) ? invoice.payments : [];
+        const subtotalUSD = Number(invoice.subtotalUSD ?? 0);
+        const freightTotalUSD = Number(invoice.freightTotalUSD ?? 0);
+        const taxTotalUSD = Number(invoice.taxTotalUSD ?? 0);
+        const totalUSD = Number(invoice.totalUSD ?? (subtotalUSD + freightTotalUSD + taxTotalUSD));
+        const paidAmountUSD = Number(invoice.paidAmountUSD ?? 0);
+
+        return {
+            ...invoice,
+            supplier: invoice.supplier ?? '',
+            number: invoice.number ?? '',
+            dateIssue: invoice.dateIssue ?? '',
+            dateDue: invoice.dateDue ?? '',
+            items,
+            payments,
+            subtotalUSD,
+            freightTotalUSD,
+            taxTotalUSD,
+            totalUSD,
+            paidAmountUSD,
+        };
+    };
 
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -21,6 +47,7 @@ export const Invoices = () => {
     const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
     const [paymentAmount, setPaymentAmount] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('');
+    const [paymentRateUsed, setPaymentRateUsed] = useState('');
     const [paymentNote, setPaymentNote] = useState('');
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -28,14 +55,22 @@ export const Invoices = () => {
 
     useEffect(() => {
         if (paymentMethods.length > 0) {
-            setTimeout(() => setPaymentMethod(paymentMethods[0].name), 0);
+            setTimeout(() => {
+                setPaymentMethod(paymentMethods[0].name);
+                setPaymentRateUsed(String(settings.tasaBCV || 1));
+            }, 0);
         }
-    }, [paymentMethods]);
+    }, [paymentMethods, settings.tasaBCV]);
 
-    const openDetailModal = (invoice: Invoice) => {
-        setEditingInvoice(JSON.parse(JSON.stringify(invoice)));
+    const selectedPaymentMethodCurrency = useMemo(() => {
+        return paymentMethods.find(pm => pm.name === paymentMethod)?.currency || 'USD';
+    }, [paymentMethods, paymentMethod]);
+
+    const openDetailModal = useCallback((invoice: Invoice) => {
+        const normalized = normalizeInvoiceForEdit(invoice);
+        setEditingInvoice(JSON.parse(JSON.stringify(normalized)));
         setIsDetailModalOpen(true);
-    };
+    }, []);
 
     useEffect(() => {
         if (location.state?.openInvoiceId && invoices.length > 0) {
@@ -44,7 +79,7 @@ export const Invoices = () => {
                 setTimeout(() => openDetailModal(target), 0);
             }
         }
-    }, [location.state, invoices, selectedInvoice?.id]);
+    }, [location.state, invoices, selectedInvoice?.id, openDetailModal]);
 
     const filteredInvoices = useMemo(() => {
         const filtered = invoices.filter(inv => {
@@ -64,6 +99,7 @@ export const Invoices = () => {
     const openPaymentModal = (invoice: Invoice) => {
         setSelectedInvoice(invoice);
         setPaymentAmount('');
+        setPaymentRateUsed(String(settings.tasaBCV || 1));
         setIsPaymentModalOpen(true);
     };
 
@@ -77,21 +113,21 @@ export const Invoices = () => {
         if (!editingInvoice) return;
         const newItems = [...editingInvoice.items];
         newItems[index] = { ...newItems[index], [field]: value };
-        recalculateTotals(newItems, editingInvoice.freightTotalUSD);
+        recalculateTotals(newItems, editingInvoice.freightTotalUSD, editingInvoice.taxTotalUSD);
     };
 
     const handleRemoveItem = (index: number) => {
         if (!editingInvoice) return;
         if (!window.confirm("¿Quitar este producto de la factura? Se ajustará el stock.")) return;
         const newItems = editingInvoice.items.filter((_, i) => i !== index);
-        recalculateTotals(newItems, editingInvoice.freightTotalUSD);
+        recalculateTotals(newItems, editingInvoice.freightTotalUSD, editingInvoice.taxTotalUSD);
     };
 
-    const recalculateTotals = (items: IncomingItem[], freight: number) => {
+    const recalculateTotals = (items: IncomingItem[], freight: number, tax: number) => {
         if (!editingInvoice) return;
         const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.costUnitUSD), 0);
-        const total = subtotal + freight;
-        setEditingInvoice({ ...editingInvoice, items, subtotalUSD: subtotal, totalUSD: total });
+        const total = subtotal + freight + tax;
+        setEditingInvoice({ ...editingInvoice, items, subtotalUSD: subtotal, freightTotalUSD: freight, taxTotalUSD: tax, totalUSD: total });
     };
 
     const handleSaveDetail = () => {
@@ -124,14 +160,21 @@ export const Invoices = () => {
         e.preventDefault();
         if (!selectedInvoice) return;
         const amount = parseFloat(paymentAmount);
+        const rateUsed = Math.max(0.0001, parseFloat(paymentRateUsed || String(settings.tasaBCV || 1)) || (settings.tasaBCV || 1));
         if (amount <= 0) return alert("Monto inválido");
         const debt = selectedInvoice.totalUSD - selectedInvoice.paidAmountUSD;
         if (amount > debt + 0.01) return alert(`El monto excede la deuda (${formatCurrency(debt, 'USD')})`);
+
+        const isBSMethod = selectedPaymentMethodCurrency === 'BS';
+        const amountBS = isBSMethod ? Math.round((amount * rateUsed) * 100) / 100 : undefined;
 
         const newPayment: Payment = {
             id: Date.now().toString(),
             date: new Date().toISOString(),
             amountUSD: amount,
+            amountBS,
+            fxRateUsed: isBSMethod ? rateUsed : undefined,
+            fxSource: isBSMethod ? (Math.abs(rateUsed - (settings.tasaBCV || 0)) < 0.0001 ? 'BCV' : 'MANUAL') : undefined,
             method: paymentMethod,
             note: paymentNote
         };
@@ -140,10 +183,14 @@ export const Invoices = () => {
         setIsPaymentModalOpen(false);
     };
 
-    const handleDeletePayment = (paymentIndex: number) => {
+    const handleDeletePayment = (paymentId: string) => {
         if (!editingInvoice) return;
         if (!window.confirm("¿Borrar este pago?")) return;
+        if (!Array.isArray(editingInvoice.payments)) return;
+        const paymentIndex = editingInvoice.payments.findIndex((payment) => payment.id === paymentId);
+        if (paymentIndex < 0) return;
         const paymentToDelete = editingInvoice.payments[paymentIndex];
+        if (!paymentToDelete) return;
         const newPayments = editingInvoice.payments.filter((_, i) => i !== paymentIndex);
         const newPaidAmount = editingInvoice.paidAmountUSD - paymentToDelete.amountUSD;
 
@@ -154,6 +201,39 @@ export const Invoices = () => {
     };
 
     const totalDebt = invoices.reduce((acc, inv) => acc + (inv.totalUSD - inv.paidAmountUSD), 0);
+
+    const paymentHistoryForEdit = useMemo(() => {
+        if (!editingInvoice) return [] as Payment[];
+
+        const basePayments = (editingInvoice.payments ?? [])
+            .filter((payment) => payment && Number(payment.amountUSD) > 0)
+            .map((payment) => ({
+                ...payment,
+                amountUSD: Number(payment.amountUSD) || 0,
+                method: payment.method || 'Sin método',
+                date: payment.date || editingInvoice.dateIssue || new Date().toISOString(),
+            }));
+
+        const historyTotal = basePayments.reduce((sum, payment) => sum + payment.amountUSD, 0);
+        const paidAmount = Number(editingInvoice.paidAmountUSD ?? 0);
+        const missingFromHistory = Math.max(0, paidAmount - historyTotal);
+
+        if (missingFromHistory > 0.009) {
+            basePayments.unshift({
+                id: `historico-${editingInvoice.id}`,
+                date: editingInvoice.dateIssue || new Date().toISOString(),
+                amountUSD: missingFromHistory,
+                method: 'Histórico',
+                note: 'Abono previo sin detalle en historial',
+            });
+        }
+
+        return basePayments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }, [editingInvoice]);
+
+    const remainingDebtForEdit = editingInvoice
+        ? Math.max(0, Number(editingInvoice.totalUSD ?? 0) - Number(editingInvoice.paidAmountUSD ?? 0))
+        : 0;
 
     return (
         <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen animate-in fade-in duration-300">
@@ -246,6 +326,24 @@ export const Invoices = () => {
                             </div>
 
                             <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1">Método</label><select className="w-full border-2 border-gray-200 rounded-xl p-3 bg-white" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>{paymentMethods.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}</select></div>
+                            {selectedPaymentMethodCurrency === 'BS' && (
+                                <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Tasa usada en este pago</label>
+                                    <input
+                                        type="number"
+                                        min="0.0001"
+                                        step="0.0001"
+                                        className="w-full border-2 border-orange-200 bg-orange-50 rounded-xl p-3 font-bold text-orange-800"
+                                        value={paymentRateUsed}
+                                        onChange={e => setPaymentRateUsed(e.target.value)}
+                                    />
+                                    {paymentAmount && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Equivale a Bs. {(parseFloat(paymentAmount || '0') * (parseFloat(paymentRateUsed || '0') || settings.tasaBCV || 1)).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                             <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1">Nota (Opcional)</label><input className="w-full border-2 border-gray-200 rounded-xl p-3 text-sm" placeholder="Ref. bancaria..." value={paymentNote} onChange={e => setPaymentNote(e.target.value)} /></div>
                             <button type="submit" className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 mt-2">CONFIRMAR PAGO</button>
                         </form>
@@ -263,11 +361,12 @@ export const Invoices = () => {
                         <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
                             <div className="bg-blue-50/50 p-5 rounded-xl border border-blue-100">
                                 <h4 className="font-bold text-blue-900 mb-4 flex items-center gap-2 text-sm uppercase"><Edit size={14} /> Cabecera</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                                     <div><label className="text-[10px] font-bold text-gray-500 uppercase">Proveedor</label><input className="w-full border rounded-lg p-2 font-bold bg-white" value={editingInvoice.supplier} onChange={e => setEditingInvoice({ ...editingInvoice, supplier: e.target.value })} /></div>
                                     <div><label className="text-[10px] font-bold text-gray-500 uppercase">Nº Factura</label><input className="w-full border rounded-lg p-2 font-mono bg-white" value={editingInvoice.number} onChange={e => setEditingInvoice({ ...editingInvoice, number: e.target.value })} /></div>
                                     <div><label className="text-[10px] font-bold text-red-500 uppercase">Vencimiento</label><input type="date" className="w-full border rounded-lg p-2 bg-white border-red-200" value={editingInvoice.dateDue} onChange={e => setEditingInvoice({ ...editingInvoice, dateDue: e.target.value })} /></div>
-                                    <div><label className="text-[10px] font-bold text-gray-500 uppercase">Flete Global ($)</label><input type="number" className="w-full border rounded-lg p-2 bg-white" value={editingInvoice.freightTotalUSD} onChange={e => { const val = parseFloat(e.target.value) || 0; setEditingInvoice({ ...editingInvoice, freightTotalUSD: val }); recalculateTotals(editingInvoice.items, val); }} /></div>
+                                    <div><label className="text-[10px] font-bold text-gray-500 uppercase">Flete Global ($)</label><input type="number" className="w-full border rounded-lg p-2 bg-white" value={toEditableNumberValue(editingInvoice.freightTotalUSD)} onChange={e => { const val = fromEditableNumberValue(e.target.value); recalculateTotals(editingInvoice.items, val, editingInvoice.taxTotalUSD); }} /></div>
+                                    <div><label className="text-[10px] font-bold text-gray-500 uppercase">IVA / Tax ($)</label><input type="number" className="w-full border rounded-lg p-2 bg-white" value={toEditableNumberValue(editingInvoice.taxTotalUSD)} onChange={e => { const val = fromEditableNumberValue(e.target.value); recalculateTotals(editingInvoice.items, editingInvoice.freightTotalUSD, val); }} /></div>
                                 </div>
                             </div>
                             <div>
@@ -280,8 +379,8 @@ export const Invoices = () => {
                                                 <tr key={i} className="hover:bg-gray-50 transition">
                                                     <td className="p-3 text-xs font-mono text-gray-400">{item.sku}</td>
                                                     <td className="p-3"><input className="w-full border-none bg-transparent font-medium text-gray-700 outline-none focus:ring-1 rounded" value={item.name} onChange={e => handleItemChange(i, 'name', e.target.value)} /></td>
-                                                    <td className="p-3"><input type="number" className="w-full border border-gray-200 rounded p-1 text-center font-bold" value={item.quantity} onChange={e => handleItemChange(i, 'quantity', parseFloat(e.target.value) || 0)} /></td>
-                                                    <td className="p-3"><input type="number" className="w-full border border-gray-200 rounded p-1 text-right" value={item.costUnitUSD} onChange={e => handleItemChange(i, 'costUnitUSD', parseFloat(e.target.value) || 0)} /></td>
+                                                    <td className="p-3"><input type="number" className="w-full border border-gray-200 rounded p-1 text-center font-bold" value={toEditableNumberValue(item.quantity)} onChange={e => handleItemChange(i, 'quantity', fromEditableNumberValue(e.target.value))} /></td>
+                                                    <td className="p-3"><input type="number" className="w-full border border-gray-200 rounded p-1 text-right" value={toEditableNumberValue(item.costUnitUSD)} onChange={e => handleItemChange(i, 'costUnitUSD', fromEditableNumberValue(e.target.value))} /></td>
                                                     <td className="p-3 text-right font-bold text-gray-900">{formatCurrency(item.quantity * item.costUnitUSD, 'USD')}</td>
                                                     <td className="p-3 text-center"><button onClick={() => handleRemoveItem(i)} className="text-gray-300 hover:text-red-500"><Trash2 size={16} /></button></td>
                                                 </tr>
@@ -289,16 +388,21 @@ export const Invoices = () => {
                                         </tbody>
                                     </table>
                                 </div>
-                                <div className="flex justify-end mt-4 gap-6 text-sm items-center"><p className="text-gray-500">Subtotal: <span className="font-bold text-gray-800">{formatCurrency(editingInvoice.subtotalUSD, 'USD')}</span></p><p className="text-gray-500">+ Flete: <span className="font-bold text-gray-800">{formatCurrency(editingInvoice.freightTotalUSD, 'USD')}</span></p><p className="text-xl font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-lg">{formatCurrency(editingInvoice.totalUSD, 'USD')}</p></div>
+                                <div className="flex justify-end mt-4 gap-6 text-sm items-center"><p className="text-gray-500">Subtotal: <span className="font-bold text-gray-800">{formatCurrency(editingInvoice.subtotalUSD, 'USD')}</span></p><p className="text-gray-500">+ Flete: <span className="font-bold text-gray-800">{formatCurrency(editingInvoice.freightTotalUSD, 'USD')}</span></p><p className="text-gray-500">+ IVA: <span className="font-bold text-gray-800">{formatCurrency(editingInvoice.taxTotalUSD, 'USD')}</span></p><p className="text-xl font-black text-blue-600 bg-blue-50 px-4 py-2 rounded-lg">{formatCurrency(editingInvoice.totalUSD, 'USD')}</p></div>
                             </div>
                             <div>
                                 <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2 text-sm uppercase"><History size={14} /> Pagos Realizados</h4>
-                                {editingInvoice.payments.length === 0 ? <p className="text-sm text-gray-400 italic">Sin pagos.</p> : (
+                                {paymentHistoryForEdit.length === 0 ? <p className="text-sm text-gray-400 italic">Sin pagos.</p> : (
                                     <table className="w-full text-sm border rounded-xl overflow-hidden">
                                         <thead className="bg-gray-100 text-xs text-gray-500 font-bold uppercase"><tr><th className="p-2 text-left">Fecha</th><th className="p-2 text-left">Método</th><th className="p-2 text-right">Monto</th><th className="p-2 text-center"></th></tr></thead>
-                                        <tbody className="bg-white">{editingInvoice.payments.map((p, i) => (<tr key={i}><td className="p-2 text-gray-500">{new Date(p.date).toLocaleDateString()}</td><td className="p-2 font-bold">{p.method}</td><td className="p-2 text-right font-bold text-green-600">{formatCurrency(p.amountUSD, 'USD')}</td><td className="p-2 text-center"><button onClick={() => handleDeletePayment(i)} className="text-red-300 hover:text-red-600"><Trash2 size={14} /></button></td></tr>))}</tbody>
+                                        <tbody className="bg-white">{paymentHistoryForEdit.map((p, i) => (<tr key={p.id || `${p.method}-${i}`}><td className="p-2 text-gray-500">{new Date(p.date).toLocaleDateString()}</td><td className="p-2 font-bold">{p.method}<p className="text-[10px] text-gray-400 font-normal">{p.amountBS ? `Bs. ${p.amountBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${p.fxRateUsed ? ` · tasa ${p.fxRateUsed.toFixed(2)}` : ''}` : 'Pago en USD'}</p></td><td className="p-2 text-right font-bold text-green-600">{formatCurrency(p.amountUSD, 'USD')}</td><td className="p-2 text-center">{p.method === 'Histórico' ? <span className="text-[10px] uppercase font-bold text-gray-400">Ajuste</span> : <button onClick={() => handleDeletePayment(p.id)} className="text-red-300 hover:text-red-600"><Trash2 size={14} /></button>}</td></tr>))}</tbody>
                                     </table>
                                 )}
+                                <div className="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                                    <div className="flex justify-between md:block"><span className="text-gray-500 text-xs uppercase font-bold">Total Factura</span><p className="font-black text-gray-800 text-base">{formatCurrency(editingInvoice.totalUSD, 'USD')}</p></div>
+                                    <div className="flex justify-between md:block"><span className="text-gray-500 text-xs uppercase font-bold">Total Abonado</span><p className="font-black text-green-700 text-base">{formatCurrency(editingInvoice.paidAmountUSD, 'USD')}</p></div>
+                                    <div className="flex justify-between md:block"><span className="text-gray-500 text-xs uppercase font-bold">Falta por Abonar</span><p className={`font-black text-base ${remainingDebtForEdit > 0.009 ? 'text-red-600' : 'text-gray-500'}`}>{formatCurrency(remainingDebtForEdit, 'USD')}</p></div>
+                                </div>
                             </div>
                         </div>
                         <div className="p-5 border-t bg-white flex justify-between items-center">

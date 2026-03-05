@@ -16,3 +16,13 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Artefactos generados por agentes/resoluciones
+artefactos/**/*.resolved*
+artefactos/**/*.metadata.json
+artefactos/.tempmediaStorage/
+artefactos/.system_generated/
+artefactos/*.png
+artefactos/*.webp
+artefactos/*.jpg
+artefactos/*.jpeg

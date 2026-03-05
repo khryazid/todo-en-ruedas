@@ -1,10 +1,11 @@
 /**
  * @file Inventory.tsx
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
+import { fromEditableNumberValue, toEditableNumberValue } from '../utils/editableNumber';
 import { exportToCSV } from '../utils/exportCSV';
 import { supabase } from '../supabase/client';
 import { printInventoryReportA4 } from '../utils/ticketGenerator';
@@ -13,10 +14,13 @@ import {
   Search, Plus, Package, Edit, Trash2, FileText, X, CheckCircle,
   Truck, History, AlertTriangle, AlertOctagon, Save, Filter, Download, Upload, Zap, Printer, Wrench
 } from 'lucide-react';
-import type { Product, IncomingItem, Invoice, CostType, PaymentStatus } from '../types';
+import type { Product, IncomingItem, Invoice, CostType, PaymentStatus, Supplier } from '../types';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const normalizeText = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 
 export const Inventory = () => {
-  const { products, updateProduct, deleteProduct, addInvoice, addProduct, settings, suppliers } = useStore();
+  const { products, updateProduct, deleteProduct, addInvoice, addProduct, settings, suppliers, paymentMethods } = useStore();
   const navigate = useNavigate();
 
   // Ajuste Manual state
@@ -45,7 +49,7 @@ export const Inventory = () => {
   const initialInvoiceState = {
     number: '', supplier: '', dateIssue: new Date().toISOString().split('T')[0],
     dateDue: new Date().toISOString().split('T')[0], freight: 0, tax: 0, costType: 'BCV' as CostType,
-    status: 'PENDING' as PaymentStatus, initialPayment: 0
+    status: 'PENDING' as PaymentStatus, initialPayment: 0, initialPaymentMethod: ''
   };
   const [invoiceHeader, setInvoiceHeader] = useState(initialInvoiceState);
   const [invoiceItems, setInvoiceItems] = useState<IncomingItem[]>([]);
@@ -73,10 +77,20 @@ export const Inventory = () => {
 
   const supplierCatalog = useMemo(() => {
     if (!invoiceHeader.supplier) return [];
-    const supplier = suppliers.find(s => s.name.toLowerCase() === invoiceHeader.supplier.toLowerCase());
+    const supplier = UUID_REGEX.test(invoiceHeader.supplier)
+      ? suppliers.find(s => s.id === invoiceHeader.supplier)
+      : suppliers.find(s => normalizeText(s.name) === normalizeText(invoiceHeader.supplier));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return supplier ? ((supplier as any).catalog || []) as Array<{ sku: string; name: string; lastCost: number }> : [];
   }, [invoiceHeader.supplier, suppliers]);
+
+  useEffect(() => {
+    if (paymentMethods.length === 0) return;
+    setInvoiceHeader((prev) => {
+      if (prev.initialPaymentMethod) return prev;
+      return { ...prev, initialPaymentMethod: paymentMethods[0].name };
+    });
+  }, [paymentMethods]);
 
   const handleScanInvoice = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -102,14 +116,21 @@ export const Inventory = () => {
 
           const invoiceData = data.data;
 
-          setInvoiceHeader({
-            ...invoiceHeader,
+          const extractedSupplierName = (invoiceData.supplierName || '').trim();
+          const matchedSupplier = suppliers.find(s => normalizeText(s.name) === normalizeText(extractedSupplierName));
+
+          setInvoiceHeader((prev) => ({
+            ...prev,
             number: invoiceData.number || '',
-            supplier: invoiceData.supplierName || '',
+            supplier: matchedSupplier ? matchedSupplier.id : extractedSupplierName,
             dateIssue: invoiceData.dateIssue || new Date().toISOString().split('T')[0],
             freight: invoiceData.freightTotalUSD || 0,
             tax: invoiceData.taxTotalUSD || 0
-          });
+          }));
+
+          if (extractedSupplierName && !matchedSupplier) {
+            setIsAddingSupplierInvoice(true);
+          }
 
           setInvoiceItems(invoiceData.items.map((item: { sku?: string; name?: string; quantity?: number | string; costUnitUSD?: number | string }) => ({
             id: Date.now().toString() + Math.random(),
@@ -143,6 +164,70 @@ export const Inventory = () => {
       return;
     }
 
+    let supplierId = invoiceHeader.supplier;
+    const supplierInput = invoiceHeader.supplier.trim();
+    const upsertSupplierInStore = (supplier: Supplier) => {
+      const currentSuppliers = useStore.getState().suppliers;
+      if (currentSuppliers.some(s => s.id === supplier.id)) return;
+      useStore.setState((state) => ({ suppliers: [...state.suppliers, supplier] }));
+    };
+
+    if (!UUID_REGEX.test(supplierInput)) {
+      const matchedLocal = suppliers.find(s => normalizeText(s.name) === normalizeText(supplierInput));
+
+      if (matchedLocal) {
+        supplierId = matchedLocal.id;
+      } else {
+        const { data: existingInDb } = await supabase
+          .from('suppliers')
+          .select('id,name')
+          .ilike('name', supplierInput)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingInDb?.id) {
+          supplierId = existingInDb.id;
+          upsertSupplierInStore({ id: existingInDb.id, name: existingInDb.name || supplierInput, category: 'Otro' });
+        } else {
+          let supplierError: { message?: string } | null = null;
+          let newSupplier: { id: string } | null = null;
+
+          const insertWithCategory = await supabase
+            .from('suppliers')
+            .insert({ name: supplierInput, category: 'Otro' })
+            .select('id')
+            .single();
+
+          if (insertWithCategory.error) {
+            supplierError = insertWithCategory.error;
+
+            const insertMinimal = await supabase
+              .from('suppliers')
+              .insert({ name: supplierInput })
+              .select('id')
+              .single();
+
+            if (insertMinimal.error) {
+              supplierError = insertMinimal.error;
+            } else {
+              newSupplier = insertMinimal.data;
+              supplierError = null;
+            }
+          } else {
+            newSupplier = insertWithCategory.data;
+          }
+
+          if (supplierError || !newSupplier) {
+            toast.error('No se pudo crear/relacionar el proveedor: ' + (supplierError?.message || 'Error desconocido'));
+            return;
+          }
+
+          supplierId = newSupplier.id;
+          upsertSupplierInStore({ id: newSupplier.id, name: supplierInput, category: 'Otro' });
+        }
+      }
+    }
+
     const subtotal = invoiceItems.reduce((acc, i) => acc + (i.quantity * i.costUnitUSD), 0);
     const total = subtotal + invoiceHeader.freight + invoiceHeader.tax;
     let finalStatus: PaymentStatus = 'PENDING';
@@ -152,10 +237,10 @@ export const Inventory = () => {
     else if (finalPaidAmount > 0) finalStatus = 'PARTIAL';
 
     const newInvoice: Invoice = {
-      id: `inv-${Date.now()}`, number: invoiceHeader.number, supplier: invoiceHeader.supplier,
+      id: `inv-${Date.now()}`, number: invoiceHeader.number, supplier: supplierId,
       dateIssue: invoiceHeader.dateIssue, dateDue: invoiceHeader.status === 'PAID' ? invoiceHeader.dateIssue : invoiceHeader.dateDue,
       status: finalStatus, costType: invoiceHeader.costType, items: invoiceItems, subtotalUSD: subtotal, freightTotalUSD: invoiceHeader.freight, taxTotalUSD: invoiceHeader.tax, totalUSD: total, paidAmountUSD: invoiceHeader.status === 'PAID' ? total : finalPaidAmount,
-      payments: (invoiceHeader.status === 'PAID' || finalPaidAmount > 0) ? [{ id: Date.now().toString(), date: invoiceHeader.dateIssue, amountUSD: invoiceHeader.status === 'PAID' ? total : finalPaidAmount, method: 'Inicial', note: invoiceHeader.status === 'PAID' ? 'Pago de Contado' : 'Abono carga inicial' }] : []
+      payments: (invoiceHeader.status === 'PAID' || finalPaidAmount > 0) ? [{ id: Date.now().toString(), date: invoiceHeader.dateIssue, amountUSD: invoiceHeader.status === 'PAID' ? total : finalPaidAmount, method: invoiceHeader.initialPaymentMethod || paymentMethods[0]?.name || 'Efectivo USD', note: invoiceHeader.status === 'PAID' ? 'Pago de Contado' : 'Abono carga inicial' }] : []
     };
 
     const success = await addInvoice(newInvoice);
@@ -532,10 +617,10 @@ export const Inventory = () => {
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <div><label className="text-xs font-bold text-gray-500">Costo ($)</label><input type="number" step="0.01" className="w-full border rounded-xl p-2 mt-1" value={productForm.cost} onChange={e => setProductForm({ ...productForm, cost: parseFloat(e.target.value) || 0 })} /></div>
-                <div><label className="text-xs font-bold text-gray-500">Flete Unit. ($)</label><input type="number" step="0.01" className="w-full border rounded-xl p-2 mt-1" value={productForm.freight} onChange={e => setProductForm({ ...productForm, freight: parseFloat(e.target.value) || 0 })} /></div>
-                <div><label className="text-xs font-bold text-gray-500">Stock Actual</label><input type="number" className="w-full border rounded-xl p-2 mt-1" value={productForm.stock} onChange={e => setProductForm({ ...productForm, stock: parseFloat(e.target.value) || 0 })} /></div>
-                <div><label className="text-xs font-bold text-red-500">Alerta Mínima</label><input type="number" className="w-full border rounded-xl p-2 mt-1 border-red-100" value={productForm.minStock} onChange={e => setProductForm({ ...productForm, minStock: parseFloat(e.target.value) || 0 })} /></div>
+                <div><label className="text-xs font-bold text-gray-500">Costo ($)</label><input type="number" step="0.01" className="w-full border rounded-xl p-2 mt-1" value={toEditableNumberValue(productForm.cost)} onChange={e => setProductForm({ ...productForm, cost: fromEditableNumberValue(e.target.value) })} /></div>
+                <div><label className="text-xs font-bold text-gray-500">Flete Unit. ($)</label><input type="number" step="0.01" className="w-full border rounded-xl p-2 mt-1" value={toEditableNumberValue(productForm.freight)} onChange={e => setProductForm({ ...productForm, freight: fromEditableNumberValue(e.target.value) })} /></div>
+                <div><label className="text-xs font-bold text-gray-500">Stock Actual</label><input type="number" className="w-full border rounded-xl p-2 mt-1" value={toEditableNumberValue(productForm.stock)} onChange={e => setProductForm({ ...productForm, stock: fromEditableNumberValue(e.target.value) })} /></div>
+                <div><label className="text-xs font-bold text-red-500">Alerta Mínima</label><input type="number" className="w-full border rounded-xl p-2 mt-1 border-red-100" value={toEditableNumberValue(productForm.minStock)} onChange={e => setProductForm({ ...productForm, minStock: fromEditableNumberValue(e.target.value) })} /></div>
               </div>
 
               <div className="flex gap-4">
@@ -600,7 +685,7 @@ export const Inventory = () => {
                         }}
                       >
                         <option value="" disabled>Seleccionar...</option>
-                        {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         <option value="NEW" className="text-red-600 font-bold">➕ Agregar Nuevo Proveedor...</option>
                       </select>
                     )}
@@ -612,8 +697,18 @@ export const Inventory = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 pt-4 border-t border-blue-100">
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">Fecha Emisión</label><input type="date" className="w-full border rounded-lg p-2 mt-1 bg-white" value={invoiceHeader.dateIssue} onChange={e => setInvoiceHeader({ ...invoiceHeader, dateIssue: e.target.value })} /></div>
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">Condición</label><div className="flex bg-white rounded-lg border overflow-hidden mt-1 shadow-sm"><button onClick={() => setInvoiceHeader({ ...invoiceHeader, status: 'PAID' })} className={`flex-1 py-2 text-xs font-bold transition ${invoiceHeader.status === 'PAID' ? 'bg-green-100 text-green-700' : 'text-gray-400 hover:bg-gray-50'}`}>CONTADO</button><button onClick={() => setInvoiceHeader({ ...invoiceHeader, status: 'PENDING' })} className={`flex-1 py-2 text-xs font-bold transition ${invoiceHeader.status === 'PENDING' ? 'bg-red-100 text-red-700' : 'text-gray-400 hover:bg-gray-50'}`}>CRÉDITO</button></div></div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">Método de Pago</label>
+                    <select
+                      className="w-full border rounded-lg p-2 mt-1 bg-white font-bold text-gray-700"
+                      value={invoiceHeader.initialPaymentMethod}
+                      onChange={e => setInvoiceHeader({ ...invoiceHeader, initialPaymentMethod: e.target.value })}
+                    >
+                      {paymentMethods.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
+                    </select>
+                  </div>
                   {invoiceHeader.status === 'PENDING' && (
-                    <><div className="animate-in fade-in"><label className="text-[10px] font-bold text-red-500 uppercase">Vencimiento</label><input type="date" className="w-full border rounded-lg p-2 mt-1 bg-white border-red-200" value={invoiceHeader.dateDue} onChange={e => setInvoiceHeader({ ...invoiceHeader, dateDue: e.target.value })} /></div><div className="animate-in fade-in"><label className="text-[10px] font-bold text-gray-500 uppercase">Abono Inicial ($)</label><input type="number" className="w-full border rounded-lg p-2 mt-1 bg-white font-bold text-green-700" value={invoiceHeader.initialPayment || ''} onChange={e => setInvoiceHeader({ ...invoiceHeader, initialPayment: parseFloat(e.target.value) || 0 })} placeholder="0.00" /></div></>
+                    <><div className="animate-in fade-in"><label className="text-[10px] font-bold text-red-500 uppercase">Vencimiento</label><input type="date" className="w-full border rounded-lg p-2 mt-1 bg-white border-red-200" value={invoiceHeader.dateDue} onChange={e => setInvoiceHeader({ ...invoiceHeader, dateDue: e.target.value })} /></div><div className="animate-in fade-in"><label className="text-[10px] font-bold text-gray-500 uppercase">Abono Inicial ($)</label><input type="number" className="w-full border rounded-lg p-2 mt-1 bg-white font-bold text-green-700" value={toEditableNumberValue(invoiceHeader.initialPayment)} onChange={e => setInvoiceHeader({ ...invoiceHeader, initialPayment: fromEditableNumberValue(e.target.value) })} placeholder="0.00" /></div></>
                   )}
                 </div>
               </div>
@@ -634,9 +729,9 @@ export const Inventory = () => {
                 <div className="grid grid-cols-1 md:grid-cols-7 gap-3 items-end">
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">Código / SKU</label><input className="w-full border rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-red-100 outline-none" placeholder="Escanear..." value={tempItem.sku} onChange={e => setTempItem({ ...tempItem, sku: e.target.value })} onBlur={handleSkuBlur} /></div>
                   <div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-500 uppercase">Descripción</label><input className="w-full border rounded-lg p-2 text-sm bg-white" placeholder="Producto..." value={tempItem.name} onChange={e => setTempItem({ ...tempItem, name: e.target.value })} /></div>
-                  <div><label className="text-[10px] font-bold text-gray-500 uppercase">Cant.</label><input type="number" className="w-full border rounded-lg p-2 text-sm text-center font-bold bg-white" value={tempItem.quantity} onChange={e => setTempItem({ ...tempItem, quantity: parseFloat(e.target.value) || 0 })} /></div>
-                  <div><label className="text-[10px] font-bold text-gray-500 uppercase">Costo U. ($)</label><input type="number" step="0.01" className="w-full border rounded-lg p-2 text-sm text-right bg-white" value={tempItem.cost || ''} onChange={e => setTempItem({ ...tempItem, cost: parseFloat(e.target.value) || 0 })} /></div>
-                  <div><label className="text-[10px] font-bold text-red-500 uppercase">Min. Stock</label><input type="number" className="w-full border rounded-lg p-2 text-sm text-center border-red-100 bg-white" value={tempItem.minStock} onChange={e => setTempItem({ ...tempItem, minStock: parseFloat(e.target.value) || 0 })} /></div>
+                  <div><label className="text-[10px] font-bold text-gray-500 uppercase">Cant.</label><input type="number" className="w-full border rounded-lg p-2 text-sm text-center font-bold bg-white" value={toEditableNumberValue(tempItem.quantity)} onChange={e => setTempItem({ ...tempItem, quantity: fromEditableNumberValue(e.target.value) })} /></div>
+                  <div><label className="text-[10px] font-bold text-gray-500 uppercase">Costo U. ($)</label><input type="number" step="0.01" className="w-full border rounded-lg p-2 text-sm text-right bg-white" value={toEditableNumberValue(tempItem.cost)} onChange={e => setTempItem({ ...tempItem, cost: fromEditableNumberValue(e.target.value) })} /></div>
+                  <div><label className="text-[10px] font-bold text-red-500 uppercase">Min. Stock</label><input type="number" className="w-full border rounded-lg p-2 text-sm text-center border-red-100 bg-white" value={toEditableNumberValue(tempItem.minStock)} onChange={e => setTempItem({ ...tempItem, minStock: fromEditableNumberValue(e.target.value) })} /></div>
                   <button onClick={addLineToInvoice} className="bg-gray-900 text-white p-2 rounded-lg font-bold hover:bg-black flex justify-center shadow-md active:scale-95 transition"><Plus size={20} /></button>
                 </div>
               </div>
@@ -649,9 +744,9 @@ export const Inventory = () => {
                       <tr key={idx} className="hover:bg-gray-50">
                         <td className="p-3"><input className="w-full bg-transparent font-mono text-xs text-gray-500 outline-none" value={item.sku} onChange={e => handleInvoiceItemChange(idx, 'sku', e.target.value)} /></td>
                         <td className="p-3"><input className="w-full bg-transparent font-medium text-gray-700 outline-none focus:ring-1 rounded" value={item.name} onChange={e => handleInvoiceItemChange(idx, 'name', e.target.value)} /></td>
-                        <td className="p-3"><input type="number" className="w-full border border-gray-200 rounded p-1 text-center font-bold bg-white" value={item.quantity} onChange={e => handleInvoiceItemChange(idx, 'quantity', parseFloat(e.target.value) || 0)} /></td>
+                        <td className="p-3"><input type="number" className="w-full border border-gray-200 rounded p-1 text-center font-bold bg-white" value={toEditableNumberValue(item.quantity)} onChange={e => handleInvoiceItemChange(idx, 'quantity', fromEditableNumberValue(e.target.value))} /></td>
                         <td className="p-3 text-center text-xs text-red-400 font-bold">{item.minStock}</td>
-                        <td className="p-3"><input type="number" step="0.01" className="w-full border border-gray-200 rounded p-1 text-right bg-white" value={item.costUnitUSD} onChange={e => handleInvoiceItemChange(idx, 'costUnitUSD', parseFloat(e.target.value) || 0)} /></td>
+                        <td className="p-3"><input type="number" step="0.01" className="w-full border border-gray-200 rounded p-1 text-right bg-white" value={toEditableNumberValue(item.costUnitUSD)} onChange={e => handleInvoiceItemChange(idx, 'costUnitUSD', fromEditableNumberValue(e.target.value))} /></td>
                         <td className="p-3 text-right font-bold text-gray-900">{formatCurrency(item.quantity * item.costUnitUSD, 'USD')}</td>
                         <td className="p-3 text-center"><button onClick={() => setInvoiceItems(invoiceItems.filter((_, i) => i !== idx))} className="text-gray-300 hover:text-red-600 transition"><Trash2 size={16} /></button></td>
                       </tr>
@@ -663,8 +758,8 @@ export const Inventory = () => {
 
               <div className="flex justify-between items-center bg-gray-900 text-white p-4 rounded-xl shadow-lg mt-4 flex-wrap gap-4">
                 <div className="flex items-center gap-4 text-sm text-gray-400">
-                  <span className="flex items-center gap-1"><Truck size={16} /> Flete: <input type="number" className="w-20 bg-gray-800 border-none rounded p-1 font-bold text-white text-right focus:ring-1 focus:ring-gray-500" value={invoiceHeader.freight || ''} onChange={e => setInvoiceHeader({ ...invoiceHeader, freight: parseFloat(e.target.value) || 0 })} placeholder="0.00" /></span>
-                  <span className="flex items-center gap-1"><FileText size={16} /> IVA / Tax: <input type="number" className="w-20 bg-gray-800 border-none rounded p-1 font-bold text-white text-right focus:ring-1 focus:ring-gray-500" value={invoiceHeader.tax || ''} onChange={e => setInvoiceHeader({ ...invoiceHeader, tax: parseFloat(e.target.value) || 0 })} placeholder="0.00" /></span>
+                  <span className="flex items-center gap-1"><Truck size={16} /> Flete: <input type="number" className="w-20 bg-gray-800 border-none rounded p-1 font-bold text-white text-right focus:ring-1 focus:ring-gray-500" value={toEditableNumberValue(invoiceHeader.freight)} onChange={e => setInvoiceHeader({ ...invoiceHeader, freight: fromEditableNumberValue(e.target.value) })} placeholder="0.00" /></span>
+                  <span className="flex items-center gap-1"><FileText size={16} /> IVA / Tax: <input type="number" className="w-20 bg-gray-800 border-none rounded p-1 font-bold text-white text-right focus:ring-1 focus:ring-gray-500" value={toEditableNumberValue(invoiceHeader.tax)} onChange={e => setInvoiceHeader({ ...invoiceHeader, tax: fromEditableNumberValue(e.target.value) })} placeholder="0.00" /></span>
                 </div>
                 <div className="text-right ml-auto">
                   <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Total Factura</p>
@@ -756,8 +851,8 @@ export const Inventory = () => {
               <input
                 type="number"
                 className="w-full border-2 border-gray-200 rounded-xl p-3 text-xl font-black text-center outline-none focus:border-yellow-400 transition"
-                value={adjustQty}
-                onChange={e => setAdjustQty(Number(e.target.value))}
+                value={toEditableNumberValue(adjustQty)}
+                onChange={e => setAdjustQty(fromEditableNumberValue(e.target.value))}
                 placeholder="0"
               />
               <p className="text-xs text-gray-400 mt-1 text-center">

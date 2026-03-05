@@ -34,6 +34,7 @@ import { createReturnSlice } from './slices/returnSlice';
 import { createExpenseSlice } from './slices/expenseSlice';
 import { createSupplierSlice } from './slices/supplierSlice';
 import { createStockMovementSlice } from './slices/stockMovementSlice';
+import { createCashLedgerSlice } from './slices/cashLedgerSlice';
 
 export const useStore = create<StoreState>((set, get) => ({
   ...createAuthSlice(set, get),
@@ -46,7 +47,8 @@ export const useStore = create<StoreState>((set, get) => ({
   ...createClientSlice(set, get),
   ...createQuoteSlice(set, get),
   ...createReturnSlice(set, get),
-  ...createExpenseSlice(set),
+  ...createExpenseSlice(set, get),
+  ...createCashLedgerSlice(set),
   ...createSupplierSlice(set, get),
   ...createStockMovementSlice(set, get),
 }));

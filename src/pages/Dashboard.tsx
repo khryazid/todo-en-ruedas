@@ -3,11 +3,14 @@
  * @description Centro de Comando Completo.
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useDarkMode } from '../hooks/useDarkMode';
+import { CashFlowCards } from '../components/dashboard/CashFlowCards';
+import { ExpectedByMethodTable } from '../components/dashboard/ExpectedByMethodTable';
+import { PendingRecurringExpensesCard } from '../components/dashboard/PendingRecurringExpensesCard';
 import {
   TrendingDown, DollarSign, Package,
   AlertTriangle, Wallet, Users, BarChart3, ArrowUpRight, ArrowDownRight, AlertOctagon, Award
@@ -16,10 +19,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
+import { getPendingRecurringForMonth, loadRecurringTemplates } from '../utils/recurringExpenses';
 
 export const Dashboard = () => {
-  const { sales, products, invoices, clients, settings, currentUserData } = useStore();
+  const { sales, products, invoices, clients, expenses, cashLedger, paymentMethods, settings, currentUserData } = useStore();
   const { isDark } = useDarkMode();
+  const navigate = useNavigate();
 
   // Colores dinámicos para Recharts (SVG no puede leer clases CSS)
   const chartColors = {
@@ -35,11 +40,87 @@ export const Dashboard = () => {
   const isAdminOrManager = userRole === 'ADMIN' || userRole === 'MANAGER';
 
   // --- 1. FILTROS DE TIEMPO ---
+  const today = new Date();
+  const initialDay = String(today.getDate()).padStart(2, '0');
+  const initialMonth = String(today.getMonth() + 1).padStart(2, '0');
+  const initialYear = String(today.getFullYear());
+  const initialISODate = `${initialYear}-${initialMonth}-${initialDay}`;
+
   const [filterType, setFilterType] = useState<'today' | 'week' | 'month' | 'custom'>('today');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
+  const [customStart, setCustomStart] = useState(initialISODate);
+  const [customEnd, setCustomEnd] = useState(initialISODate);
+  const [customStartDay, setCustomStartDay] = useState(initialDay);
+  const [customStartMonth, setCustomStartMonth] = useState(initialMonth);
+  const [customStartYear, setCustomStartYear] = useState(initialYear);
+  const [customEndDay, setCustomEndDay] = useState(initialDay);
+  const [customEndMonth, setCustomEndMonth] = useState(initialMonth);
+  const [customEndYear, setCustomEndYear] = useState(initialYear);
+
+  const MAX_CHART_DAYS = 180;
 
   // --- 2. LÓGICA DE FECHAS ---
+  const toLocalDateKey = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month, 0).getDate();
+  const toISODate = (year: string, month: string, day: string) => {
+    if (!year || !month || !day) return '';
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
+  const currentYear = new Date().getFullYear();
+  const yearOptions = useMemo(() => {
+    return Array.from({ length: 11 }, (_, index) => String(currentYear - 5 + index));
+  }, [currentYear]);
+
+  const startDaysInMonth = useMemo(() => {
+    const year = Number(customStartYear || currentYear);
+    const month = Number(customStartMonth || 1);
+    return getDaysInMonth(year, month);
+  }, [customStartYear, customStartMonth, currentYear]);
+
+  const endDaysInMonth = useMemo(() => {
+    const year = Number(customEndYear || currentYear);
+    const month = Number(customEndMonth || 1);
+    return getDaysInMonth(year, month);
+  }, [customEndYear, customEndMonth, currentYear]);
+
+  const updateStartDateParts = (next: { day?: string; month?: string; year?: string }) => {
+    let day = next.day ?? customStartDay;
+    const month = next.month ?? customStartMonth;
+    const year = next.year ?? customStartYear;
+
+    if (day && month && year) {
+      const maxDay = getDaysInMonth(Number(year), Number(month));
+      if (Number(day) > maxDay) day = String(maxDay).padStart(2, '0');
+    }
+
+    setCustomStartDay(day);
+    setCustomStartMonth(month);
+    setCustomStartYear(year);
+    setCustomStart(toISODate(year, month, day));
+  };
+
+  const updateEndDateParts = (next: { day?: string; month?: string; year?: string }) => {
+    let day = next.day ?? customEndDay;
+    const month = next.month ?? customEndMonth;
+    const year = next.year ?? customEndYear;
+
+    if (day && month && year) {
+      const maxDay = getDaysInMonth(Number(year), Number(month));
+      if (Number(day) > maxDay) day = String(maxDay).padStart(2, '0');
+    }
+
+    setCustomEndDay(day);
+    setCustomEndMonth(month);
+    setCustomEndYear(year);
+    setCustomEnd(toISODate(year, month, day));
+  };
+
   const dateRange = useMemo(() => {
     const now = new Date();
     const start = new Date();
@@ -56,9 +137,19 @@ export const Dashboard = () => {
       return { start, end };
     }
     if (filterType === 'custom') {
+      const safeEnd = customEnd ? new Date(customEnd) : now;
+      const safeStart = customStart ? new Date(customStart) : new Date(safeEnd);
+
+      safeStart.setHours(0, 0, 0, 0);
+      safeEnd.setHours(0, 0, 0, 0);
+
+      if (safeStart > safeEnd) {
+        return { start: safeEnd, end: safeEnd };
+      }
+
       return {
-        start: customStart ? new Date(customStart) : new Date(0),
-        end: customEnd ? new Date(customEnd) : new Date()
+        start: safeStart,
+        end: safeEnd
       };
     }
     return { start: now, end: now };
@@ -66,9 +157,9 @@ export const Dashboard = () => {
 
   const isDateInScope = (dateStr: string) => {
     const d = new Date(dateStr);
-    const dStr = d.toISOString().split('T')[0];
-    const startStr = dateRange.start.toISOString().split('T')[0];
-    const endStr = dateRange.end.toISOString().split('T')[0];
+    const dStr = toLocalDateKey(d);
+    const startStr = toLocalDateKey(dateRange.start);
+    const endStr = toLocalDateKey(dateRange.end);
     return dStr >= startStr && dStr <= endStr;
   };
 
@@ -155,25 +246,55 @@ export const Dashboard = () => {
       }));
   })();
 
-  // --- 9. DATOS PARA GRÁFICAS (solo Admin/Manager) ---
-  const chartData = (() => {
+  // --- 9. DATOS PARA GRÁFICAS (solo Admin/Manager, respetando filtro de fecha) ---
+  const chartData = useMemo(() => {
     if (!isAdminOrManager) return [];
+
+    const start = new Date(dateRange.start);
+    const end = new Date(dateRange.end);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    const scopedSales = sales.filter((sale) => {
+      const saleDate = new Date(sale.date);
+      const saleDateText = toLocalDateKey(saleDate);
+      const startText = toLocalDateKey(start);
+      const endText = toLocalDateKey(end);
+      const dateOk = sale.status !== 'CANCELLED' && saleDateText >= startText && saleDateText <= endText;
+      if (isSeller) return dateOk && sale.userId === currentUserData?.id;
+      return dateOk;
+    });
+
     const days: { label: string; total: number; date: string }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      const dayTotal = sales
-        .filter(s => s.status !== 'CANCELLED' && s.date.startsWith(dateStr))
-        .reduce((acc, s) => acc + s.totalUSD, 0);
+    const cursor = new Date(start);
+    let iterations = 0;
+
+    while (cursor <= end && iterations < MAX_CHART_DAYS) {
+      const dateStr = toLocalDateKey(cursor);
+      const dayTotal = scopedSales
+        .filter((sale) => toLocalDateKey(new Date(sale.date)) === dateStr)
+        .reduce((acc, sale) => acc + sale.totalUSD, 0);
+
       days.push({
-        label: d.toLocaleDateString('es-VE', { weekday: 'short', day: 'numeric' }),
+        label: cursor.toLocaleDateString('es-VE', { weekday: 'short', day: 'numeric' }),
         total: Math.round(dayTotal * 100) / 100,
         date: dateStr,
       });
+
+      cursor.setDate(cursor.getDate() + 1);
+      iterations += 1;
     }
+
     return days;
-  })();
+  }, [isAdminOrManager, dateRange, sales, isSeller, currentUserData?.id, MAX_CHART_DAYS]);
+
+  const expectedCutoffLabel = useMemo(() => {
+    return dateRange.end.toLocaleDateString('es-VE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  }, [dateRange.end]);
 
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
@@ -186,6 +307,219 @@ export const Dashboard = () => {
     });
     return Object.entries(methodMap).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }));
   })();
+
+  const filteredCashLedger = useMemo(() => {
+    const startText = toLocalDateKey(dateRange.start);
+    const endText = toLocalDateKey(dateRange.end);
+
+    return cashLedger.filter((movement) => {
+      const movementDate = new Date(movement.date);
+      const movementDateText = toLocalDateKey(movementDate);
+      return movementDateText >= startText && movementDateText <= endText;
+    });
+  }, [cashLedger, dateRange]);
+
+  const cashLedgerUntilEndDate = useMemo(() => {
+    const endText = toLocalDateKey(dateRange.end);
+
+    return cashLedger.filter((movement) => {
+      const movementDate = new Date(movement.date);
+      const movementDateText = toLocalDateKey(movementDate);
+      return movementDateText <= endText;
+    });
+  }, [cashLedger, dateRange.end]);
+
+  const cashInPeriod = useMemo(() => {
+    return filteredCashLedger
+      .filter((movement) => movement.direction === 'IN')
+      .reduce((sum, movement) => sum + movement.amountUSD, 0);
+  }, [filteredCashLedger]);
+
+  const cashOutPeriod = useMemo(() => {
+    return filteredCashLedger
+      .filter((movement) => movement.direction === 'OUT')
+      .reduce((sum, movement) => sum + movement.amountUSD, 0);
+  }, [filteredCashLedger]);
+
+  const netCashFlowPeriod = cashInPeriod - cashOutPeriod;
+
+  const buildExpectedByMethod = useCallback((movements: typeof cashLedger) => {
+    const map: Record<string, {
+      method: string;
+      currency: 'USD' | 'BS';
+      grossIn: number;
+      commissionableIn: number;
+      cashOut: number;
+      commissionPct: number;
+      commissionCost: number;
+      expectedBalance: number;
+    }> = {};
+
+    paymentMethods.forEach((method) => {
+      map[method.name] = {
+        method: method.name,
+        currency: method.currency,
+        grossIn: 0,
+        commissionableIn: 0,
+        cashOut: 0,
+        commissionPct: Number(method.commissionPct) || 0,
+        commissionCost: 0,
+        expectedBalance: 0,
+      };
+    });
+
+    movements.forEach((movement) => {
+      const method = movement.paymentMethod || 'N/A';
+      if (!map[method]) {
+        map[method] = {
+          method,
+          currency: movement.currency,
+          grossIn: 0,
+          commissionableIn: 0,
+          cashOut: 0,
+          commissionPct: 0,
+          commissionCost: 0,
+          expectedBalance: 0,
+        };
+      }
+
+      const amountInMethodCurrency = map[method].currency === 'BS'
+        ? (movement.amountBS ?? (movement.amountUSD * settings.tasaBCV))
+        : movement.amountUSD;
+
+      if (movement.direction === 'IN') {
+        map[method].grossIn += amountInMethodCurrency;
+        if (movement.kind !== 'AJUSTE') {
+          map[method].commissionableIn += amountInMethodCurrency;
+        }
+      } else {
+        map[method].cashOut += amountInMethodCurrency;
+      }
+    });
+
+    return Object.values(map)
+      .map((row) => {
+        const commissionCost = row.commissionableIn * (row.commissionPct / 100);
+        const expectedBalance = row.grossIn - commissionCost - row.cashOut;
+        return {
+          ...row,
+          commissionCost,
+          expectedBalance,
+        };
+      })
+      .sort((a, b) => b.expectedBalance - a.expectedBalance);
+  }, [paymentMethods, settings.tasaBCV]);
+
+  const expectedByMethodAccum = useMemo(() => {
+    return buildExpectedByMethod(cashLedgerUntilEndDate);
+  }, [buildExpectedByMethod, cashLedgerUntilEndDate]);
+
+  const expectedByMethodPeriod = useMemo(() => {
+    return buildExpectedByMethod(filteredCashLedger);
+  }, [buildExpectedByMethod, filteredCashLedger]);
+
+  const periodImpactMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    expectedByMethodPeriod.forEach((row) => {
+      map[row.method] = row.expectedBalance;
+    });
+    return map;
+  }, [expectedByMethodPeriod]);
+
+  const expectedRowsForView = useMemo(() => {
+    return expectedByMethodPeriod.map((periodRow) => {
+      const accumRow = expectedByMethodAccum.find((row) => row.method === periodRow.method);
+      return {
+        ...periodRow,
+        expectedBalance: accumRow?.expectedBalance ?? periodRow.expectedBalance,
+        periodImpact: periodImpactMap[periodRow.method] ?? periodRow.expectedBalance,
+      };
+    });
+  }, [expectedByMethodAccum, expectedByMethodPeriod, periodImpactMap]);
+
+
+  const methodsInNegative = useMemo(() => {
+    return expectedRowsForView.filter((method) => method.expectedBalance < -0.009);
+  }, [expectedRowsForView]);
+
+  const movementsByMethod = useMemo(() => {
+    const source = cashLedgerUntilEndDate;
+    const map: Record<string, typeof source> = {};
+
+    source.forEach((movement) => {
+      const method = movement.paymentMethod || 'N/A';
+      if (!map[method]) map[method] = [];
+      map[method].push(movement);
+    });
+
+    Object.keys(map).forEach((method) => {
+      map[method] = map[method].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    });
+
+    return map;
+  }, [cashLedgerUntilEndDate]);
+
+  const handleAdjustMethod = useCallback((method: string) => {
+    navigate('/settings', { state: { cashControlMethod: method } });
+  }, [navigate]);
+
+
+  const pendingRecurringExpenses = useMemo(() => {
+    const templates = loadRecurringTemplates();
+    return getPendingRecurringForMonth(templates, expenses, new Date())
+      .sort((a, b) => {
+        const aDay = a.dayOfMonth ?? 99;
+        const bDay = b.dayOfMonth ?? 99;
+        if (aDay !== bDay) return aDay - bDay;
+        return a.description.localeCompare(b.description, 'es', { sensitivity: 'base' });
+      });
+  }, [expenses]);
+
+  const currentMonthLabel = useMemo(() => {
+    return new Date().toLocaleDateString('es-VE', { month: 'long', year: 'numeric' });
+  }, []);
+
+  const recurringDueStatus = (dayOfMonth?: number) => {
+    if (!dayOfMonth) {
+      return {
+        label: 'Sin día',
+        chipClass: 'bg-gray-100 text-gray-600',
+        rowClass: 'bg-gray-50 border-gray-200',
+      };
+    }
+
+    const todayDay = new Date().getDate();
+
+    if (dayOfMonth === todayDay) {
+      return {
+        label: 'Vence hoy',
+        chipClass: 'bg-red-100 text-red-700',
+        rowClass: 'bg-red-50/70 border-red-200',
+      };
+    }
+
+    if (dayOfMonth < todayDay) {
+      return {
+        label: 'Vencido',
+        chipClass: 'bg-red-200 text-red-800',
+        rowClass: 'bg-red-100/70 border-red-300',
+      };
+    }
+
+    if (dayOfMonth > todayDay && dayOfMonth <= todayDay + 7) {
+      return {
+        label: 'Esta semana',
+        chipClass: 'bg-orange-100 text-orange-700',
+        rowClass: 'bg-orange-50/70 border-orange-200',
+      };
+    }
+
+    return {
+      label: 'Después',
+      chipClass: 'bg-blue-100 text-blue-700',
+      rowClass: 'bg-blue-50/50 border-blue-100',
+    };
+  };
 
   return (
     <div className="p-4 md:p-8 space-y-6 bg-gray-50 min-h-screen animate-in fade-in duration-300">
@@ -209,8 +543,51 @@ export const Dashboard = () => {
           </div>
           {filterType === 'custom' && (
             <div className="flex gap-2 animate-in slide-in-from-right fade-in">
-              <input type="date" className="border rounded-lg px-2 text-xs bg-white font-bold text-gray-600 outline-none focus:ring-2 focus:ring-blue-100" value={customStart} onChange={e => setCustomStart(e.target.value)} />
-              <input type="date" className="border rounded-lg px-2 text-xs bg-white font-bold text-gray-600 outline-none focus:ring-2 focus:ring-blue-100" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+              <div className="flex items-center gap-1 border rounded-lg px-2 py-1 bg-white">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Desde</span>
+                <select className="text-xs font-bold text-gray-700 bg-white outline-none" value={customStartDay} onChange={(e) => updateStartDateParts({ day: e.target.value })}>
+                  {Array.from({ length: startDaysInMonth }, (_, index) => {
+                    const value = String(index + 1).padStart(2, '0');
+                    return <option key={`start-day-${value}`} value={value}>{value}</option>;
+                  })}
+                </select>
+                <span className="text-xs text-gray-400">/</span>
+                <select className="text-xs font-bold text-gray-700 bg-white outline-none" value={customStartMonth} onChange={(e) => updateStartDateParts({ month: e.target.value })}>
+                  {Array.from({ length: 12 }, (_, index) => {
+                    const value = String(index + 1).padStart(2, '0');
+                    return <option key={`start-month-${value}`} value={value}>{value}</option>;
+                  })}
+                </select>
+                <span className="text-xs text-gray-400">/</span>
+                <select className="text-xs font-bold text-gray-700 bg-white outline-none" value={customStartYear} onChange={(e) => updateStartDateParts({ year: e.target.value })}>
+                  {yearOptions.map((year) => (
+                    <option key={`start-year-${year}`} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1 border rounded-lg px-2 py-1 bg-white">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Hasta</span>
+                <select className="text-xs font-bold text-gray-700 bg-white outline-none" value={customEndDay} onChange={(e) => updateEndDateParts({ day: e.target.value })}>
+                  {Array.from({ length: endDaysInMonth }, (_, index) => {
+                    const value = String(index + 1).padStart(2, '0');
+                    return <option key={`end-day-${value}`} value={value}>{value}</option>;
+                  })}
+                </select>
+                <span className="text-xs text-gray-400">/</span>
+                <select className="text-xs font-bold text-gray-700 bg-white outline-none" value={customEndMonth} onChange={(e) => updateEndDateParts({ month: e.target.value })}>
+                  {Array.from({ length: 12 }, (_, index) => {
+                    const value = String(index + 1).padStart(2, '0');
+                    return <option key={`end-month-${value}`} value={value}>{value}</option>;
+                  })}
+                </select>
+                <span className="text-xs text-gray-400">/</span>
+                <select className="text-xs font-bold text-gray-700 bg-white outline-none" value={customEndYear} onChange={(e) => updateEndDateParts({ year: e.target.value })}>
+                  {yearOptions.map((year) => (
+                    <option key={`end-year-${year}`} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
         </div>
@@ -270,6 +647,24 @@ export const Dashboard = () => {
         </div>
       </div>
 
+      {!isSeller && (
+        <CashFlowCards
+          cashInPeriod={cashInPeriod}
+          cashOutPeriod={cashOutPeriod}
+          netCashFlowPeriod={netCashFlowPeriod}
+        />
+      )}
+
+      {!isSeller && (
+        <ExpectedByMethodTable
+          expectedByMethod={expectedRowsForView}
+          methodsInNegative={methodsInNegative}
+          cutoffLabel={expectedCutoffLabel}
+          movementsByMethod={movementsByMethod}
+          onAdjustMethod={handleAdjustMethod}
+        />
+      )}
+
       {/* --- FILA 2: PROYECCIÓN INVENTARIO (Azul) - Solo Admin/Manager/Viewer --- */}
       {!isSeller && (
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
@@ -297,7 +692,7 @@ export const Dashboard = () => {
           <div className="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div className="flex items-center gap-2 mb-4">
               <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg"><BarChart3 size={16} /></div>
-              <h4 className="font-bold text-gray-800 text-sm">Ventas — Últimos 7 Días</h4>
+              <h4 className="font-bold text-gray-800 text-sm">Ventas — Evolución del Período</h4>
             </div>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={chartData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
@@ -361,6 +756,15 @@ export const Dashboard = () => {
             )}
           </div>
         </div>
+      )}
+
+      {/* --- FILA 2.7: RECURRENTES PENDIENTES --- */}
+      {!isSeller && (
+        <PendingRecurringExpensesCard
+          pendingRecurringExpenses={pendingRecurringExpenses}
+          currentMonthLabel={currentMonthLabel}
+          recurringDueStatus={recurringDueStatus}
+        />
       )}
 
       {/* --- FILA 3: ALERTAS, PRODUCTOS Y CLIENTES --- */}

@@ -463,9 +463,9 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             });
 
             toast.success('Contraseña actualizada');
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error al cambiar contraseña:', error);
-            const msg = error.message || 'Error desconocido';
+            const msg = error instanceof Error ? error.message : 'Error desconocido';
             toast.error(`Error al cambiar contraseña: ${msg}`);
         }
     }

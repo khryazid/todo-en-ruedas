@@ -14,12 +14,14 @@ import type { AuditAction } from '../types';
 
 interface AuditEntry {
     id: string;
+    user_id?: string;
+    user_name?: string | null;
+    user_email?: string | null;
     action: AuditAction;
     entity: string;
     entity_id?: string;
     changes?: Record<string, unknown>;
     created_at: string;
-    users?: { full_name: string; email: string } | null;
 }
 
 // --- Helpers visuales ---
@@ -62,12 +64,14 @@ export const Audit = () => {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const mapped: AuditEntry[] = (data || []).map((r: any) => ({
                 id: r.id,
+                user_id: r.user_id,
+                user_name: r.user_name,
+                user_email: r.user_email,
                 action: r.action as AuditAction,
                 entity: r.entity,
                 entity_id: r.entity_id,
                 changes: r.changes,
                 created_at: r.created_at,
-                users: Array.isArray(r.users) ? r.users[0] ?? null : r.users ?? null,
             }));
             setLogs(mapped);
         } catch (e: unknown) {
@@ -85,8 +89,8 @@ export const Audit = () => {
         if (filterEntity && log.entity !== filterEntity) return false;
         if (search) {
             const term = search.toLowerCase();
-            const userName = log.users?.full_name?.toLowerCase() || '';
-            const email = log.users?.email?.toLowerCase() || '';
+            const userName = log.user_name?.toLowerCase() || '';
+            const email = log.user_email?.toLowerCase() || '';
             if (!userName.includes(term) && !email.includes(term) && !log.entity.includes(term)) return false;
         }
         return true;
@@ -216,9 +220,9 @@ export const Audit = () => {
                                                     </div>
                                                     <div>
                                                         <p className="font-bold text-gray-800 text-xs">
-                                                            {log.users?.full_name || 'Sistema'}
+                                                            {log.user_name || 'Sistema'}
                                                         </p>
-                                                        <p className="text-[10px] text-gray-400">{log.users?.email}</p>
+                                                        <p className="text-[10px] text-gray-400">{log.user_email}</p>
                                                     </div>
                                                 </div>
                                             </td>

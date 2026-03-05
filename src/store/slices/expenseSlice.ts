@@ -6,9 +6,9 @@
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { Expense } from '../../types';
-import type { SetState } from '../types';
+import type { SetState, GetState } from '../types';
 
-export const createExpenseSlice = (_set: SetState) => ({
+export const createExpenseSlice = (_set: SetState, get: GetState) => ({
 
     expenses: [] as Expense[],
 
@@ -29,6 +29,8 @@ export const createExpenseSlice = (_set: SetState) => ({
             currency: (r.currency as string || 'USD') as import('../../types').ExpenseCurrency,
             category: (r.category as string) || 'Otro',
             paymentMethod: (r.payment_method as string) || 'Efectivo',
+            fxRateUsed: r.fx_rate_used ? Number(r.fx_rate_used) : undefined,
+            fxSource: r.fx_source as import('../../types').FxSource | undefined,
             userId: r.user_id as string | undefined,
             sellerName: r.seller_name as string | undefined,
             isRecurring: Boolean(r.is_recurring),
@@ -49,6 +51,8 @@ export const createExpenseSlice = (_set: SetState) => ({
                 currency: expense.currency || 'USD',
                 category: expense.category,
                 payment_method: expense.paymentMethod,
+                fx_rate_used: expense.fxRateUsed || null,
+                fx_source: expense.fxSource || null,
                 user_id: expense.userId || null,
                 seller_name: expense.sellerName || null,
                 is_recurring: expense.isRecurring || false,
@@ -68,6 +72,8 @@ export const createExpenseSlice = (_set: SetState) => ({
             currency: expense.currency || 'USD',
             category: expense.category,
             paymentMethod: expense.paymentMethod,
+            fxRateUsed: expense.fxRateUsed,
+            fxSource: expense.fxSource,
             userId: expense.userId,
             sellerName: expense.sellerName,
             isRecurring: expense.isRecurring,
@@ -75,6 +81,20 @@ export const createExpenseSlice = (_set: SetState) => ({
         };
 
         _set(state => ({ expenses: [newExpense, ...state.expenses] }));
+
+        await get().upsertCashMovementByReference('expense', newExpense.id, {
+            date: newExpense.date,
+            direction: 'OUT',
+            kind: 'GASTO_OPERATIVO',
+            amountUSD: newExpense.amountUSD,
+            amountBS: newExpense.amountBS,
+            currency: newExpense.currency || 'USD',
+            paymentMethod: newExpense.paymentMethod,
+            description: `Gasto: ${newExpense.description}`,
+            userId: newExpense.userId,
+            sellerName: newExpense.sellerName,
+        });
+
         toast.success('Gasto registrado');
     },
 
@@ -82,16 +102,41 @@ export const createExpenseSlice = (_set: SetState) => ({
         const payload: Record<string, unknown> = {};
         if (updates.description !== undefined) payload.description = updates.description;
         if (updates.amountUSD !== undefined) payload.amount_usd = updates.amountUSD;
+        if (updates.amountBS !== undefined) payload.amount_bs = updates.amountBS;
+        if (updates.currency !== undefined) payload.currency = updates.currency;
         if (updates.category !== undefined) payload.category = updates.category;
         if (updates.paymentMethod !== undefined) payload.payment_method = updates.paymentMethod;
+        if (updates.fxRateUsed !== undefined) payload.fx_rate_used = updates.fxRateUsed;
+        if (updates.fxSource !== undefined) payload.fx_source = updates.fxSource;
         if (updates.date !== undefined) payload.date = updates.date;
 
         const { error } = await supabase.from('expenses').update(payload).eq('id', id);
         if (error) { toast.error('Error al actualizar gasto'); return; }
 
+        const previous = get().expenses.find((expense) => expense.id === id);
+
         _set(state => ({
-            expenses: state.expenses.map(e => e.id === id ? { ...e, ...updates } : e)
+            expenses: state.expenses.map(expense => expense.id === id ? { ...expense, ...updates } : expense)
         }));
+
+        const current = get().expenses.find((expense) => expense.id === id);
+        const effective = current || (previous ? { ...previous, ...updates } : null);
+
+        if (effective) {
+            await get().upsertCashMovementByReference('expense', id, {
+                date: effective.date,
+                direction: 'OUT',
+                kind: 'GASTO_OPERATIVO',
+                amountUSD: effective.amountUSD,
+                amountBS: effective.amountBS,
+                currency: effective.currency || 'USD',
+                paymentMethod: effective.paymentMethod,
+                description: `Gasto: ${effective.description}`,
+                userId: effective.userId,
+                sellerName: effective.sellerName,
+            });
+        }
+
         toast.success('Gasto actualizado');
     },
 
@@ -100,6 +145,9 @@ export const createExpenseSlice = (_set: SetState) => ({
         const { error } = await supabase.from('expenses').delete().eq('id', id);
         if (error) { toast.error('Error al eliminar gasto'); return; }
         _set(state => ({ expenses: state.expenses.filter(e => e.id !== id) }));
+
+        await get().deleteCashMovementByReference('expense', id);
+
         toast.success('Gasto eliminado');
     },
 });
