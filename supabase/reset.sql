@@ -72,6 +72,9 @@ CREATE TABLE public.settings (
     created_at             TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE UNIQUE INDEX uq_settings_singleton
+    ON public.settings ((true));
+
 -- products
 CREATE TABLE public.products (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),

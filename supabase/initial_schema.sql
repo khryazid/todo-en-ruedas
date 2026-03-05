@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS public.settings (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_settings_singleton
+ON public.settings ((true));
+
 -- 2. TABLA INVENTARIO (products)
 CREATE TABLE IF NOT EXISTS public.products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

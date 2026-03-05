@@ -135,7 +135,12 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
       // Cargar datos del usuario actual
       await get().fetchCurrentUserData();
 
-      const { data: settingsData } = await supabase.from('settings').select('*').single();
+      const { data: settingsData } = await supabase
+        .from('settings')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
       const { data: productsData } = await supabase.from('products').select('*');
       const { data: clientsData } = await supabase.from('clients').select('*');
       const { data: salesData } = await supabase.from('sales').select(`*, sale_items(*), payments(*)`).order('date', { ascending: false }).limit(100);

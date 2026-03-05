@@ -28,7 +28,12 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
 
   fetchSettingsData: async () => {
     try {
-      const { data: settingsData } = await supabase.from('settings').select('*').single();
+      const { data: settingsData } = await supabase
+        .from('settings')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
       const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*');
 
       if (settingsData) {

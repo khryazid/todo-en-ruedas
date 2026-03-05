@@ -43,6 +43,9 @@ CREATE TABLE IF NOT EXISTS public.settings (
     created_at            TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS uq_settings_singleton
+    ON public.settings ((true));
+
 
 
 
