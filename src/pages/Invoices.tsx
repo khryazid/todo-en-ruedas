@@ -13,7 +13,7 @@ import { useLocation } from 'react-router-dom';
 import type { Invoice, Payment, IncomingItem } from '../types';
 
 export const Invoices = () => {
-    const { invoices, products, registerPayment, updateInvoice, updateProduct, paymentMethods, settings, deleteInvoice } = useStore(); // <--- AÑADIDO deleteInvoice
+    const { invoices, products, registerPayment, updateInvoice, updateProduct, adjustProductStock, paymentMethods, settings, deleteInvoice, setRealtimeGuard } = useStore(); // <--- AÑADIDO deleteInvoice
     const location = useLocation();
 
     const normalizeInvoiceForEdit = (invoice: Invoice): Invoice => {
@@ -80,6 +80,15 @@ export const Invoices = () => {
             }
         }
     }, [location.state, invoices, selectedInvoice?.id, openDetailModal]);
+
+    useEffect(() => {
+        const isCriticalFlowActive = isDetailModalOpen || isPaymentModalOpen;
+        setRealtimeGuard('invoices-edit-flow', isCriticalFlowActive);
+
+        return () => {
+            setRealtimeGuard('invoices-edit-flow', false);
+        };
+    }, [isDetailModalOpen, isPaymentModalOpen, setRealtimeGuard]);
 
     const filteredInvoices = useMemo(() => {
         const filtered = invoices.filter(inv => {
@@ -148,7 +157,7 @@ export const Invoices = () => {
         Object.entries(quantityChanges).forEach(([sku, netChange]) => {
             if (netChange === 0) return;
             const product = products.find(p => p.sku === sku);
-            if (product) updateProduct(product.id, { stock: product.stock + netChange });
+            if (product) void adjustProductStock(product.id, netChange);
         });
 
         updateInvoice(editingInvoice);

@@ -13,6 +13,56 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
   invoices: [] as Invoice[],
   suppliers: [] as Supplier[],
 
+  fetchSuppliers: async () => {
+    try {
+      const { data: suppliersData, error } = await supabase.from('suppliers').select('*');
+      if (error) throw error;
+
+      set({
+        suppliers: (suppliersData || []).map((s) => ({
+          id: s.id,
+          name: s.name,
+          rif: s.rif ?? undefined,
+          rifType: s.rif_type ?? undefined,
+          contactName: s.contact_name ?? undefined,
+          phone: s.phone ?? undefined,
+          email: s.email ?? undefined,
+          address: s.address ?? undefined,
+          category: s.category ?? undefined,
+          notes: s.notes ?? undefined,
+          createdAt: s.created_at ?? undefined,
+        }))
+      });
+    } catch (error) {
+      console.warn('fetchSuppliers realtime sync:', error);
+    }
+  },
+
+  fetchInvoices: async () => {
+    try {
+      const { data: invoicesData, error } = await supabase.from('invoices').select('*');
+      if (error) throw error;
+
+      const suppliers = get().suppliers;
+
+      set({
+        invoices: (invoicesData || []).map((inv) => ({
+          ...inv,
+          supplier: suppliers.find((s) => s.id === inv.supplier)?.name || inv.supplier,
+          subtotalUSD: inv.subtotal_usd,
+          freightTotalUSD: inv.freight_total_usd,
+          totalUSD: inv.total_usd,
+          paidAmountUSD: inv.paid_amount_usd,
+          dateIssue: inv.date_issue,
+          dateDue: inv.date_due,
+          payments: inv.payments || []
+        }))
+      });
+    } catch (error) {
+      console.warn('fetchInvoices realtime sync:', error);
+    }
+  },
+
   addInvoice: async (invoice: Invoice) => {
     const loadingToast = toast.loading("Registrando factura...");
     try {
@@ -63,26 +113,15 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
         ? Math.round((invoice.freightTotalUSD / totalItemsQuantity) * 100) / 100
         : 0;
 
-      // Track product updates for incremental state update
-      const updatedProducts: Map<string, Partial<Product> & { id: string }> = new Map();
       const newProducts: Product[] = [];
 
       for (const item of invoice.items) {
         const existing = get().products.find((p) => p.sku === item.sku);
         if (existing) {
-          await supabase.from('products').update({
-            stock: Number(existing.stock) + Number(item.quantity),
-            cost: item.costUnitUSD,
-            cost_type: invoice.costType,
-            freight: unitFreight
-          }).eq('id', existing.id);
-
-          updatedProducts.set(existing.id, {
-            id: existing.id,
-            stock: Number(existing.stock) + Number(item.quantity),
+          await get().adjustProductStock(existing.id, Number(item.quantity), {
             cost: item.costUnitUSD,
             costType: invoice.costType,
-            freight: unitFreight
+            freight: unitFreight,
           });
         } else {
           const { data: newProdData } = await supabase.from('products').insert({
@@ -144,14 +183,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
 
       set((state) => ({
         invoices: [...state.invoices, savedInvoice],
-        products: [
-          ...state.products.map((p) => {
-            const update = updatedProducts.get(p.id);
-            if (update) return { ...p, ...update };
-            return p;
-          }),
-          ...newProducts
-        ],
+        products: [...state.products, ...newProducts],
       }));
 
       toast.dismiss(loadingToast);

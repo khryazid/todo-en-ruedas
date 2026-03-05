@@ -1,4 +1,5 @@
 import { CheckCircle, MessageCircle, Printer, ShoppingCart, User, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { AppSettings, Client, PaymentMethod, Sale } from '../../types';
 import { formatCurrency } from '../../utils/pricing';
@@ -6,10 +7,15 @@ import { formatCurrency } from '../../utils/pricing';
 interface POSCheckoutModalProps {
   isOpen: boolean;
   completedSale: Sale | null;
+  clients: Client[];
   selectedClient: Client | null;
+  onSelectClientById: (clientId: string) => void;
   settings: AppSettings;
   totalUSD: number;
   totalBs: number;
+  discountPct: number;
+  setDiscountPct: Dispatch<SetStateAction<number>>;
+  discountAmount: number;
   currentClientDebt: number;
   isCreditSale: boolean;
   setIsCreditSale: Dispatch<SetStateAction<boolean>>;
@@ -28,10 +34,15 @@ interface POSCheckoutModalProps {
 export function POSCheckoutModal({
   isOpen,
   completedSale,
+  clients,
   selectedClient,
+  onSelectClientById,
   settings,
   totalUSD,
   totalBs,
+  discountPct,
+  setDiscountPct,
+  discountAmount,
   currentClientDebt,
   isCreditSale,
   setIsCreditSale,
@@ -46,15 +57,56 @@ export function POSCheckoutModal({
   onSendWhatsApp,
   onPrint,
 }: POSCheckoutModalProps) {
-  if (!isOpen && !completedSale) {
-    return null;
-  }
+  const [clientQuery, setClientQuery] = useState('');
+  const [showClientOptions, setShowClientOptions] = useState(false);
+  const clientAutocompleteRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || completedSale) return;
+    setClientQuery(selectedClient ? `${selectedClient.name} - ${selectedClient.rif}` : '');
+    setShowClientOptions(false);
+  }, [isOpen, completedSale, selectedClient]);
+
+  useEffect(() => {
+    if (!showClientOptions) return;
+
+    const handleOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (clientAutocompleteRef.current && !clientAutocompleteRef.current.contains(target)) {
+        setShowClientOptions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('touchstart', handleOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('touchstart', handleOutside);
+    };
+  }, [showClientOptions]);
 
   const completedMethodCurrency = completedSale
     ? paymentMethods.find((method) => method.name === completedSale.paymentMethod)?.currency
     : undefined;
 
   const selectedMethodCurrency = paymentMethods.find((method) => method.name === selectedPaymentMethod)?.currency || 'USD';
+
+  const filteredClients = useMemo(() => {
+    const term = clientQuery.trim().toLowerCase();
+    if (!term) return clients.slice(0, 8);
+    return clients
+      .filter((client) =>
+        client.name.toLowerCase().includes(term) ||
+        client.rif.toLowerCase().includes(term)
+      )
+      .slice(0, 8);
+  }, [clients, clientQuery]);
+
+  if (!isOpen && !completedSale) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in">
@@ -112,7 +164,94 @@ export function POSCheckoutModal({
         ) : (
           <>
             <button onClick={onCloseCheckout} className="absolute right-4 top-4 text-gray-400 hover:bg-gray-100 p-2 rounded-full transition"><X size={20} /></button>
-            <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><ShoppingCart className="text-blue-600" /> Checkout</h2>
+            <h2 className="text-2xl font-black text-gray-800 mb-6 flex items-center gap-2"><ShoppingCart className="text-blue-600" /> Cobro</h2>
+
+            <div className="mb-4">
+              <p className="text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Cliente (Opcional)</p>
+              <div className="relative" ref={clientAutocompleteRef}>
+                <input
+                  type="text"
+                  value={clientQuery}
+                  onFocus={() => setShowClientOptions(true)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setClientQuery(value);
+                    setShowClientOptions(true);
+
+                    if (!value.trim()) {
+                      onSelectClientById('');
+                    }
+                  }}
+                  placeholder="Buscar por nombre o RIF..."
+                  className="w-full p-3 rounded-xl border-2 border-gray-100 bg-white font-bold text-sm text-gray-700 focus:outline-none focus:border-blue-300"
+                />
+                {showClientOptions && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-48 overflow-y-auto">
+                    <button
+                      onClick={() => {
+                        onSelectClientById('');
+                        setClientQuery('');
+                        setShowClientOptions(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-sm font-bold text-gray-500 hover:bg-gray-50 border-b border-gray-100"
+                    >
+                      Sin cliente
+                    </button>
+                    {filteredClients.length === 0 ? (
+                      <p className="px-3 py-2 text-xs text-gray-400">No hay coincidencias</p>
+                    ) : (
+                      filteredClients.map((client) => (
+                        <button
+                          key={client.id}
+                          onClick={() => {
+                            onSelectClientById(client.id);
+                            setClientQuery(`${client.name} - ${client.rif}`);
+                            setShowClientOptions(false);
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50"
+                        >
+                          <p className="font-bold text-gray-800">{client.name}</p>
+                          <p className="text-[11px] text-gray-400">{client.rif}</p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mb-5">
+              <p className="text-xs font-bold text-gray-500 uppercase mb-2 ml-1">Descuento (%)</p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setDiscountPct((d) => Math.max(0, d - 5))} className="w-9 h-9 rounded-lg bg-gray-100 text-gray-700 font-black">-</button>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  inputMode="numeric"
+                  value={discountPct || ''}
+                  onChange={(e) => setDiscountPct(Math.min(100, Math.max(0, Number(e.target.value))))}
+                  placeholder="0"
+                  className="flex-1 text-center font-black text-lg border-b-2 border-gray-200 outline-none focus:border-blue-500 py-1 bg-transparent"
+                />
+                <button onClick={() => setDiscountPct((d) => Math.min(100, d + 5))} className="w-9 h-9 rounded-lg bg-gray-100 text-gray-700 font-black">+</button>
+              </div>
+              <div className="grid grid-cols-4 gap-1 mt-2 md:hidden">
+                {[0, 5, 10, 15].map((value) => (
+                  <button
+                    key={value}
+                    onClick={() => setDiscountPct(value)}
+                    className={`py-1.5 rounded-lg text-[11px] font-black transition ${discountPct === value ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                  >
+                    {value}%
+                  </button>
+                ))}
+              </div>
+              {discountPct > 0 && (
+                <p className="text-xs font-black text-red-500 mt-1 text-right">Descuento aplicado: {formatCurrency(discountAmount, 'USD')}</p>
+              )}
+            </div>
 
             {selectedClient && (
               <div className="bg-blue-50 border border-blue-100 p-3 rounded-xl mb-4 flex flex-col gap-2">
@@ -161,7 +300,24 @@ export function POSCheckoutModal({
                   <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Abono Inicial (Dejar en 0 si no paga nada)</label>
                   <div className="flex gap-2 items-center">
                     <span className="font-bold text-gray-400">$</span>
-                    <input type="number" step="0.01" className="w-full border-b-2 border-gray-200 outline-none focus:border-blue-500 font-bold text-lg py-1 bg-transparent" placeholder="0.00" value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
+                    <input type="number" step="0.01" inputMode="decimal" className="w-full border-b-2 border-gray-200 outline-none focus:border-blue-500 font-bold text-lg py-1 bg-transparent" placeholder="0.00" value={initialPayment} onChange={e => setInitialPayment(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-5 gap-1 mt-2 md:hidden">
+                    {[0, 10, 20, 50].map((amount) => (
+                      <button
+                        key={amount}
+                        onClick={() => setInitialPayment(String(amount))}
+                        className="py-1.5 rounded-lg bg-gray-100 text-gray-700 text-[11px] font-black"
+                      >
+                        ${amount}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setInitialPayment(String(totalUSD.toFixed(2)))}
+                      className="py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-black"
+                    >
+                      Total
+                    </button>
                   </div>
                   <div className="mt-2 text-right">
                     <span className="text-xs font-bold text-red-500">Resta por Cobrar: {formatCurrency(Math.max(0, totalUSD - (parseFloat(initialPayment) || 0)), 'USD')}</span>

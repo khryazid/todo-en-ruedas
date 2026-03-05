@@ -93,10 +93,22 @@ export const Dashboard = () => {
       setRemoteRecurringLoaded(true);
     };
 
-    fetchRecurringTemplates();
+    void fetchRecurringTemplates();
+
+    const recurringChannel = supabase
+      .channel('recurring-expenses-dashboard-page')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'recurring_expenses' },
+        () => {
+          void fetchRecurringTemplates();
+        }
+      )
+      .subscribe();
 
     return () => {
       cancelled = true;
+      void supabase.removeChannel(recurringChannel);
     };
   }, []);
 

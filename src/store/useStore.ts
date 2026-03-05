@@ -37,6 +37,28 @@ import { createStockMovementSlice } from './slices/stockMovementSlice';
 import { createCashLedgerSlice } from './slices/cashLedgerSlice';
 
 export const useStore = create<StoreState>((set, get) => ({
+  realtimeGuardReasons: [],
+  isRealtimeSyncPaused: false,
+  setRealtimeGuard: (reason, active) => {
+    set((state) => {
+      const alreadyExists = state.realtimeGuardReasons.includes(reason);
+      let nextReasons = state.realtimeGuardReasons;
+
+      if (active && !alreadyExists) {
+        nextReasons = [...state.realtimeGuardReasons, reason];
+      }
+
+      if (!active && alreadyExists) {
+        nextReasons = state.realtimeGuardReasons.filter((item) => item !== reason);
+      }
+
+      return {
+        realtimeGuardReasons: nextReasons,
+        isRealtimeSyncPaused: nextReasons.length > 0,
+      };
+    });
+  },
+
   ...createAuthSlice(set, get),
   ...createUserSlice(set, get),
   ...createSettingsSlice(set, get),

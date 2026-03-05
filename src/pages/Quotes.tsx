@@ -10,6 +10,7 @@ import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { fromEditableIntegerValue, fromEditableNumberValue, toEditableNumberValue } from '../utils/editableNumber';
 import { printMobileQuote } from '../utils/quoteGenerator';
 import { printQuoteReport } from '../utils/ticketGenerator';
+import { generateId } from '../utils/id';
 import {
     FileText, Plus, X, Save, Trash2, Search,
     CheckCircle, XCircle, Clock, Send, Eye, Printer,
@@ -121,7 +122,7 @@ export const Quotes = () => {
         const validUntil = new Date();
         validUntil.setDate(validUntil.getDate() + effectiveValidDays);
         const quote: Quote = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             number: nextNumber,
             date: new Date().toISOString(),
             validUntil: validUntil.toISOString(),

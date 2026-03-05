@@ -9,6 +9,7 @@ import { fromEditableNumberValue, toEditableNumberValue } from '../utils/editabl
 import { exportToCSV } from '../utils/exportCSV';
 import { supabase } from '../supabase/client';
 import { printInventoryReportA4 } from '../utils/ticketGenerator';
+import { generateId } from '../utils/id';
 import toast from 'react-hot-toast';
 import {
   Search, Plus, Package, Edit, Trash2, FileText, X, CheckCircle,
@@ -350,7 +351,7 @@ export const Inventory = () => {
   const confirmImport = async () => {
     if (!csvPreview) return;
     for (const p of csvPreview) {
-      await addProduct({ ...p, id: crypto.randomUUID(), customMargin: undefined, customVAT: undefined } as typeof products[0]);
+      await addProduct({ ...p, id: generateId(), customMargin: undefined, customVAT: undefined } as typeof products[0]);
     }
     setCsvPreview(null);
     alert(`✅ ${csvPreview.length} producto(s) importados exitosamente.`);

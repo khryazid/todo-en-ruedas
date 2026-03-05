@@ -19,6 +19,7 @@ import { DEFAULT_EXPENSE_CATEGORIES } from '../types';
 import toast from 'react-hot-toast';
 import { deriveRecurringTemplatesFromExpenses, loadRecurringTemplates, saveRecurringTemplates } from '../utils/recurringExpenses';
 import { supabase } from '../supabase/client';
+import { generateId } from '../utils/id';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 type Period = 'today' | 'week' | 'month' | 'all';
@@ -121,10 +122,22 @@ export const Expenses = () => {
             saveRecurringTemplates(mapped);
         };
 
-        fetchRecurringFromSupabase();
+        void fetchRecurringFromSupabase();
+
+        const recurringChannel = supabase
+            .channel('recurring-expenses-expenses-page')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'recurring_expenses' },
+                () => {
+                    void fetchRecurringFromSupabase();
+                }
+            )
+            .subscribe();
 
         return () => {
             cancelled = true;
+            void supabase.removeChannel(recurringChannel);
         };
     }, [defaultPaymentMethod]);
 
@@ -240,7 +253,7 @@ export const Expenses = () => {
         const amountUSD = recForm.currency === 'BS' ? amt / rate : amt;
         const item: RecurringExpense = {
             ...recForm,
-            id: editingRecurring?.id || crypto.randomUUID(),
+            id: editingRecurring?.id || generateId(),
             amountUSD: Math.round(amountUSD * 100) / 100,
             amountBS: recForm.currency === 'BS' ? amt : undefined,
         };

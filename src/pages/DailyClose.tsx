@@ -11,6 +11,7 @@ import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import { printTicket, printDailyCloseReport } from '../utils/ticketGenerator';
 import { supabase } from '../supabase/client';
+import { generateId } from '../utils/id';
 import { DollarSign, Printer, Lock, Clock, AlertTriangle, History, User, FileText, TrendingDown } from 'lucide-react';
 import type { CashClose } from '../types';
 
@@ -109,7 +110,7 @@ export const DailyClose = () => {
 
         if (window.confirm(confirmMessage)) {
             let nextSequenceNumber: number | null = null;
-            let reportIdentifier = crypto.randomUUID().slice(-6);
+            let reportIdentifier = generateId().slice(-6);
 
             if (reportType === 'Z') {
                 const newCloseResult = await performDailyClose({
@@ -189,7 +190,7 @@ export const DailyClose = () => {
             sellerBreakdown[name].totalUSD += s.totalUSD;
         });
 
-        const currentReportId = crypto.randomUUID().slice(-6);
+        const currentReportId = generateId().slice(-6);
         printDailyCloseReport({
             type: reportType,
             date: new Date().toLocaleString('es-VE'),

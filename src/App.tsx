@@ -12,6 +12,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { useStore } from './store/useStore';
 import { useSetupCheck } from './hooks/useSetupCheck';
+import { useRealtimeSync } from './hooks/useRealtimeSync';
 import { TopBar } from './components/layout/TopBar';
 import { GlobalSearch } from './components/GlobalSearch';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -68,13 +69,15 @@ const AccessDenied = () => (
 function App() {
   const { checkSession, user, isLoading } = useStore();
   const { needsSetup, isChecking } = useSetupCheck();
+  useRealtimeSync();
 
   useEffect(() => {
     checkSession();
   }, [checkSession]);
 
-  // Mostrar loader mientras verifica sesión o setup
-  if (isLoading || isChecking) {
+  // Mostrar loader solo durante arranque/check de sesión o setup.
+  // Si ya hay usuario autenticado, evitar bloqueo total por sincronizaciones en segundo plano.
+  if (isChecking || (isLoading && !user)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-gray-900">
         <div className="text-center">

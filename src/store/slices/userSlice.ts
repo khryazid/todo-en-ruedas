@@ -236,7 +236,8 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                 password: setupData.password,
                 options: {
                     data: {
-                        full_name: setupData.fullName
+                        full_name: setupData.fullName,
+                        role: 'ADMIN'
                     }
                 }
             });
@@ -267,13 +268,13 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
 
             const { error: userError } = await supabase
                 .from('users')
-                .insert({
+                .upsert({
                     id: loginData.user.id,
                     email: setupData.email,
                     full_name: setupData.fullName,
                     role: 'ADMIN',
                     is_active: true
-                });
+                }, { onConflict: 'id' });
 
             if (userError) {
                 await supabase.auth.signOut();
@@ -344,6 +345,8 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
         role: AppUser['role'];
     }) => {
         let authUserId: string | null = null;
+        const { data: sessionSnapshot } = await supabase.auth.getSession();
+        const previousSession = sessionSnapshot.session;
 
         try {
 
@@ -373,28 +376,37 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             authUserId = authData.user.id;
 
 
-            // 2. Crear registro en tabla users
+            // 2. Asegurar registro en tabla users (compatible con trigger auth->public)
 
             const { error: userError } = await supabase
                 .from('users')
-                .insert({
+                .upsert({
                     id: authUserId,
                     email: userData.email,
                     full_name: userData.fullName,
                     role: userData.role,
                     is_active: true
-                });
+                }, { onConflict: 'id' });
 
             if (userError) {
                 console.error('❌ Error al insertar en tabla users:', userError);
-                // IMPORTANTE: Si falla la tabla, intentar borrar el usuario de Auth
-                console.warn('⚠️ Intentando rollback: borrando usuario de Auth...');
                 throw new Error(`Error al crear registro en tabla: ${userError.message}`);
             }
 
+            // 3. Restaurar sesión previa para no cambiar de usuario en el navegador del admin.
+            if (previousSession) {
+                const { error: restoreError } = await supabase.auth.setSession({
+                    access_token: previousSession.access_token,
+                    refresh_token: previousSession.refresh_token,
+                });
+
+                if (restoreError) {
+                    console.warn('⚠️ No se pudo restaurar la sesión previa:', restoreError.message);
+                }
+            }
 
 
-            // 3. Registrar en auditoría
+            // 4. Registrar en auditoría
 
             await logAudit({
                 action: 'CREATE',
@@ -403,9 +415,10 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                 changes: { email: userData.email, role: userData.role }
             });
 
-            // 4. Actualizar estado local
+            // 5. Actualizar estado local
 
             await get().fetchUsers();
+            await get().fetchCurrentUserData();
 
 
             toast.success(`Usuario ${userData.fullName} creado. Se envió un correo de validación.`);
@@ -422,10 +435,8 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
             toast.error(`Error al crear usuario: ${errorMessage}`);
 
-            // Si se creó en Auth pero falló en tabla, mostrar mensaje específico
             if (authUserId) {
-                console.error('⚠️ ADVERTENCIA: Usuario creado en Auth pero no en tabla. ID:', authUserId);
-                toast.error('El usuario se creó parcialmente. Contacta al administrador.');
+                console.error('⚠️ ADVERTENCIA: Usuario creado parcialmente. ID:', authUserId);
             }
 
             return false;

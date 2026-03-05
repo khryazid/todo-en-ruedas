@@ -7,10 +7,56 @@ import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { Sale, Payment, SaleStatus } from '../../types';
 import type { SetState, GetState } from '../types';
+import { generateId } from '../../utils/id';
 
 export const createSaleSlice = (set: SetState, get: GetState) => ({
 
   sales: [] as Sale[],
+
+  fetchSales: async () => {
+    try {
+      const { data: salesData, error } = await supabase
+        .from('sales')
+        .select('*, sale_items(*), payments(*)')
+        .order('date', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      set({
+        sales: (salesData || []).map((s) => ({
+          id: s.id,
+          localId: s.local_id,
+          date: s.date,
+          clientId: s.client_id,
+          totalUSD: s.total_usd,
+          totalVED: s.total_ved,
+          paymentMethod: s.payment_method,
+          status: s.status,
+          paidAmountUSD: s.paid_amount_usd,
+          isCredit: s.is_credit || false,
+          userId: s.user_id || undefined,
+          sellerName: s.seller_name || undefined,
+          items: (s.sale_items || []).map((i: Record<string, unknown>) => ({
+            sku: i.sku || 'N/A',
+            name: i.product_name_snapshot || 'Producto',
+            quantity: i.quantity,
+            priceFinalUSD: i.unit_price_usd,
+            costUnitUSD: i.cost_unit_usd
+          })),
+          payments: (s.payments || []).map((p: Record<string, unknown>) => ({
+            id: p.id,
+            date: p.created_at,
+            amountUSD: p.amount_usd,
+            method: p.method,
+            note: p.note
+          }))
+        }))
+      });
+    } catch (error) {
+      console.warn('fetchSales realtime sync:', error);
+    }
+  },
 
   completeSale: async (paymentMethod: string, clientId?: string, initialPayment?: number) => {
     const { cart, settings, products, currentUserData } = get();
@@ -21,13 +67,33 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
       return null;
     }
 
+    // Validar contra stock en vivo para evitar desajustes por estado local desactualizado.
+    const cartProductIds = cart.map((item) => item.id);
+    const { data: liveProducts, error: liveProductsError } = await supabase
+      .from('products')
+      .select('id, stock')
+      .in('id', cartProductIds);
+
+    if (!liveProductsError && liveProducts) {
+      const liveStockById = new Map(liveProducts.map((row) => [row.id as string, Number(row.stock) || 0]));
+
+      set((state) => ({
+        products: state.products.map((p) => {
+          const liveStock = liveStockById.get(p.id);
+          return liveStock !== undefined ? { ...p, stock: liveStock } : p;
+        })
+      }));
+    }
+
     const invalidItem = cart.find((item) => {
-      const product = products.find((p) => p.id === item.id);
-      return !product || Number(item.quantity) > Number(product.stock);
+      const liveStock = liveProducts?.find((row) => row.id === item.id)?.stock;
+      const fallbackProduct = products.find((p) => p.id === item.id);
+      const available = liveStock !== undefined ? Number(liveStock) : Number(fallbackProduct?.stock ?? 0);
+      return !fallbackProduct || Number(item.quantity) > available;
     });
 
     if (invalidItem) {
-      const product = products.find((p) => p.id === invalidItem.id);
+      const product = get().products.find((p) => p.id === invalidItem.id);
       const currentStock = product ? Number(product.stock) : 0;
       toast.error(
         `⛔ STOCK INSUFICIENTE\n${invalidItem.name}\nSolicitas: ${invalidItem.quantity}\nDisponible: ${currentStock}`,
@@ -48,62 +114,44 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
 
       const isCredit = paidAmount < totalUSD - 0.01;
 
-      const { data: saleData, error: saleError } = await supabase.from('sales').insert({
-        client_id: clientId || null,
-        total_usd: totalUSD,
-        total_ved: totalVED,
-        payment_method: paymentMethod,
-        status: status,
-        paid_amount_usd: paidAmount,
-        date: new Date().toISOString(),
-        is_credit: isCredit,
-        // ✅ FIX #8/#9: Registrar quién realizó la venta
-        user_id: currentUserData?.id || null,
-        seller_name: currentUserData?.fullName || null,
-      }).select().single();
-
-      console.log("🛠️ SUPABASE INSERT RETORNO:", saleData);
-
-      if (saleError || !saleData) throw new Error(saleError?.message);
-
-      const saleItems = cart.map((item) => ({
-        sale_id: saleData.id,
+      const rpcItems = cart.map((item) => ({
         product_id: item.id,
-        quantity: item.quantity,
-        unit_price_usd: item.priceFinalUSD,
-        cost_unit_usd: item.cost,
-        product_name_snapshot: item.name,
-        sku: item.sku
+        sku: item.sku,
+        product_name: item.name,
+        quantity: Number(item.quantity),
+        unit_price_usd: Number(item.priceFinalUSD),
+        cost_unit_usd: Number(item.cost),
       }));
 
-      const { error: itemsError } = await supabase.from('sale_items').insert(saleItems);
-      if (itemsError) throw new Error(itemsError.message);
+      const { data: rpcData, error: saleError } = await supabase.rpc('process_sale_atomic', {
+        p_client_id: clientId || null,
+        p_payment_method: paymentMethod,
+        p_paid_amount_usd: paidAmount,
+        p_status: status,
+        p_total_usd: totalUSD,
+        p_total_ved: totalVED,
+        p_is_credit: isCredit,
+        p_user_id: currentUserData?.id || null,
+        p_seller_name: currentUserData?.fullName || null,
+        p_items: rpcItems,
+      });
 
-      if (paidAmount > 0) {
-        await supabase.from('payments').insert({
-          sale_id: saleData.id,
-          amount_usd: paidAmount,
-          method: paymentMethod,
-          note: 'Pago Inicial'
-        });
-      }
+      if (saleError || !rpcData || rpcData.length === 0) throw new Error(saleError?.message || 'No se pudo procesar la venta');
+      const saleData = rpcData[0] as { sale_id: string; local_id: number | null; sale_date: string };
 
       for (const item of cart) {
         const product = products.find((p) => p.id === item.id);
-        if (product) {
-          const newStock = Number(product.stock) - Number(item.quantity);
-          await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
-          // 📦 Log SALE movement
-          await get().addStockMovement({
-            productId: product.id,
-            productName: product.name,
-            sku: product.sku,
-            type: 'SALE',
-            qtyBefore: Number(product.stock),
-            qtyChange: -Number(item.quantity),
-            referenceId: saleData.id,
-          });
-        }
+        if (!product) continue;
+
+        await get().addStockMovement({
+          productId: product.id,
+          productName: product.name,
+          sku: product.sku,
+          type: 'SALE',
+          qtyBefore: Number(product.stock),
+          qtyChange: -Number(item.quantity),
+          referenceId: saleData.sale_id,
+        });
       }
 
       // 🚀 FAILSAFE: Si Supabase (vía PostgREST caché) no devuelve todavía la nueva columna local_id
@@ -118,26 +166,38 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
           : undefined;
 
         await get().recordCashMovement({
-          date: saleData.date,
+          date: saleData.sale_date,
           direction: 'IN',
           kind: 'VENTA_COBRADA',
           amountUSD: paidAmount,
           amountBS,
           currency: methodCurrency,
           paymentMethod,
-          description: `Cobro inicial de venta #${calculatedLocalId || saleData.id.slice(-6)}`,
+          description: `Cobro inicial de venta #${calculatedLocalId || saleData.sale_id.slice(-6)}`,
           referenceType: 'sale-payment',
-          referenceId: `${saleData.id}:initial`,
+          referenceId: `${saleData.sale_id}:initial`,
           userId: currentUserData?.id,
           sellerName: currentUserData?.fullName,
         });
       }
 
+      // Tomar stock real post-venta para evitar desajustes visuales en POS bajo concurrencia.
+      const affectedProductIds = cart.map((item) => item.id);
+      const { data: updatedStocksData } = await supabase
+        .from('products')
+        .select('id, stock')
+        .in('id', affectedProductIds);
+
+      const stockById = new Map<string, number>(
+        (updatedStocksData || []).map((row) => [String(row.id), Number(row.stock) || 0])
+      );
+      const hasSyncedStocks = stockById.size > 0;
+
       // Incremental update: build sale locally and update stock
       const newSale: Sale = {
-        id: saleData.id,
+        id: saleData.sale_id,
         localId: calculatedLocalId,
-        date: saleData.date,
+        date: saleData.sale_date,
         clientId: clientId || undefined,
         totalUSD,
         totalVED,
@@ -156,7 +216,7 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
           costUnitUSD: item.cost
         })),
         payments: paidAmount > 0 ? [{
-          id: crypto.randomUUID(),
+          id: generateId(),
           date: new Date().toISOString(),
           amountUSD: paidAmount,
           method: paymentMethod,
@@ -168,22 +228,47 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         cart: [],
         sales: [newSale, ...state.sales],
         products: state.products.map((p) => {
-          const cartItem = cart.find((ci) => ci.id === p.id);
-          if (cartItem) {
-            return { ...p, stock: Number(p.stock) - Number(cartItem.quantity) };
+          const syncedStock = stockById.get(p.id);
+          if (syncedStock !== undefined) {
+            return { ...p, stock: syncedStock };
           }
+
+          if (!hasSyncedStocks) {
+            const cartItem = cart.find((ci) => ci.id === p.id);
+            if (cartItem) {
+              return { ...p, stock: Number(p.stock) - Number(cartItem.quantity) };
+            }
+          }
+
           return p;
         })
       }));
 
       toast.dismiss(loadingToast);
-      toast.success(`✅ Venta Registrada\nTicket #${calculatedLocalId || saleData.id.slice(-6)}`);
+      toast.success(`✅ Venta Registrada\nTicket #${calculatedLocalId || saleData.sale_id.slice(-6)}`);
 
       return newSale;
 
     } catch (error: unknown) {
       toast.dismiss(loadingToast);
-      toast.error(`Error crítico: ${(error as Error).message}`);
+      const message = (error as Error).message || 'Error desconocido';
+
+      if (message.includes('STOCK_INSUFICIENTE:')) {
+        const match = message.match(/STOCK_INSUFICIENTE:([^:]+):disponible=([^,]+),solicitado=(.+)$/);
+        if (match) {
+          const [, productId, availableRaw, requestedRaw] = match;
+          await get().fetchProducts();
+          const product = get().products.find((p) => p.id === productId);
+          const productName = product?.name || 'Producto';
+          toast.error(
+            `⛔ STOCK ACTUALIZADO\n${productName}\nSolicitaste: ${requestedRaw}\nDisponible real: ${availableRaw}`,
+            { duration: 6000, style: { border: '2px solid red' } }
+          );
+          return null;
+        }
+      }
+
+      toast.error(`Error crítico: ${message}`);
       return null;
     }
     // ✅ FIX TypeScript: retorno explícito para garantizar Promise<Sale | null>
