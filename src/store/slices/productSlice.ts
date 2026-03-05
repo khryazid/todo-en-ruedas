@@ -12,6 +12,30 @@ export const createProductSlice = (set: SetState, get: GetState) => ({
 
   products: [] as Product[],
 
+  fetchProducts: async () => {
+    try {
+      const { data: productsData, error } = await supabase.from('products').select('*');
+      if (error) throw error;
+
+      set({
+        products: (productsData || []).map((p) => ({
+          id: p.id,
+          sku: p.sku,
+          name: p.name,
+          category: p.category || 'General',
+          stock: Number(p.stock) || 0,
+          minStock: Number(p.min_stock) || 0,
+          cost: Number(p.cost) || 0,
+          costType: p.cost_type || 'BCV',
+          freight: Number(p.freight) || 0,
+          supplier: p.supplier || 'General'
+        }))
+      });
+    } catch (error) {
+      console.warn('fetchProducts realtime sync:', error);
+    }
+  },
+
   addProduct: async (product: Product) => {
     try {
       const { data, error } = await supabase.from('products').insert({
@@ -76,6 +100,51 @@ export const createProductSlice = (set: SetState, get: GetState) => ({
       toast.success("Producto actualizado");
     } catch (error: unknown) {
       toast.error("Error al actualizar: " + (error as Error).message);
+    }
+  },
+
+  adjustProductStock: async (id: string, delta: number, updates?: Partial<Product>) => {
+    try {
+      const currentProduct = get().products.find((p) => p.id === id);
+      const { data, error } = await supabase.rpc('adjust_product_stock', {
+        p_product_id: id,
+        p_delta: delta,
+      });
+      if (error) throw error;
+
+      const newStock = Number(data);
+
+      const dbUpdates: Record<string, unknown> = {};
+      if (updates?.name !== undefined) dbUpdates.name = updates.name;
+      if (updates?.cost !== undefined) dbUpdates.cost = updates.cost;
+      if (updates?.minStock !== undefined) dbUpdates.min_stock = updates.minStock;
+      if (updates?.category !== undefined) dbUpdates.category = updates.category;
+      if (updates?.supplier !== undefined) dbUpdates.supplier = updates.supplier;
+      if (updates?.costType !== undefined) dbUpdates.cost_type = updates.costType;
+      if (updates?.freight !== undefined) dbUpdates.freight = updates.freight;
+
+      if (Object.keys(dbUpdates).length > 0) {
+        const { error: updateError } = await supabase.from('products').update(dbUpdates).eq('id', id);
+        if (updateError) throw updateError;
+      }
+
+      set((state) => ({
+        products: state.products.map((p) => p.id === id ? { ...p, ...updates, stock: newStock } : p)
+      }));
+
+      if (currentProduct && delta !== 0) {
+        await get().addStockMovement({
+          productId: id,
+          productName: currentProduct.name,
+          sku: currentProduct.sku,
+          type: 'ADJUSTMENT',
+          qtyBefore: currentProduct.stock,
+          qtyChange: delta,
+          reason: 'Ajuste de stock atomico',
+        });
+      }
+    } catch (error: unknown) {
+      toast.error('Error ajustando stock: ' + (error as Error).message);
     }
   },
 

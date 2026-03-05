@@ -10,6 +10,7 @@ import { formatCurrency, calculatePrices } from '../utils/pricing';
 import { fromEditableIntegerValue, fromEditableNumberValue, toEditableNumberValue } from '../utils/editableNumber';
 import { printMobileQuote } from '../utils/quoteGenerator';
 import { printQuoteReport } from '../utils/ticketGenerator';
+import { generateId } from '../utils/id';
 import {
     FileText, Plus, X, Save, Trash2, Search,
     CheckCircle, XCircle, Clock, Send, Eye, Printer,
@@ -121,7 +122,7 @@ export const Quotes = () => {
         const validUntil = new Date();
         validUntil.setDate(validUntil.getDate() + effectiveValidDays);
         const quote: Quote = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             number: nextNumber,
             date: new Date().toISOString(),
             validUntil: validUntil.toISOString(),
@@ -322,22 +323,13 @@ export const Quotes = () => {
                                                     onChange={e => updateItemQty(item.productId, fromEditableIntegerValue(e.target.value, 0))}
                                                     className="col-span-2 border border-gray-200 rounded-lg text-center p-1 text-sm font-bold w-full"
                                                 />
-<<<<<<< HEAD
-                                                <input type="number" min={0} step={0.01} value={item.priceFinalUSD}
-                                                    onChange={e => updateItemPrice(item.productId, e.target.value === '' ? ('' as any) : parseFloat(e.target.value))}
-=======
                                                 <input type="number" min={0} step={0.01} value={toEditableNumberValue(item.priceFinalUSD)}
                                                     onChange={e => updateItemPrice(item.productId, fromEditableNumberValue(e.target.value))}
->>>>>>> QA
                                                     className="col-span-2 border border-gray-200 rounded-lg text-center p-1 text-sm font-bold w-full"
                                                 />
                                                 <div className="col-span-2 relative">
                                                     <input type="number" min={0} max={100} step={1} value={item.discountPct ?? ''}
-<<<<<<< HEAD
-                                                        onChange={e => updateItemDiscount(item.productId, e.target.value === '' ? ('' as any) : parseFloat(e.target.value))}
-=======
                                                         onChange={e => updateItemDiscount(item.productId, fromEditableNumberValue(e.target.value))}
->>>>>>> QA
                                                         placeholder="0"
                                                         className="border border-red-200 rounded-lg text-center p-1 text-sm font-bold w-full text-red-600 focus:border-red-400 outline-none"
                                                     />

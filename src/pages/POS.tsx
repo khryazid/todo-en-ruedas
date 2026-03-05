@@ -18,19 +18,20 @@ import { printInvoice, sendToWhatsApp } from '../utils/ticketGenerator';
 import {
     User, Search, FileText,
     X, UserPlus, Minus, Plus, Trash2, DollarSign,
-    LayoutGrid, List, Star, Barcode
+    LayoutGrid, List, Star, Barcode, ShoppingCart
 } from 'lucide-react';
 import type { Product, Client, Sale, Quote, PriceList } from '../types';
 import { QuickClientModal } from '../components/QuickClientModal';
 import { useDebounce } from '../hooks/useDebounce';
 import { ProductCard } from '../components/pos/ProductCard';
 import { POSCheckoutModal } from '../components/pos/POSCheckoutModal';
+import { generateId } from '../utils/id';
 
 // =============================================
 // COMPONENTE PRINCIPAL: POS
 // =============================================
 export const POS = () => {
-    const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, recalculateCartPrices, completeSale, settings, paymentMethods, sales, addQuote, quotes, applyClientCredit } = useStore();
+    const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, recalculateCartPrices, completeSale, settings, paymentMethods, sales, addQuote, quotes, applyClientCredit, setRealtimeGuard, fetchProducts } = useStore();
     const location = useLocation();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -52,9 +53,13 @@ export const POS = () => {
     // 🆕 MEJORAS UX POS
     const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+    const [mobileView, setMobileView] = useState<'products' | 'cart'>('products');
+    const [sheetOffsetY, setSheetOffsetY] = useState(0);
+    const [isDraggingSheet, setIsDraggingSheet] = useState(false);
     const [showSearchDropdown, setShowSearchDropdown] = useState(false);
     const searchRef = useRef<HTMLInputElement>(null);
     const searchContainerRef = useRef<HTMLDivElement>(null);
+    const sheetDragStartYRef = useRef<number | null>(null);
 
     // ✅ RECALCULAR PRECIOS DEL CARRITO SI CAMBIA EL CLIENTE
     useEffect(() => {
@@ -215,6 +220,41 @@ export const POS = () => {
         return () => document.removeEventListener('mousedown', handleOutside);
     }, []);
 
+    useEffect(() => {
+        if (mobileView === 'cart') return;
+        setSheetOffsetY(0);
+        setIsDraggingSheet(false);
+        sheetDragStartYRef.current = null;
+    }, [mobileView]);
+
+    const handleSheetTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+        if (!window.matchMedia('(max-width: 768px)').matches) return;
+        sheetDragStartYRef.current = e.touches[0]?.clientY ?? null;
+        setIsDraggingSheet(true);
+    };
+
+    const handleSheetTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+        if (!window.matchMedia('(max-width: 768px)').matches) return;
+        const startY = sheetDragStartYRef.current;
+        if (startY === null) return;
+
+        const currentY = e.touches[0]?.clientY ?? startY;
+        const deltaY = Math.max(0, currentY - startY);
+        setSheetOffsetY(Math.min(deltaY, 320));
+    };
+
+    const handleSheetTouchEnd = () => {
+        if (!window.matchMedia('(max-width: 768px)').matches) return;
+
+        if (sheetOffsetY > 120) {
+            setMobileView('products');
+        }
+
+        setSheetOffsetY(0);
+        setIsDraggingSheet(false);
+        sheetDragStartYRef.current = null;
+    };
+
     // Handler estable para addToCart con validación de stock y lista de precio
     const handleAddToCart = useCallback((product: Product) => {
         const itemInCart = cart.find(item => item.id === product.id);
@@ -243,6 +283,45 @@ export const POS = () => {
             }, 0);
         }
     }, [isCheckoutModalOpen, completedSale]);
+
+    useEffect(() => {
+        // Mantener sync de stock en vivo aunque exista carrito; solo pausar en el cobro.
+        const isCriticalFlowActive = isCheckoutModalOpen;
+        setRealtimeGuard('pos-active-sale', isCriticalFlowActive);
+
+        return () => {
+            setRealtimeGuard('pos-active-sale', false);
+        };
+    }, [isCheckoutModalOpen, setRealtimeGuard]);
+
+    useEffect(() => {
+        const refreshProducts = () => {
+            void fetchProducts();
+        };
+
+        // Fallback de sincronizacion para stock si realtime falla temporalmente.
+        const intervalMs = window.matchMedia('(max-width: 768px)').matches ? 8000 : 4000;
+        const intervalId = window.setInterval(refreshProducts, intervalMs);
+
+        const handleFocus = () => {
+            refreshProducts();
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') refreshProducts();
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        refreshProducts();
+
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [fetchProducts]);
 
     const currentClientDebt = (() => {
         if (!selectedClient) return 0;
@@ -297,6 +376,7 @@ export const POS = () => {
             }
             setCompletedSale(sale);
             setIsCheckoutModalOpen(false);
+            setMobileView('products');
         } else {
             setIsCheckoutModalOpen(false);
         }
@@ -312,7 +392,7 @@ export const POS = () => {
         validUntil.setDate(validUntil.getDate() + 7); // Default 7 days
 
         const quote: Quote = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             number: nextNumber,
             date: new Date().toISOString(),
             validUntil: validUntil.toISOString(),
@@ -352,12 +432,25 @@ export const POS = () => {
     const handleNewSale = () => {
         setCompletedSale(null);
         clearClient();
+        setMobileView('products');
+    };
+
+    const handleSelectClientById = (clientId: string) => {
+        if (!clientId) {
+            clearClient();
+            return;
+        }
+
+        const client = clients.find((item) => item.id === clientId) || null;
+        if (client) {
+            handleSelectClient(client);
+        }
     };
 
     return (
-        <div className="flex flex-col md:flex-row h-[calc(100vh-3.5rem)] bg-gray-100 w-full overflow-hidden">
+        <div className="flex flex-col md:flex-row h-[calc(100vh-3.5rem)] bg-gray-100 w-full overflow-hidden pb-20 md:pb-0">
             {/* IZQUIERDA: CATÁLOGO */}
-            <div className="flex-1 flex flex-col min-h-0 min-w-0">
+            <div className={`${mobileView === 'products' ? 'flex opacity-100 translate-y-0' : 'hidden opacity-0 translate-y-2'} md:flex flex-1 flex-col min-h-0 min-w-0 transition-all duration-200`}>
 
                 {/* BARRA SUPERIOR: BÚSQUEDA + TOGGLE */}
                 <div className="p-3 bg-white border-b border-gray-200 shadow-sm z-20 space-y-2">
@@ -437,6 +530,22 @@ export const POS = () => {
                             </button>
                         ))}
                     </div>
+
+                    {/* NAVEGACIÓN MÓVIL PRODUCTOS/CARRITO */}
+                    <div className="md:hidden grid grid-cols-2 gap-2 pt-1">
+                        <button
+                            onClick={() => setMobileView('products')}
+                            className={`px-3 py-2 rounded-xl text-xs font-black transition ${mobileView === 'products' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'}`}
+                        >
+                            Productos
+                        </button>
+                        <button
+                            onClick={() => setMobileView('cart')}
+                            className={`px-3 py-2 rounded-xl text-xs font-black transition ${mobileView === 'cart' ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600'}`}
+                        >
+                            Carrito ({cart.length})
+                        </button>
+                    </div>
                 </div>
 
                 {/* BAR TOP VENDIDOS */}
@@ -510,8 +619,37 @@ export const POS = () => {
                 </div>
             </div>
 
+            {mobileView === 'cart' && (
+                <button
+                    onClick={() => setMobileView('products')}
+                    className="md:hidden fixed inset-0 bg-black/35 z-30"
+                    aria-label="Cerrar carrito"
+                />
+            )}
+
             {/* DERECHA: CARRITO */}
-            <div className="w-full md:w-[380px] md:flex-shrink-0 bg-white border-t md:border-t-0 md:border-l border-gray-200 flex flex-col shadow-[0_-4px_20px_rgba(0,0,0,0.1)] md:shadow-none z-20">
+            <div
+                className={`${mobileView === 'cart' ? 'flex fixed inset-x-0 bottom-0 h-[82vh] rounded-t-3xl z-40' : 'hidden'} md:relative md:top-auto md:inset-auto md:z-20 md:flex md:h-auto md:rounded-none w-full md:w-[380px] md:flex-shrink-0 bg-white border-t md:border-t-0 md:border-l border-gray-200 flex-col shadow-[0_-8px_30px_rgba(0,0,0,0.18)] md:shadow-none transition-transform duration-200`}
+                style={{ transform: `translateY(${sheetOffsetY}px)`, transitionDuration: isDraggingSheet ? '0ms' : '200ms' }}
+            >
+                <div
+                    className="md:hidden pt-2 flex justify-center"
+                    onTouchStart={handleSheetTouchStart}
+                    onTouchMove={handleSheetTouchMove}
+                    onTouchEnd={handleSheetTouchEnd}
+                    onTouchCancel={handleSheetTouchEnd}
+                >
+                    <div className="w-14 h-1.5 rounded-full bg-gray-300" />
+                </div>
+                <div className="md:hidden px-3 py-2 border-b border-gray-100 flex items-center justify-between bg-white">
+                    <p className="font-black text-sm text-gray-800">Carrito Activo</p>
+                    <button
+                        onClick={() => setMobileView('products')}
+                        className="px-3 py-1.5 text-xs font-bold rounded-lg bg-gray-100 text-gray-600"
+                    >
+                        Volver
+                    </button>
+                </div>
                 <div className="p-3 bg-blue-50/50 border-b border-blue-100 flex items-center gap-2 relative" ref={clientListRef}>
                     <User size={18} className="text-blue-600 flex-shrink-0" />
                     <div className="relative flex-1 flex gap-2">
@@ -588,7 +726,7 @@ export const POS = () => {
                     </div>
                 )}
 
-                <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50 custom-scrollbar max-h-[20vh] md:max-h-none">
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50 custom-scrollbar max-h-none">
                     {cart.map(item => (
                         <div key={item.id} className="flex justify-between items-center bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm animate-in slide-in-from-right-2 fade-in duration-200">
                             <div className="flex-1 min-w-0 pr-2">
@@ -597,9 +735,9 @@ export const POS = () => {
                                 <p className="text-[11px] text-blue-600 font-black mt-0.5">{formatCurrency(item.priceFinalUSD, 'USD')}</p>
                             </div>
                             <div className="flex flex-col items-end gap-1">
-                                <div className="flex items-center border rounded-lg overflow-hidden bg-gray-50">
-                                    <button onClick={() => updateCartQuantity(item.id, item.quantity - 1)} className="p-1 hover:bg-gray-200 text-gray-600 transition"><Minus size={12} /></button>
-                                    <span className="text-xs font-bold w-6 text-center bg-white border-x border-gray-100 h-full flex items-center justify-center">{item.quantity}</span>
+                                <div className="flex items-center border rounded-xl overflow-hidden bg-gray-50">
+                                    <button onClick={() => updateCartQuantity(item.id, item.quantity - 1)} className="w-9 h-9 md:w-7 md:h-7 hover:bg-gray-200 text-gray-600 transition flex items-center justify-center"><Minus size={14} /></button>
+                                    <span className="text-sm md:text-xs font-black w-10 md:w-6 text-center bg-white border-x border-gray-100 h-9 md:h-7 flex items-center justify-center">{item.quantity}</span>
                                     <button onClick={() => {
                                         const p = products.find(prod => prod.id === item.id);
                                         if (p && item.quantity + 1 > p.stock) {
@@ -607,34 +745,18 @@ export const POS = () => {
                                             return;
                                         }
                                         updateCartQuantity(item.id, item.quantity + 1);
-                                    }} className="p-1 hover:bg-gray-200 text-gray-600 transition"><Plus size={12} /></button>
+                                    }} className="w-9 h-9 md:w-7 md:h-7 hover:bg-gray-200 text-gray-600 transition flex items-center justify-center"><Plus size={14} /></button>
                                 </div>
-                                <button onClick={() => removeFromCart(item.id)} className="text-[10px] text-red-400 hover:text-red-600 font-bold flex items-center gap-1"><Trash2 size={10} /></button>
+                                <button onClick={() => removeFromCart(item.id)} className="text-[11px] text-red-400 hover:text-red-600 font-bold flex items-center gap-1"><Trash2 size={12} /></button>
                             </div>
                         </div>
                     ))}
                 </div>
 
                 <div className="p-4 bg-white border-t border-gray-200 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-                    {/* Campo de descuento */}
-                    <div className="flex items-center gap-2 mb-3">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase whitespace-nowrap">Desc. %</span>
-                        <div className="flex items-center border-2 border-dashed border-gray-200 rounded-lg overflow-hidden flex-1">
-                            <button onClick={() => setDiscountPct(d => Math.max(0, d - 5))} className="px-2 py-1 text-gray-500 hover:bg-gray-100 font-black text-sm transition">−</button>
-                            <input
-                                type="number" min="0" max="100" step="1"
-                                value={discountPct || ''}
-                                onChange={e => setDiscountPct(Math.min(100, Math.max(0, Number(e.target.value))))}
-                                placeholder="0"
-                                className="w-12 text-center font-black text-sm bg-transparent outline-none"
-                            />
-                            <span className="text-gray-400 text-xs font-bold pr-1">%</span>
-                            <button onClick={() => setDiscountPct(d => Math.min(100, d + 5))} className="px-2 py-1 text-gray-500 hover:bg-gray-100 font-black text-sm transition">+</button>
-                        </div>
-                        {discountPct > 0 && (
-                            <span className="text-xs font-black text-red-500 whitespace-nowrap">-{formatCurrency(discountAmount, 'USD')}</span>
-                        )}
-                    </div>
+                    {discountPct > 0 && (
+                        <p className="text-xs font-black text-red-500 mb-2 text-right">Descuento en cobro: -{formatCurrency(discountAmount, 'USD')}</p>
+                    )}
                     <div className="flex justify-between items-end pt-1 mb-4">
                         <div className="text-left">
                             <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Total a Pagar</p>
@@ -653,10 +775,15 @@ export const POS = () => {
             <POSCheckoutModal
                 isOpen={isCheckoutModalOpen}
                 completedSale={completedSale}
+                clients={clients}
                 selectedClient={selectedClient}
+                onSelectClientById={handleSelectClientById}
                 settings={settings}
                 totalUSD={totalUSD}
                 totalBs={totalBs}
+                discountPct={discountPct}
+                setDiscountPct={setDiscountPct}
+                discountAmount={discountAmount}
                 currentClientDebt={currentClientDebt}
                 isCreditSale={isCreditSale}
                 setIsCreditSale={setIsCreditSale}
@@ -683,6 +810,33 @@ export const POS = () => {
                     setApplyCredit(false);
                 }}
             />
+
+            {/* BARRA RÁPIDA MÓVIL */}
+            <div className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-gray-200 px-3 py-2">
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => setMobileView('cart')}
+                        className="flex-1 rounded-xl bg-gray-100 px-3 py-2.5 text-left"
+                    >
+                        <p className="text-[10px] uppercase font-black tracking-wide text-gray-400">Carrito</p>
+                        <p className="text-sm font-black text-gray-800 flex items-center gap-1">
+                            <ShoppingCart size={14} className="text-gray-500" />
+                            {cart.length} item{cart.length !== 1 ? 's' : ''}
+                        </p>
+                    </button>
+                    <button
+                        onClick={() => {
+                            setMobileView('products');
+                            setIsCheckoutModalOpen(true);
+                        }}
+                        disabled={cart.length === 0}
+                        className="flex-1 rounded-xl bg-red-600 text-white px-3 py-2.5 disabled:opacity-50"
+                    >
+                        <p className="text-[10px] uppercase font-black tracking-wide text-red-100">Total</p>
+                        <p className="text-sm font-black">{formatCurrency(totalUSD, 'USD')} · Cobrar</p>
+                    </button>
+                </div>
+            </div>
         </div >
     );
 };

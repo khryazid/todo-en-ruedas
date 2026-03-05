@@ -10,6 +10,7 @@ import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import { fromEditableNumberValue, toEditableNumberValue } from '../utils/editableNumber';
 import { printInvoice, sendToWhatsApp } from '../utils/ticketGenerator';
+import { generateId } from '../utils/id';
 import {
     Users, Search, Plus, Edit, Trash2,
     Phone, MapPin, X, Save,
@@ -73,7 +74,7 @@ export const Clients = () => {
             updateClient(formData.id, formData);
             alert("Cliente actualizado");
         } else {
-            addClient({ ...formData, id: crypto.randomUUID() });
+            addClient({ ...formData, id: generateId() });
             alert("Cliente registrado exitosamente");
         }
         closeModal();

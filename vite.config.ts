@@ -3,41 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined
-
-          if (id.includes('react') || id.includes('scheduler')) {
-            return 'vendor-react'
-          }
-
-          if (id.includes('react-router-dom')) {
-            return 'vendor-router'
-          }
-
-          if (id.includes('@supabase/supabase-js')) {
-            return 'vendor-supabase'
-          }
-
-          if (id.includes('recharts') || id.includes('d3-')) {
-            return 'vendor-charts'
-          }
-
-          if (id.includes('lucide-react')) {
-            return 'vendor-icons'
-          }
-
-          if (id.includes('react-hook-form') || id.includes('@hookform/resolvers') || id.includes('zod')) {
-            return 'vendor-forms'
-          }
-
-          return 'vendor-misc'
-        }
-      }
-    }
-  },
+  build: {},
   plugins: [
     react(),
     VitePWA({
@@ -73,6 +39,9 @@ export default defineConfig({
         ]
       },
       workbox: {
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {

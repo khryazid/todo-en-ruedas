@@ -12,6 +12,30 @@ export const createClientSlice = (set: SetState, get: GetState) => ({
 
   clients: [] as Client[],
 
+  fetchClients: async () => {
+    try {
+      const { data: clientsData, error } = await supabase.from('clients').select('*');
+      if (error) throw error;
+
+      set({
+        clients: (clientsData || []).map((c) => ({
+          id: c.id,
+          name: c.name,
+          rif: c.rif,
+          phone: c.phone ?? undefined,
+          address: c.address ?? undefined,
+          email: c.email ?? undefined,
+          notes: c.notes ?? undefined,
+          creditLimit: c.credit_limit ? Number(c.credit_limit) : undefined,
+          priceList: c.price_list ?? undefined,
+          creditBalance: c.credit_balance ? Number(c.credit_balance) : 0,
+        }))
+      });
+    } catch (error) {
+      console.warn('fetchClients realtime sync:', error);
+    }
+  },
+
   addClient: async (client: Client) => {
     try {
       const { data, error } = await supabase.from('clients').insert({

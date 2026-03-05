@@ -26,6 +26,52 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
 
   paymentMethods: [] as PaymentMethod[],
 
+  fetchSettingsData: async () => {
+    try {
+      const { data: settingsData } = await supabase.from('settings').select('*').single();
+      const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*');
+
+      if (settingsData) {
+        set((state) => ({
+          settingsId: settingsData.id,
+          settings: {
+            ...state.settings,
+            companyName: settingsData.company_name || 'Glyph Core',
+            salePrinterProfile: 'default',
+            rif: settingsData.rif.split('-')[1] || settingsData.rif,
+            rifType: settingsData.rif.split('-')[0] || 'J',
+            address: settingsData.address,
+            tasaBCV: settingsData.tasa_bcv,
+            tasaTH: settingsData.tasa_monitor,
+            showMonitorRate: settingsData.show_monitor_rate,
+            lastCloseDate: settingsData.last_close_date || undefined,
+            printerCurrency: settingsData.printer_currency,
+            defaultMargin: settingsData.default_margin ?? state.settings.defaultMargin,
+            defaultVAT: settingsData.default_vat ?? state.settings.defaultVAT,
+            shiftStart: settingsData.shift_start || '08:00',
+            showSellerCommission: settingsData.show_seller_commission ?? false,
+            sellerCommissionPct: settingsData.seller_commission_pct ?? 5,
+            marginMayorista: settingsData.margin_mayorista ?? 0,
+            marginEspecial: settingsData.margin_especial ?? 0,
+          }
+        }));
+      }
+
+      if (paymentMethodsData && paymentMethodsData.length > 0) {
+        set({
+          paymentMethods: paymentMethodsData.map((pm) => ({
+            id: pm.id,
+            name: pm.name,
+            currency: pm.currency,
+            commissionPct: Number(pm.commission_pct) || 0,
+          }))
+        });
+      }
+    } catch (error) {
+      console.warn('fetchSettingsData realtime sync:', error);
+    }
+  },
+
   updateSettings: async (newSettings: AppSettings) => {
     set({ settings: newSettings });
     try {

@@ -13,37 +13,59 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
   invoices: [] as Invoice[],
   suppliers: [] as Supplier[],
 
+  fetchSuppliers: async () => {
+    try {
+      const { data: suppliersData, error } = await supabase.from('suppliers').select('*');
+      if (error) throw error;
+
+      set({
+        suppliers: (suppliersData || []).map((s) => ({
+          id: s.id,
+          name: s.name,
+          rif: s.rif ?? undefined,
+          rifType: s.rif_type ?? undefined,
+          contactName: s.contact_name ?? undefined,
+          phone: s.phone ?? undefined,
+          email: s.email ?? undefined,
+          address: s.address ?? undefined,
+          category: s.category ?? undefined,
+          notes: s.notes ?? undefined,
+          createdAt: s.created_at ?? undefined,
+        }))
+      });
+    } catch (error) {
+      console.warn('fetchSuppliers realtime sync:', error);
+    }
+  },
+
+  fetchInvoices: async () => {
+    try {
+      const { data: invoicesData, error } = await supabase.from('invoices').select('*');
+      if (error) throw error;
+
+      const suppliers = get().suppliers;
+
+      set({
+        invoices: (invoicesData || []).map((inv) => ({
+          ...inv,
+          supplier: suppliers.find((s) => s.id === inv.supplier)?.name || inv.supplier,
+          subtotalUSD: inv.subtotal_usd,
+          freightTotalUSD: inv.freight_total_usd,
+          totalUSD: inv.total_usd,
+          paidAmountUSD: inv.paid_amount_usd,
+          dateIssue: inv.date_issue,
+          dateDue: inv.date_due,
+          payments: inv.payments || []
+        }))
+      });
+    } catch (error) {
+      console.warn('fetchInvoices realtime sync:', error);
+    }
+  },
+
   addInvoice: async (invoice: Invoice) => {
     const loadingToast = toast.loading("Registrando factura...");
     try {
-<<<<<<< HEAD
-      // 1. Resolve Supplier UUID (invoices expects UUID, products expects string name)
-      let supplierId = invoice.supplier;
-      let supplierName = invoice.supplier;
-
-      let existingSupplier = get().suppliers.find(s =>
-        s.name.trim().toLowerCase() === invoice.supplier.trim().toLowerCase() ||
-        s.id === invoice.supplier
-      );
-
-      if (!existingSupplier) {
-        // Create the missing supplier on the fly
-        const { data: supData, error: supError } = await supabase.from('suppliers').insert({
-          name: invoice.supplier.trim() || 'Proveedor Automático'
-        }).select().single();
-
-        if (supError) throw new Error(`No se pudo crear el proveedor: ${supError.message}`);
-        existingSupplier = supData as Supplier;
-
-        // Update local state so it appears in Dropdowns
-        set(state => ({ suppliers: [...state.suppliers, existingSupplier as Supplier] }));
-      }
-
-      supplierId = existingSupplier!.id;
-      supplierName = existingSupplier!.name;
-
-      // 2. Insert Invoice using the UUID
-=======
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       const normalize = (value: string) => value.trim().toLowerCase();
       const suppliers = get().suppliers;
@@ -68,7 +90,6 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
         }
       }
 
->>>>>>> QA
       const { data: invoiceData, error } = await supabase.from('invoices').insert({
         number: invoice.number,
         supplier: supplierId,
@@ -92,26 +113,15 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
         ? Math.round((invoice.freightTotalUSD / totalItemsQuantity) * 100) / 100
         : 0;
 
-      // Track product updates for incremental state update
-      const updatedProducts: Map<string, Partial<Product> & { id: string }> = new Map();
       const newProducts: Product[] = [];
 
       for (const item of invoice.items) {
         const existing = get().products.find((p) => p.sku === item.sku);
         if (existing) {
-          await supabase.from('products').update({
-            stock: Number(existing.stock) + Number(item.quantity),
-            cost: item.costUnitUSD,
-            cost_type: invoice.costType,
-            freight: unitFreight
-          }).eq('id', existing.id);
-
-          updatedProducts.set(existing.id, {
-            id: existing.id,
-            stock: Number(existing.stock) + Number(item.quantity),
+          await get().adjustProductStock(existing.id, Number(item.quantity), {
             cost: item.costUnitUSD,
             costType: invoice.costType,
-            freight: unitFreight
+            freight: unitFreight,
           });
         } else {
           const { data: newProdData } = await supabase.from('products').insert({
@@ -122,11 +132,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
             min_stock: item.minStock,
             category: 'General',
             cost_type: invoice.costType,
-<<<<<<< HEAD
-            supplier: supplierName, // Products table expects TEXT for supplier
-=======
             supplier: supplierName,
->>>>>>> QA
             freight: unitFreight
           }).select().single();
 
@@ -149,8 +155,6 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
 
       // Incremental update: add invoice, update products locally
       const savedInvoice: Invoice = invoiceData ? { ...invoice, id: invoiceData.id, supplier: supplierName } : { ...invoice, supplier: supplierName };
-<<<<<<< HEAD
-=======
 
       if (savedInvoice.paidAmountUSD > 0) {
         const initialPayment = (savedInvoice.payments || [])[0];
@@ -177,17 +181,9 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
         });
       }
 
->>>>>>> QA
       set((state) => ({
         invoices: [...state.invoices, savedInvoice],
-        products: [
-          ...state.products.map((p) => {
-            const update = updatedProducts.get(p.id);
-            if (update) return { ...p, ...update };
-            return p;
-          }),
-          ...newProducts
-        ],
+        products: [...state.products, ...newProducts],
       }));
 
       toast.dismiss(loadingToast);

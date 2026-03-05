@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { supabase } from '../../supabase/client';
 import type { SetState, GetState } from '../types';
 import type { Quote, Sale } from '../../types';
+import { generateId } from '../../utils/id';
 
 export interface QuoteSlice {
     quotes: Quote[];
@@ -205,7 +206,7 @@ export const createQuoteSlice = (set: SetState, get: GetState): QuoteSlice => ({
                     };
                 }),
                 payments: [{
-                    id: crypto.randomUUID(),
+                    id: generateId(),
                     date: new Date().toISOString(),
                     amountUSD: totalUSD,
                     method: paymentMethod,

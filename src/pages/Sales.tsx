@@ -4,7 +4,7 @@
  * Permite auditar operaciones, anular ventas, borrar ventas de prueba, reimprimir tickets y ENVIAR POR WHATSAPP.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { usePermissions } from '../hooks/usePermissions';
 import { formatCurrency } from '../utils/pricing';
@@ -17,7 +17,7 @@ import {
 import type { Sale, ReturnOption } from '../types';
 
 export const Sales = () => {
-    const { sales, clients, annulSale, deleteSale, addReturn, products, settings } = useStore();
+    const { sales, clients, annulSale, deleteSale, addReturn, products, settings, fetchSales } = useStore();
     const { isAdmin, isManager, role } = usePermissions();
     const currentUserData = useStore(s => s.currentUserData);
     const isSeller = role === 'SELLER';
@@ -36,6 +36,37 @@ export const Sales = () => {
     // Cantidades a devolver por item (indexadas por índice del item en la venta)
     const [returnQtys, setReturnQtys] = useState<Record<number, number>>({});
     const [returnOption, setReturnOption] = useState<ReturnOption>('REEMBOLSO');
+
+    useEffect(() => {
+        const isMobileDevice = /Android|iPhone|iPad|iPod|Mobi/i.test(navigator.userAgent);
+        const refreshIntervalMs = isMobileDevice ? 5000 : 2000;
+
+        void fetchSales();
+
+        const intervalId = window.setInterval(() => {
+            if (document.hidden) return;
+            void fetchSales();
+        }, refreshIntervalMs);
+
+        const handleFocus = () => {
+            void fetchSales();
+        };
+
+        const handleVisibility = () => {
+            if (!document.hidden) {
+                void fetchSales();
+            }
+        };
+
+        window.addEventListener('focus', handleFocus);
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener('focus', handleFocus);
+            document.removeEventListener('visibilitychange', handleVisibility);
+        };
+    }, [fetchSales]);
 
     // Helper para obtener cliente
     const getClient = (clientId?: string) => clients.find(c => c.id === clientId);

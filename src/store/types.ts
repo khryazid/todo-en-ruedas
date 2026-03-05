@@ -30,6 +30,8 @@ export interface StoreState {
   users: AppUser[];
   quotes: Quote[];
   currentUserData: AppUser | null;
+  realtimeGuardReasons: string[];
+  isRealtimeSyncPaused: boolean;
 
   // --- Auth ---
   checkSession: () => Promise<void>;
@@ -38,8 +40,10 @@ export interface StoreState {
   sendPasswordResetEmail: (email: string) => Promise<boolean>;
   updateRecoveredPassword: (newPassword: string) => Promise<boolean>;
   fetchInitialData: () => Promise<void>;
+  setRealtimeGuard: (reason: string, active: boolean) => void;
 
   // --- Settings ---
+  fetchSettingsData: () => Promise<void>;
   updateSettings: (settings: AppSettings) => Promise<void>;
   performDailyClose: (turnData?: { totalUSD: number; totalBs: number; txCount: number }) => Promise<CashClose | null>;
   addPaymentMethod: (name: string, currency: 'USD' | 'BS', commissionPct?: number) => Promise<void>;
@@ -100,13 +104,17 @@ export interface StoreState {
     sellerName?: string;
   }) => Promise<CashLedgerEntry | null>;
   deleteCashMovementByReference: (referenceType: string, referenceId: string) => Promise<void>;
+  deleteCashMovement: (id: string) => Promise<boolean>;
 
   // --- Products ---
+  fetchProducts: () => Promise<void>;
   addProduct: (product: Product) => Promise<void>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<void>;
+  adjustProductStock: (id: string, delta: number, updates?: Partial<Product>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
 
   // --- Clients ---
+  fetchClients: () => Promise<void>;
   addClient: (client: Client) => Promise<void>;
   updateClient: (id: string, updates: Partial<Client>) => Promise<void>;
   deleteClient: (id: string) => Promise<void>;
@@ -121,17 +129,20 @@ export interface StoreState {
   loadQuoteIntoCart: (quote: Quote, products: Product[]) => void;
 
   // --- Sales ---
+  fetchSales: () => Promise<void>;
   completeSale: (paymentMethod: string, clientId?: string, initialPayment?: number) => Promise<Sale | null>;
   annulSale: (saleId: string) => Promise<void>;
   deleteSale: (saleId: string) => Promise<void>;
   registerSalePayment: (saleId: string, payment: Payment) => Promise<void>;
 
   // --- Suppliers ---
+  fetchSuppliers: () => Promise<void>;
   addSupplier: (s: Omit<Supplier, 'id' | 'createdAt'>) => Promise<void>;
   updateSupplier: (id: string, updates: Partial<Supplier>) => Promise<void>;
   deleteSupplier: (id: string) => Promise<boolean>;
 
   // --- Invoices ---
+  fetchInvoices: () => Promise<void>;
   addInvoice: (invoice: Invoice) => Promise<boolean>;
   updateInvoice: (invoice: Invoice) => Promise<void>;
   deleteInvoice: (id: string) => Promise<void>;
@@ -140,7 +151,7 @@ export interface StoreState {
   // --- Users ---
   fetchUsers: () => Promise<void>;
   fetchCurrentUserData: () => Promise<void>;
-  setupFirstAdmin: (setupData: { companyName: string; rif: string; rifType: 'J' | 'V' | 'E' | 'G' | 'P' | 'C'; address: string; fullName: string; email: string; password: string; defaultMargin: number; defaultVAT: number; }) => Promise<boolean>;
+  setupFirstAdmin: (setupData: { companyName: string; rif: string; rifType: 'J' | 'V' | 'E' | 'G' | 'P' | 'C'; address: string; fullName: string; email: string; password: string; defaultMargin: number; defaultVAT: number; }) => Promise<{ success: boolean; reason?: 'RATE_LIMIT' | 'USER_EXISTS' | 'OTHER' }>;
   createUser: (userData: { email: string; password: string; fullName: string; role: AppUser['role'] }) => Promise<boolean>;
   updateUser: (userId: string, updates: Partial<AppUser>) => Promise<boolean>;
   deactivateUser: (userId: string) => Promise<void>;

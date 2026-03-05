@@ -3,11 +3,13 @@
  * @description Centro de Comando Completo.
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
+import { logAudit } from '../utils/audit';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDarkMode } from '../hooks/useDarkMode';
+import toast from 'react-hot-toast';
 import { CashFlowCards } from '../components/dashboard/CashFlowCards';
 import { ExpectedByMethodTable } from '../components/dashboard/ExpectedByMethodTable';
 import { PendingRecurringExpensesCard } from '../components/dashboard/PendingRecurringExpensesCard';
@@ -19,10 +21,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { getPendingRecurringForMonth, loadRecurringTemplates } from '../utils/recurringExpenses';
+import { deriveRecurringTemplatesFromExpenses, getPendingRecurringForMonth, loadRecurringTemplates } from '../utils/recurringExpenses';
+import { supabase } from '../supabase/client';
+import type { RecurringExpense } from '../types';
 
 export const Dashboard = () => {
-  const { sales, products, invoices, clients, expenses, cashLedger, paymentMethods, settings, currentUserData } = useStore();
+  const { sales, products, invoices, clients, expenses, cashLedger, paymentMethods, settings, currentUserData, deleteCashMovement } = useStore();
   const { isDark } = useDarkMode();
   const navigate = useNavigate();
 
@@ -55,8 +59,58 @@ export const Dashboard = () => {
   const [customEndDay, setCustomEndDay] = useState(initialDay);
   const [customEndMonth, setCustomEndMonth] = useState(initialMonth);
   const [customEndYear, setCustomEndYear] = useState(initialYear);
+  const [remoteRecurringTemplates, setRemoteRecurringTemplates] = useState<RecurringExpense[]>([]);
+  const [remoteRecurringLoaded, setRemoteRecurringLoaded] = useState(false);
 
   const MAX_CHART_DAYS = 180;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchRecurringTemplates = async () => {
+      const { data, error } = await supabase
+        .from('recurring_expenses')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (cancelled) return;
+      if (error) return;
+
+      const mapped = (data || []).map((row) => ({
+        id: row.id as string,
+        description: row.description as string,
+        category: (row.category as string) || 'Otro',
+        amountUSD: Number(row.amount_usd) || 0,
+        amountBS: row.amount_bs ? Number(row.amount_bs) : undefined,
+        currency: (row.currency as RecurringExpense['currency']) || 'USD',
+        paymentMethod: (row.payment_method as string) || 'Efectivo USD',
+        dayOfMonth: row.day_of_month ? Number(row.day_of_month) : undefined,
+        active: row.is_active !== false,
+      } satisfies RecurringExpense));
+
+      setRemoteRecurringTemplates(mapped);
+      setRemoteRecurringLoaded(true);
+    };
+
+    void fetchRecurringTemplates();
+
+    const recurringChannel = supabase
+      .channel('recurring-expenses-dashboard-page')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'recurring_expenses' },
+        () => {
+          void fetchRecurringTemplates();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      void supabase.removeChannel(recurringChannel);
+    };
+  }, []);
 
   // --- 2. LÓGICA DE FECHAS ---
   const toLocalDateKey = (date: Date) => {
@@ -463,9 +517,63 @@ export const Dashboard = () => {
     navigate('/settings', { state: { cashControlMethod: method } });
   }, [navigate]);
 
+  const handleDeleteMovement = useCallback(async (
+    movement: {
+      id: string;
+      date: string;
+      direction: 'IN' | 'OUT';
+      amountUSD: number;
+      amountBS?: number;
+      currency: 'USD' | 'BS';
+      kind: string;
+      description: string;
+    },
+    method: string,
+  ) => {
+    if (currentUserData?.role !== 'ADMIN') {
+      toast.error('Solo un administrador puede eliminar movimientos.');
+      return;
+    }
+
+    if (movement.kind !== 'AJUSTE') {
+      toast.error('Solo se pueden eliminar movimientos de tipo ajuste.');
+      return;
+    }
+
+    const confirmed = window.confirm('Esta acción eliminará el movimiento de caja. ¿Deseas continuar?');
+    if (!confirmed) return;
+
+    const deleted = await deleteCashMovement(movement.id);
+    if (!deleted) {
+      toast.error('No se pudo eliminar el movimiento.');
+      return;
+    }
+
+    await logAudit({
+      action: 'DELETE',
+      entity: 'cash_ledger',
+      entityId: movement.id,
+      changes: {
+        method,
+        kind: movement.kind,
+        direction: movement.direction,
+        currency: movement.currency,
+        amountUSD: movement.amountUSD,
+        amountBS: movement.amountBS ?? null,
+        date: movement.date,
+        description: movement.description,
+      },
+    });
+
+    toast.success('Movimiento eliminado y auditado.');
+  }, [currentUserData?.role, deleteCashMovement]);
+
 
   const pendingRecurringExpenses = useMemo(() => {
-    const templates = loadRecurringTemplates();
+    const localTemplates = loadRecurringTemplates();
+    const templates = remoteRecurringLoaded
+      ? remoteRecurringTemplates
+      : (localTemplates.length > 0 ? localTemplates : deriveRecurringTemplatesFromExpenses(expenses));
     return getPendingRecurringForMonth(templates, expenses, new Date())
       .sort((a, b) => {
         const aDay = a.dayOfMonth ?? 99;
@@ -473,7 +581,7 @@ export const Dashboard = () => {
         if (aDay !== bDay) return aDay - bDay;
         return a.description.localeCompare(b.description, 'es', { sensitivity: 'base' });
       });
-  }, [expenses]);
+  }, [expenses, remoteRecurringTemplates, remoteRecurringLoaded]);
 
   const currentMonthLabel = useMemo(() => {
     return new Date().toLocaleDateString('es-VE', { month: 'long', year: 'numeric' });
@@ -662,6 +770,8 @@ export const Dashboard = () => {
           cutoffLabel={expectedCutoffLabel}
           movementsByMethod={movementsByMethod}
           onAdjustMethod={handleAdjustMethod}
+          isAdmin={currentUserData?.role === 'ADMIN'}
+          onDeleteMovement={handleDeleteMovement}
         />
       )}
 

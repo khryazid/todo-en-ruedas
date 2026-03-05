@@ -7,7 +7,7 @@
  *   - Autor: muestra quién registró el gasto
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import {
@@ -17,7 +17,9 @@ import {
 import type { Expense, RecurringExpense, ExpenseCurrency } from '../types';
 import { DEFAULT_EXPENSE_CATEGORIES } from '../types';
 import toast from 'react-hot-toast';
-import { loadRecurringTemplates, saveRecurringTemplates } from '../utils/recurringExpenses';
+import { deriveRecurringTemplatesFromExpenses, loadRecurringTemplates, saveRecurringTemplates } from '../utils/recurringExpenses';
+import { supabase } from '../supabase/client';
+import { generateId } from '../utils/id';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 type Period = 'today' | 'week' | 'month' | 'all';
@@ -83,6 +85,71 @@ export const Expenses = () => {
     };
     const [recForm, setRecForm] = useState<Omit<RecurringExpense, 'id'>>(emptyRec);
     const [recAmount, setRecAmount] = useState('');
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchRecurringFromSupabase = async () => {
+            const { data, error } = await supabase
+                .from('recurring_expenses')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (cancelled) return;
+
+            if (error) {
+                const message = (error as { message?: string })?.message || '';
+                const relationMissing = message.toLowerCase().includes('relation') || message.toLowerCase().includes('does not exist');
+                if (!relationMissing) {
+                    console.warn('⚠️ No se pudieron cargar plantillas recurrentes desde Supabase:', message);
+                }
+                return;
+            }
+
+            const mapped = (data || []).map((row) => ({
+                id: row.id as string,
+                description: row.description as string,
+                category: (row.category as string) || 'Otro',
+                amountUSD: Number(row.amount_usd) || 0,
+                amountBS: row.amount_bs ? Number(row.amount_bs) : undefined,
+                currency: (row.currency as ExpenseCurrency) || 'USD',
+                paymentMethod: (row.payment_method as string) || defaultPaymentMethod,
+                dayOfMonth: row.day_of_month ? Number(row.day_of_month) : undefined,
+                active: row.is_active !== false,
+            } satisfies RecurringExpense));
+
+            setRecurring(mapped);
+            saveRecurringTemplates(mapped);
+        };
+
+        void fetchRecurringFromSupabase();
+
+        const recurringChannel = supabase
+            .channel('recurring-expenses-expenses-page')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'recurring_expenses' },
+                () => {
+                    void fetchRecurringFromSupabase();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            cancelled = true;
+            void supabase.removeChannel(recurringChannel);
+        };
+    }, [defaultPaymentMethod]);
+
+    useEffect(() => {
+        if (recurring.length > 0) return;
+
+        const recovered = deriveRecurringTemplatesFromExpenses(expenses);
+        if (recovered.length === 0) return;
+
+        setRecurring(recovered);
+        saveRecurringTemplates(recovered);
+    }, [expenses, recurring.length]);
 
     const rate = settings.tasaBCV || 1;
     const selectedExpenseMethod = useMemo(
@@ -180,18 +247,41 @@ export const Expenses = () => {
 
     // ─── Handlers recurrentes ──────────────────────────────────────────────────
     const saveRecurringItem = () => {
+        const persistRecurringItem = async () => {
         const amt = parseFloat(recAmount || '0');
         if (!recForm.description.trim() || amt <= 0) return toast.error('Completa descripción y monto');
         const amountUSD = recForm.currency === 'BS' ? amt / rate : amt;
         const item: RecurringExpense = {
             ...recForm,
-            id: editingRecurring?.id || crypto.randomUUID(),
+            id: editingRecurring?.id || generateId(),
             amountUSD: Math.round(amountUSD * 100) / 100,
             amountBS: recForm.currency === 'BS' ? amt : undefined,
         };
         const updated = editingRecurring
             ? recurring.map(r => r.id === editingRecurring.id ? item : r)
             : [...recurring, item];
+
+        const { error } = await supabase
+            .from('recurring_expenses')
+            .upsert({
+                id: item.id,
+                description: item.description,
+                category: item.category,
+                amount_usd: item.amountUSD,
+                amount_bs: item.amountBS || null,
+                currency: item.currency,
+                payment_method: item.paymentMethod,
+                day_of_month: item.dayOfMonth || null,
+                is_active: item.active,
+                created_by: currentUserData?.id || null,
+            }, { onConflict: 'id' });
+
+        if (error) {
+            const message = (error as { message?: string })?.message || '';
+            toast.error(`No se pudo guardar en Supabase: ${message || 'Error desconocido'}`);
+            return;
+        }
+
         setRecurring(updated);
         saveRecurringTemplates(updated);
         setRecurringModal(false);
@@ -199,13 +289,32 @@ export const Expenses = () => {
         setRecForm({ ...emptyRec, paymentMethod: defaultPaymentMethod });
         setRecAmount('');
         toast.success(editingRecurring ? 'Plantilla actualizada' : 'Plantilla creada');
+        };
+
+        void persistRecurringItem();
     };
 
     const deleteRecurring = (id: string) => {
-        if (!confirm('¿Eliminar esta plantilla?')) return;
-        const updated = recurring.filter(r => r.id !== id);
-        setRecurring(updated);
-        saveRecurringTemplates(updated);
+        const removeRecurringItem = async () => {
+            if (!confirm('¿Eliminar esta plantilla?')) return;
+
+            const { error } = await supabase.from('recurring_expenses').delete().eq('id', id);
+            if (error) {
+                const message = (error as { message?: string })?.message || '';
+                const updatedLocalOnly = recurring.filter(r => r.id !== id);
+                setRecurring(updatedLocalOnly);
+                saveRecurringTemplates(updatedLocalOnly);
+                toast.error(`No se pudo eliminar en Supabase: ${message || 'Error desconocido'}. Se eliminó solo en este dispositivo.`);
+                return;
+            }
+
+            const updated = recurring.filter(r => r.id !== id);
+            setRecurring(updated);
+            saveRecurringTemplates(updated);
+            toast.success('Plantilla eliminada');
+        };
+
+        void removeRecurringItem();
     };
 
     const registerRecurring = async (rec: RecurringExpense) => {

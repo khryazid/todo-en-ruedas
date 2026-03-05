@@ -9,6 +9,7 @@ import { fromEditableNumberValue, toEditableNumberValue } from '../utils/editabl
 import { exportToCSV } from '../utils/exportCSV';
 import { supabase } from '../supabase/client';
 import { printInventoryReportA4 } from '../utils/ticketGenerator';
+import { generateId } from '../utils/id';
 import toast from 'react-hot-toast';
 import {
   Search, Plus, Package, Edit, Trash2, FileText, X, CheckCircle,
@@ -350,7 +351,7 @@ export const Inventory = () => {
   const confirmImport = async () => {
     if (!csvPreview) return;
     for (const p of csvPreview) {
-      await addProduct({ ...p, id: crypto.randomUUID(), customMargin: undefined, customVAT: undefined } as typeof products[0]);
+      await addProduct({ ...p, id: generateId(), customMargin: undefined, customVAT: undefined } as typeof products[0]);
     }
     setCsvPreview(null);
     alert(`✅ ${csvPreview.length} producto(s) importados exitosamente.`);
@@ -617,17 +618,10 @@ export const Inventory = () => {
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
-<<<<<<< HEAD
-                <div><label className="text-xs font-bold text-gray-500">Costo ($)</label><input type="number" step="0.01" className="w-full border rounded-xl p-2 mt-1" value={productForm.cost} onChange={e => setProductForm({ ...productForm, cost: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })} /></div>
-                <div><label className="text-xs font-bold text-gray-500">Flete Unit. ($)</label><input type="number" step="0.01" className="w-full border rounded-xl p-2 mt-1" value={productForm.freight} onChange={e => setProductForm({ ...productForm, freight: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })} /></div>
-                <div><label className="text-xs font-bold text-gray-500">Stock Actual</label><input type="number" className="w-full border rounded-xl p-2 mt-1" value={productForm.stock} onChange={e => setProductForm({ ...productForm, stock: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })} /></div>
-                <div><label className="text-xs font-bold text-red-500">Alerta Mínima</label><input type="number" className="w-full border rounded-xl p-2 mt-1 border-red-100" value={productForm.minStock} onChange={e => setProductForm({ ...productForm, minStock: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })} /></div>
-=======
                 <div><label className="text-xs font-bold text-gray-500">Costo ($)</label><input type="number" step="0.01" className="w-full border rounded-xl p-2 mt-1" value={toEditableNumberValue(productForm.cost)} onChange={e => setProductForm({ ...productForm, cost: fromEditableNumberValue(e.target.value) })} /></div>
                 <div><label className="text-xs font-bold text-gray-500">Flete Unit. ($)</label><input type="number" step="0.01" className="w-full border rounded-xl p-2 mt-1" value={toEditableNumberValue(productForm.freight)} onChange={e => setProductForm({ ...productForm, freight: fromEditableNumberValue(e.target.value) })} /></div>
                 <div><label className="text-xs font-bold text-gray-500">Stock Actual</label><input type="number" className="w-full border rounded-xl p-2 mt-1" value={toEditableNumberValue(productForm.stock)} onChange={e => setProductForm({ ...productForm, stock: fromEditableNumberValue(e.target.value) })} /></div>
                 <div><label className="text-xs font-bold text-red-500">Alerta Mínima</label><input type="number" className="w-full border rounded-xl p-2 mt-1 border-red-100" value={toEditableNumberValue(productForm.minStock)} onChange={e => setProductForm({ ...productForm, minStock: fromEditableNumberValue(e.target.value) })} /></div>
->>>>>>> QA
               </div>
 
               <div className="flex gap-4">
@@ -692,15 +686,7 @@ export const Inventory = () => {
                         }}
                       >
                         <option value="" disabled>Seleccionar...</option>
-<<<<<<< HEAD
-                        {suppliers.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                        {/* Si la IA escaneó un proveedor que no está en la base de datos, mostramos su texto como una opción válida temporalmente para evitar que el select devuelva un valor falso */}
-                        {invoiceHeader.supplier && !suppliers.some(s => s.name === invoiceHeader.supplier) && invoiceHeader.supplier !== 'NEW' && invoiceHeader.supplier !== '' && (
-                          <option value={invoiceHeader.supplier}>{invoiceHeader.supplier} (Escaneado IA)</option>
-                        )}
-=======
                         {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
->>>>>>> QA
                         <option value="NEW" className="text-red-600 font-bold">➕ Agregar Nuevo Proveedor...</option>
                       </select>
                     )}
@@ -723,11 +709,7 @@ export const Inventory = () => {
                     </select>
                   </div>
                   {invoiceHeader.status === 'PENDING' && (
-<<<<<<< HEAD
-                    <><div className="animate-in fade-in"><label className="text-[10px] font-bold text-red-500 uppercase">Vencimiento</label><input type="date" className="w-full border rounded-lg p-2 mt-1 bg-white border-red-200" value={invoiceHeader.dateDue} onChange={e => setInvoiceHeader({ ...invoiceHeader, dateDue: e.target.value })} /></div><div className="animate-in fade-in"><label className="text-[10px] font-bold text-gray-500 uppercase">Abono Inicial ($)</label><input type="number" className="w-full border rounded-lg p-2 mt-1 bg-white font-bold text-green-700" value={invoiceHeader.initialPayment || ''} onChange={e => setInvoiceHeader({ ...invoiceHeader, initialPayment: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })} placeholder="0.00" /></div></>
-=======
                     <><div className="animate-in fade-in"><label className="text-[10px] font-bold text-red-500 uppercase">Vencimiento</label><input type="date" className="w-full border rounded-lg p-2 mt-1 bg-white border-red-200" value={invoiceHeader.dateDue} onChange={e => setInvoiceHeader({ ...invoiceHeader, dateDue: e.target.value })} /></div><div className="animate-in fade-in"><label className="text-[10px] font-bold text-gray-500 uppercase">Abono Inicial ($)</label><input type="number" className="w-full border rounded-lg p-2 mt-1 bg-white font-bold text-green-700" value={toEditableNumberValue(invoiceHeader.initialPayment)} onChange={e => setInvoiceHeader({ ...invoiceHeader, initialPayment: fromEditableNumberValue(e.target.value) })} placeholder="0.00" /></div></>
->>>>>>> QA
                   )}
                 </div>
               </div>
@@ -748,15 +730,9 @@ export const Inventory = () => {
                 <div className="grid grid-cols-1 md:grid-cols-7 gap-3 items-end">
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">Código / SKU</label><input className="w-full border rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-red-100 outline-none" placeholder="Escanear..." value={tempItem.sku} onChange={e => setTempItem({ ...tempItem, sku: e.target.value })} onBlur={handleSkuBlur} /></div>
                   <div className="md:col-span-2"><label className="text-[10px] font-bold text-gray-500 uppercase">Descripción</label><input className="w-full border rounded-lg p-2 text-sm bg-white" placeholder="Producto..." value={tempItem.name} onChange={e => setTempItem({ ...tempItem, name: e.target.value })} /></div>
-<<<<<<< HEAD
-                  <div><label className="text-[10px] font-bold text-gray-500 uppercase">Cant.</label><input type="number" className="w-full border rounded-lg p-2 text-sm text-center font-bold bg-white" value={tempItem.quantity} onChange={e => setTempItem({ ...tempItem, quantity: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })} /></div>
-                  <div><label className="text-[10px] font-bold text-gray-500 uppercase">Costo U. ($)</label><input type="number" step="0.01" className="w-full border rounded-lg p-2 text-sm text-right bg-white" value={tempItem.cost || ''} onChange={e => setTempItem({ ...tempItem, cost: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })} /></div>
-                  <div><label className="text-[10px] font-bold text-red-500 uppercase">Min. Stock</label><input type="number" className="w-full border rounded-lg p-2 text-sm text-center border-red-100 bg-white" value={tempItem.minStock} onChange={e => setTempItem({ ...tempItem, minStock: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })} /></div>
-=======
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">Cant.</label><input type="number" className="w-full border rounded-lg p-2 text-sm text-center font-bold bg-white" value={toEditableNumberValue(tempItem.quantity)} onChange={e => setTempItem({ ...tempItem, quantity: fromEditableNumberValue(e.target.value) })} /></div>
                   <div><label className="text-[10px] font-bold text-gray-500 uppercase">Costo U. ($)</label><input type="number" step="0.01" className="w-full border rounded-lg p-2 text-sm text-right bg-white" value={toEditableNumberValue(tempItem.cost)} onChange={e => setTempItem({ ...tempItem, cost: fromEditableNumberValue(e.target.value) })} /></div>
                   <div><label className="text-[10px] font-bold text-red-500 uppercase">Min. Stock</label><input type="number" className="w-full border rounded-lg p-2 text-sm text-center border-red-100 bg-white" value={toEditableNumberValue(tempItem.minStock)} onChange={e => setTempItem({ ...tempItem, minStock: fromEditableNumberValue(e.target.value) })} /></div>
->>>>>>> QA
                   <button onClick={addLineToInvoice} className="bg-gray-900 text-white p-2 rounded-lg font-bold hover:bg-black flex justify-center shadow-md active:scale-95 transition"><Plus size={20} /></button>
                 </div>
               </div>
@@ -769,15 +745,9 @@ export const Inventory = () => {
                       <tr key={item.id} className="hover:bg-gray-50">
                         <td className="p-3"><input className="w-full bg-transparent font-mono text-xs text-gray-500 outline-none" value={item.sku} onChange={e => handleInvoiceItemChange(idx, 'sku', e.target.value)} /></td>
                         <td className="p-3"><input className="w-full bg-transparent font-medium text-gray-700 outline-none focus:ring-1 rounded" value={item.name} onChange={e => handleInvoiceItemChange(idx, 'name', e.target.value)} /></td>
-<<<<<<< HEAD
-                        <td className="p-3"><input type="number" className="w-full border border-gray-200 rounded p-1 text-center font-bold bg-white" value={item.quantity} onChange={e => handleInvoiceItemChange(idx, 'quantity', e.target.value === '' ? ('' as any) : parseFloat(e.target.value))} /></td>
-                        <td className="p-3 text-center text-xs text-red-400 font-bold">{item.minStock}</td>
-                        <td className="p-3"><input type="number" step="0.01" className="w-full border border-gray-200 rounded p-1 text-right bg-white" value={item.costUnitUSD} onChange={e => handleInvoiceItemChange(idx, 'costUnitUSD', e.target.value === '' ? ('' as any) : parseFloat(e.target.value))} /></td>
-=======
                         <td className="p-3"><input type="number" className="w-full border border-gray-200 rounded p-1 text-center font-bold bg-white" value={toEditableNumberValue(item.quantity)} onChange={e => handleInvoiceItemChange(idx, 'quantity', fromEditableNumberValue(e.target.value))} /></td>
                         <td className="p-3 text-center text-xs text-red-400 font-bold">{item.minStock}</td>
                         <td className="p-3"><input type="number" step="0.01" className="w-full border border-gray-200 rounded p-1 text-right bg-white" value={toEditableNumberValue(item.costUnitUSD)} onChange={e => handleInvoiceItemChange(idx, 'costUnitUSD', fromEditableNumberValue(e.target.value))} /></td>
->>>>>>> QA
                         <td className="p-3 text-right font-bold text-gray-900">{formatCurrency(item.quantity * item.costUnitUSD, 'USD')}</td>
                         <td className="p-3 text-center"><button onClick={() => setInvoiceItems(invoiceItems.filter((_, i) => i !== idx))} className="text-gray-300 hover:text-red-600 transition"><Trash2 size={16} /></button></td>
                       </tr>
@@ -789,13 +759,8 @@ export const Inventory = () => {
 
               <div className="flex justify-between items-center bg-gray-900 text-white p-4 rounded-xl shadow-lg mt-4 flex-wrap gap-4">
                 <div className="flex items-center gap-4 text-sm text-gray-400">
-<<<<<<< HEAD
-                  <span className="flex items-center gap-1"><Truck size={16} /> Flete: <input type="number" className="w-20 bg-gray-800 border-none rounded p-1 font-bold text-white text-right focus:ring-1 focus:ring-gray-500" value={invoiceHeader.freight || ''} onChange={e => setInvoiceHeader({ ...invoiceHeader, freight: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })} placeholder="0.00" /></span>
-                  <span className="flex items-center gap-1"><FileText size={16} /> IVA / Tax: <input type="number" className="w-20 bg-gray-800 border-none rounded p-1 font-bold text-white text-right focus:ring-1 focus:ring-gray-500" value={invoiceHeader.tax || ''} onChange={e => setInvoiceHeader({ ...invoiceHeader, tax: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })} placeholder="0.00" /></span>
-=======
                   <span className="flex items-center gap-1"><Truck size={16} /> Flete: <input type="number" className="w-20 bg-gray-800 border-none rounded p-1 font-bold text-white text-right focus:ring-1 focus:ring-gray-500" value={toEditableNumberValue(invoiceHeader.freight)} onChange={e => setInvoiceHeader({ ...invoiceHeader, freight: fromEditableNumberValue(e.target.value) })} placeholder="0.00" /></span>
                   <span className="flex items-center gap-1"><FileText size={16} /> IVA / Tax: <input type="number" className="w-20 bg-gray-800 border-none rounded p-1 font-bold text-white text-right focus:ring-1 focus:ring-gray-500" value={toEditableNumberValue(invoiceHeader.tax)} onChange={e => setInvoiceHeader({ ...invoiceHeader, tax: fromEditableNumberValue(e.target.value) })} placeholder="0.00" /></span>
->>>>>>> QA
                 </div>
                 <div className="text-right ml-auto">
                   <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Total Factura</p>

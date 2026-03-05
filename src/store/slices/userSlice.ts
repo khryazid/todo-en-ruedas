@@ -9,6 +9,45 @@ import type { SetState, GetState } from '../types';
 import type { AppUser } from '../../types';
 import { logAudit } from '../../utils/audit';
 
+const isValidRole = (role: unknown): role is AppUser['role'] => {
+    return role === 'ADMIN' || role === 'MANAGER' || role === 'SELLER' || role === 'VIEWER';
+};
+
+const getFallbackNameFromEmail = (email?: string | null): string => {
+    if (!email) return 'Usuario';
+    return email.split('@')[0] || 'Usuario';
+};
+
+const mapSetupErrorMessage = (error: unknown): string => {
+    const message = error instanceof Error ? error.message : String(error || '');
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes('email rate limit exceeded') || normalized.includes('rate limit')) {
+        return 'Demasiados intentos de registro en poco tiempo. Espera unos minutos e intenta de nuevo.';
+    }
+
+    if (normalized.includes('user already registered')) {
+        return 'Este correo ya esta registrado.';
+    }
+
+    return message || 'Error desconocido';
+};
+
+const getSetupErrorReason = (error: unknown): 'RATE_LIMIT' | 'USER_EXISTS' | 'OTHER' => {
+    const message = error instanceof Error ? error.message : String(error || '');
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes('email rate limit exceeded') || normalized.includes('rate limit')) {
+        return 'RATE_LIMIT';
+    }
+
+    if (normalized.includes('user already registered')) {
+        return 'USER_EXISTS';
+    }
+
+    return 'OTHER';
+};
+
 export const createUserSlice = (set: SetState, get: GetState) => ({
 
     users: [] as AppUser[],
@@ -73,7 +112,76 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             }
 
             if (!data) {
-                console.warn('⚠️ No se encontró el usuario en la tabla');
+                const metadataRole = user.user_metadata?.role;
+                const fallbackRole: AppUser['role'] = isValidRole(metadataRole) ? metadataRole : 'VIEWER';
+                const fallbackName = user.user_metadata?.full_name || getFallbackNameFromEmail(user.email);
+
+                const { error: upsertError } = await supabase
+                    .from('users')
+                    .upsert(
+                        {
+                            id: user.id,
+                            email: user.email || '',
+                            full_name: fallbackName,
+                            role: fallbackRole,
+                            is_active: true,
+                        },
+                        { onConflict: 'id' }
+                    );
+
+                if (upsertError) {
+                    console.warn('⚠️ No se encontró el usuario en la tabla y no se pudo autocrear:', upsertError.message);
+
+                    // Fallback local para evitar pantalla en blanco por role=null en rutas protegidas.
+                    set({
+                        currentUserData: {
+                            id: user.id,
+                            email: user.email || '',
+                            fullName: fallbackName,
+                            role: fallbackRole,
+                            isActive: true,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                            lastLogin: undefined,
+                        }
+                    });
+                    return;
+                }
+
+                const { data: recoveredUser, error: recoveredError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                if (recoveredError || !recoveredUser) {
+                    set({
+                        currentUserData: {
+                            id: user.id,
+                            email: user.email || '',
+                            fullName: fallbackName,
+                            role: fallbackRole,
+                            isActive: true,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                            lastLogin: undefined,
+                        }
+                    });
+                    return;
+                }
+
+                set({
+                    currentUserData: {
+                        id: recoveredUser.id,
+                        email: recoveredUser.email,
+                        fullName: recoveredUser.full_name,
+                        role: recoveredUser.role,
+                        isActive: recoveredUser.is_active,
+                        createdAt: recoveredUser.created_at,
+                        updatedAt: recoveredUser.updated_at,
+                        lastLogin: recoveredUser.last_login,
+                    }
+                });
                 return;
             }
 
@@ -109,7 +217,7 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
         password: string;
         defaultMargin: number;
         defaultVAT: number;
-    }) => {
+    }): Promise<{ success: boolean; reason?: 'RATE_LIMIT' | 'USER_EXISTS' | 'OTHER' }> => {
         try {
             // 1. Verificar que realmente sea primera vez
             const { count } = await supabase
@@ -118,7 +226,7 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
 
             if (count && count > 0) {
                 toast.error('Ya existe un usuario administrador');
-                return false;
+                return { success: false, reason: 'USER_EXISTS' };
             }
 
             // 2. Crear usuario en Supabase Auth
@@ -128,12 +236,16 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                 password: setupData.password,
                 options: {
                     data: {
-                        full_name: setupData.fullName
+                        full_name: setupData.fullName,
+                        role: 'ADMIN'
                     }
                 }
             });
 
-            if (authError) throw authError;
+            if (authError) {
+                toast.error(`Error en configuracion inicial: ${mapSetupErrorMessage(authError)}`);
+                return { success: false, reason: getSetupErrorReason(authError) };
+            }
             if (!authData.user) throw new Error('No se pudo crear el usuario');
 
 
@@ -156,13 +268,13 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
 
             const { error: userError } = await supabase
                 .from('users')
-                .insert({
+                .upsert({
                     id: loginData.user.id,
                     email: setupData.email,
                     full_name: setupData.fullName,
                     role: 'ADMIN',
                     is_active: true
-                });
+                }, { onConflict: 'id' });
 
             if (userError) {
                 await supabase.auth.signOut();
@@ -214,12 +326,12 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             // Dar un momento para que el estado se actualice antes de retornar
             await new Promise(resolve => setTimeout(resolve, 100));
 
-            return true;
+            return { success: true };
         } catch (error: unknown) {
             console.error('Error en setup inicial:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            const errorMessage = mapSetupErrorMessage(error);
             toast.error(`Error en configuración inicial: ${errorMessage}`);
-            return false;
+            return { success: false, reason: getSetupErrorReason(error) };
         }
     },
 
@@ -233,6 +345,8 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
         role: AppUser['role'];
     }) => {
         let authUserId: string | null = null;
+        const { data: sessionSnapshot } = await supabase.auth.getSession();
+        const previousSession = sessionSnapshot.session;
 
         try {
 
@@ -262,28 +376,37 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             authUserId = authData.user.id;
 
 
-            // 2. Crear registro en tabla users
+            // 2. Asegurar registro en tabla users (compatible con trigger auth->public)
 
             const { error: userError } = await supabase
                 .from('users')
-                .insert({
+                .upsert({
                     id: authUserId,
                     email: userData.email,
                     full_name: userData.fullName,
                     role: userData.role,
                     is_active: true
-                });
+                }, { onConflict: 'id' });
 
             if (userError) {
                 console.error('❌ Error al insertar en tabla users:', userError);
-                // IMPORTANTE: Si falla la tabla, intentar borrar el usuario de Auth
-                console.warn('⚠️ Intentando rollback: borrando usuario de Auth...');
                 throw new Error(`Error al crear registro en tabla: ${userError.message}`);
             }
 
+            // 3. Restaurar sesión previa para no cambiar de usuario en el navegador del admin.
+            if (previousSession) {
+                const { error: restoreError } = await supabase.auth.setSession({
+                    access_token: previousSession.access_token,
+                    refresh_token: previousSession.refresh_token,
+                });
+
+                if (restoreError) {
+                    console.warn('⚠️ No se pudo restaurar la sesión previa:', restoreError.message);
+                }
+            }
 
 
-            // 3. Registrar en auditoría
+            // 4. Registrar en auditoría
 
             await logAudit({
                 action: 'CREATE',
@@ -292,9 +415,10 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                 changes: { email: userData.email, role: userData.role }
             });
 
-            // 4. Actualizar estado local
+            // 5. Actualizar estado local
 
             await get().fetchUsers();
+            await get().fetchCurrentUserData();
 
 
             toast.success(`Usuario ${userData.fullName} creado. Se envió un correo de validación.`);
@@ -311,10 +435,8 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
             toast.error(`Error al crear usuario: ${errorMessage}`);
 
-            // Si se creó en Auth pero falló en tabla, mostrar mensaje específico
             if (authUserId) {
-                console.error('⚠️ ADVERTENCIA: Usuario creado en Auth pero no en tabla. ID:', authUserId);
-                toast.error('El usuario se creó parcialmente. Contacta al administrador.');
+                console.error('⚠️ ADVERTENCIA: Usuario creado parcialmente. ID:', authUserId);
             }
 
             return false;
