@@ -1,0 +1,86 @@
+[0] (500,500)<div  />
+	[1] (49,36)<button class='flex items-center gap-2.5 flex-shrink-0 mr-2 hover:opacity-90 transition' />
+		[2] (49,36)<div  />
+			[3] (49,28)<p >Todo En Ruedas CA />
+			[4] (49,48)<p >Business Management />
+	[5] (144,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/dashboard' />
+		[6] (120,36)<div  />
+		[7] (151,36)<span >Dashboard />
+	[8] (212,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/pos' />
+		[9] (196,36)<div  />
+		[10] (219,36)<span >Ventas />
+	[11] (274,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/sales' />
+		[12] (255,36)<div  />
+		[13] (281,36)<span >Historial />
+	[14] (343,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    bg-red-600 text-white shadow-lg shadow-red-900/40' href='/inventory' />
+		[15] (320,36)<div  />
+		[16] (351,36)<span >Inventario />
+	[17] (412,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/clients' />
+		[18] (394,36)<div  />
+		[19] (419,36)<span >Clientes />
+	[20] (492,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/accounts-receivable' />
+		[21] (458,36)<div  />
+		[22] (500,36)<span >Deudas Clientes />
+	[23] (583,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/daily-close' />
+		[24] (555,36)<div  />
+		[25] (590,36)<span >Cierre Diario />
+	[26] (779,36)<button class='flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap
+                                text-gray-400 hover:bg-white/10 hover:text-white'>Más />
+	[27] (850,36)<button class='hidden md:flex items-center gap-2 bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-gray-200 text-xs font-medium px-3 py-1.5 rounded-lg transition'>Buscar />
+		[28] (872,36)<kbd >Ctrl+K />
+	[29] (908,36)<button class='hidden md:flex w-8 h-8 items-center justify-center rounded-xl bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-white transition' title='Modo oscuro' />
+	[30] (958,36)<button class='flex items-center gap-2 px-2 py-1 rounded-xl transition border
+                                    border-transparent hover:bg-white/10 hover:border-white/10' />
+		[31] (951,36)<div  />
+			[32] (951,23)<p >Admin User />
+			[33] (954,50)<span >👑 Admin />
+	[34] (500,500)<main class='flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-950 relative pt-14' scrollable='true' />
+		Inventario
+		Gestión de existencias y costos
+		[35] (572,149)<label class='px-4 py-3 bg-white border-2 border-dashed border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-bold flex justify-center items-center gap-2 transition cursor-pointer' title='Importar productos desde CSV'>Importar />
+		[36] (674,149)<button class='px-5 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold flex justify-center items-center gap-2 shadow-lg transition active:scale-95' title='Generar PDF A4'>Imprimir PDF />
+		[37] (787,149)<button class='px-5 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-bold flex justify-center items-center gap-2 shadow-lg transition active:scale-95'>Exportar CSV />
+		[38] (908,149)<button class='px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold flex justify-center items-center gap-2 shadow-lg hover:shadow-red-200 transition active:scale-95'>Cargar Compra />
+		[39] (360,270)<input class='w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 transition font-medium text-gray-700' placeholder='Buscar por nombre o código...' />
+		[40] (760,270)<select class='w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 transition font-bold text-gray-700 appearance-none cursor-pointer' />
+		[41] (896,270)<select class='w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 transition font-bold text-gray-700 appearance-none cursor-pointer' />
+		Producto
+		Stock
+		Costo ($)
+		P. TH ($)
+		PVP ($)
+		PVP (Bs)
+		Acciones
+		Producto BCV
+		BCV001
+		General
+		Proveedor Test
+		10
+		$5.00
+		BCV
+		—
+		$7.54
+		Bs.
+		271,44
+		[42] (893,437)<button class='p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition' />
+		[43] (920,437)<button class='p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition' />
+		Producto TH
+		TH001
+		General
+		Proveedor Test
+		10
+		$5.00
+		TH
+		$7.54
+		$7.96
+		Bs.
+		286,56
+		[44] (893,541)<button class='p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition' />
+		[45] (920,541)<button class='p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition' />

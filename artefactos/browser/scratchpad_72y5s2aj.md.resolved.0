@@ -1,0 +1,19 @@
+# QA Test Plan - POS and Inventory
+
+## Current Goal
+Test specific validations in POS and Inventory modules (Sections 2 and 3 of QA checklist).
+
+## Progress Tracker
+- [ ] Part 1: POS Edge Cases
+    - [ ] Navigate to POS ('Ventas')
+    - [ ] Test stock limit (Producto BCV > current stock)
+    - [ ] Test individual item removal from cart
+    - [ ] Test 'Vaciar Carrito' button
+    - [ ] Test search filter (search 'BCV')
+- [ ] Part 2: Inventory Deletion Block
+    - [ ] Navigate to 'Inventario'
+    - [ ] Attempt to delete 'Producto BCV' (with history)
+    - [ ] Verify deletion is blocked
+
+## Findings
+- 

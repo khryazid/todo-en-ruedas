@@ -1,0 +1,24 @@
+# QA Checklist Tracking: Onboarding/Setup Flow
+
+## Steps:
+- [ ] Go to http://localhost:5173
+- [ ] Step 1: Registration/Signup
+    - [ ] Find Signup link/form
+    - [ ] Register with `admin@test.com` and `Kh123123!`
+    - [ ] Confirm login
+- [ ] Step 2: Verification of redirect to `/setup`
+- [ ] Step 3: Application Setup Form
+    - [ ] Fill: Todo En Ruedas CA
+    - [ ] Fill: Tipo de RIF J
+    - [ ] Fill: RIF Numérico 12345678
+    - [ ] Fill: Dirección (Dummy address)
+    - [ ] Fill: Margen de Ganancia Global por Defecto 30
+    - [ ] Fill: IVA por Defecto 16
+    - [ ] Save configuration
+- [ ] Step 4: Verification of redirect to `/dashboard`
+- [ ] Step 5: Verification of Setup Lock
+    - [ ] Try manual navigation back to `/setup`
+    - [ ] Confirm redirection back to `/dashboard`
+
+## Observations & Issues:
+- (None yet)

@@ -1,0 +1,72 @@
+# Módulo de Proveedores — Plan de Implementación
+
+## Objetivo
+Convertir el concepto de "proveedor" de un simple campo de texto a una entidad de primera clase con ficha propia, historial de compras y deuda acumulada.
+
+## Estado actual
+- [Supplier](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts#172-179) tipo existe pero es mínimo: `{ id, name, contactName?, phone?, catalog[] }`
+- `Invoice.supplier` es un string libre (nombre suelto)
+- `Product.supplier` es un string libre
+- No hay `supplierSlice`, no hay página `/suppliers`
+- El store ya tiene `suppliers: Supplier[]` en [StoreState](file:///c:/Users/Khris/todo-en-ruedas/src/store/types.ts#16-103)
+
+---
+
+## Cambios Propuestos
+
+### 1. Tipos — [src/types/index.ts](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts)
+**[MODIFY]** Expandir la interfaz [Supplier](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts#172-179):
+- Agregar: `rif?`, `rifType?`, `email?`, `address?`, `category? ('Importador' | 'Nacional' | 'Fabricante' | 'Distribuidor')`, `notes?`, `createdAt`
+- Eliminar: `catalog[]` (redundante, se deriva del historial de facturas)
+
+### 2. Store Types — [src/store/types.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/types.ts)
+**[MODIFY]** Agregar acciones CRUD de proveedores:
+```ts
+addSupplier: (s: Omit<Supplier, 'id' | 'createdAt'>) => Promise<void>;
+updateSupplier: (id: string, updates: Partial<Supplier>) => Promise<void>;
+deleteSupplier: (id: string) => Promise<void>;
+```
+
+### 3. Slice nuevo — `src/store/slices/supplierSlice.ts`
+**[NEW]** CRUD completo contra tabla `suppliers` en Supabase:
+- [fetchInitialData](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/authSlice.ts#71-224) ya carga `suppliers` desde la tabla
+- `addSupplier` → insert + actualiza estado local
+- `updateSupplier` → update + actualiza estado local
+- `deleteSupplier` → verifica que no tenga facturas pendientes antes de borrar
+
+### 4. Store principal — [src/store/useStore.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/useStore.ts)
+**[MODIFY]** Incorporar el `supplierSlice` al store compuesto.
+
+### 5. Página nueva — `src/pages/Suppliers.tsx`
+**[NEW]** Vista completa con dos tabs:
+
+**Tab 1 — Lista de Proveedores:**
+- Buscador por nombre o RIF
+- Tarjetas con: nombre, RIF, categoría, teléfono, deuda total acumulada (calculada de `invoices`)
+- Botón "Nueva Ficha" → modal de creación
+- Click en ficha → Panel de detalle lateral o modal
+
+**Tab 2 — Detalle de Proveedor (panel/modal):**
+- Datos de contacto editables inline
+- KPI: Total comprado (historial), Deuda pendiente actual
+- Tabla de últimas facturas de ese proveedor (filtra `invoices` por nombre del supplier)
+- Botón "Nueva Compra" → redirige a `/inventory` con el proveedor pre-seleccionado
+
+### 6. Sidebar — [src/components/layout/Sidebar.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/components/layout/Sidebar.tsx)
+**[MODIFY]** Agregar ítem de menú "Proveedores" entre "Ctas. por Pagar" e "Inventario" (solo ADMIN/MANAGER).
+
+### 7. App Router — [src/App.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/App.tsx)
+**[MODIFY]** Agregar ruta `/suppliers` con lazy loading y protección de rol.
+
+### 8. Inventario — [src/pages/Inventory.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Inventory.tsx) *(mejora opcional)*
+**[MODIFY]** En el formulario de nueva compra, el campo "Proveedor" pasa a ser un autocomplete que busca entre los proveedores registrados. Al seleccionar, pre-llena el nombre en `Invoice.supplier`.
+
+---
+
+## Verificación
+1. Crear un proveedor nuevo desde la página `/suppliers`
+2. Crear una factura en Inventario usando ese proveedor
+3. Verificar que la deuda del proveedor aparece en su ficha
+4. Editar datos del proveedor
+5. Verificar que aparece en el sidebar correctamente con permisos ADMIN/MANAGER
+6. Build sin errores TypeScript: `npx tsc --noEmit`

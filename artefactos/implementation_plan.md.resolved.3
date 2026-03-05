@@ -1,0 +1,98 @@
+# Inventory Movement Log — Implementation Plan
+
+Every stock change (sale, return, purchase, manual adjust, shrinkage) is recorded in a `stock_movements` table. A dedicated page shows the history with product-level drill-down and CSV export.
+
+## Proposed Changes
+
+---
+
+### Database (Supabase SQL)
+
+```sql
+CREATE TABLE stock_movements (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id   UUID NOT NULL REFERENCES products(id),
+  product_name TEXT NOT NULL,               -- snapshot at time of movement
+  sku          TEXT NOT NULL,
+  type         TEXT NOT NULL                -- 'SALE' | 'RETURN' | 'PURCHASE' | 'ADJUSTMENT' | 'SHRINKAGE'
+    CHECK (type IN ('SALE','RETURN','PURCHASE','ADJUSTMENT','SHRINKAGE')),
+  qty_before   INT NOT NULL,
+  qty_change   INT NOT NULL,                -- negative for exits, positive for entries
+  qty_after    INT NOT NULL,
+  reason       TEXT,                        -- mandatory for ADJUSTMENT/SHRINKAGE
+  reference_id UUID,                        -- sale_id, invoice_id, etc. (optional)
+  created_by   UUID REFERENCES auth.users(id),
+  seller_name  TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "auth users can do all on stock_movements"
+  ON stock_movements FOR ALL USING (auth.role() = 'authenticated');
+```
+
+---
+
+### Types — [MODIFY] [src/types/index.ts](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts)
+- Add `StockMovementType = 'SALE' | 'RETURN' | 'PURCHASE' | 'ADJUSTMENT' | 'SHRINKAGE'`
+- Add `StockMovement` interface
+
+---
+
+### Store — [NEW] `src/store/slices/stockMovementSlice.ts`
+- `stockMovements: StockMovement[]`
+- `fetchStockMovements(productId?: string): Promise<void>` — paginated/filtered
+- `addStockMovement(movement: Omit<StockMovement,'id'|'createdAt'>): Promise<void>` — internal helper
+
+---
+
+### Store — [MODIFY] [src/store/types.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/types.ts)
+- Add `stockMovements`, `fetchStockMovements`, `addStockMovement` to [StoreState](file:///c:/Users/Khris/todo-en-ruedas/src/store/types.ts#16-108)
+
+---
+
+### Store — [MODIFY] [src/store/useStore.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/useStore.ts)
+- Import and spread `createStockMovementSlice`
+
+---
+
+### Auto-logging in existing slices
+- **[saleSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/saleSlice.ts) `completeSale`** → after stock deduction, call `addStockMovement` per item (type: `SALE`)
+- **[returnSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/returnSlice.ts) `addReturn`** → after stock restore, call `addStockMovement` per item (type: `RETURN`)
+- **[productSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/productSlice.ts) [updateProduct](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/productSlice.ts#39-65)** → when `stock` is explicitly changed, call `addStockMovement` (type: `ADJUSTMENT`)
+
+---
+
+### New Page — [NEW] `src/pages/InventoryMovements.tsx`
+- Header with product search filter + type filter pills (dropdown: All / SALE / RETURN / ADJUSTMENT / SHRINKAGE / PURCHASE)
+- Table rows: Date | Product (SKU) | Type badge | Before → Change → After | Reason | Seller
+- Per-product drill-down: click a product in Inventory to open its movement history
+- **CSV Export** button: downloads `movimientos_[date].csv`
+
+---
+
+### Inventory Page — [MODIFY] [src/pages/Inventory.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Inventory.tsx)
+- Add "Ver Movimientos" link/button per product row → navigates to `/inventory/movements?product=id`
+- Add "Ajuste Manual" button that opens a modal: `{ qty, reason (required), type: ADJUSTMENT | SHRINKAGE }`
+
+---
+
+### Routing — [MODIFY] [src/App.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/App.tsx)
+- Add `/inventory/movements` route
+
+---
+
+### TopBar — [MODIFY] [src/components/layout/TopBar.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/components/layout/TopBar.tsx)
+- Optionally add route to `allMenuItems` (under ADMIN/MANAGER)
+
+## Verification Plan
+
+### Automated
+- `npx tsc --noEmit`
+
+### Manual
+1. Complete a sale → check `stock_movements` has a SALE row per item
+2. Create a manual adjustment in Inventory → ADJUSTMENT row with reason appears
+3. Navigate to `/inventory/movements` → rows display correctly with color-coded badges
+4. Filter by product → only that product's movements show
+5. Click CSV Export → file downloads with correct columns

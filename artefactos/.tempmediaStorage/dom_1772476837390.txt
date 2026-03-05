@@ -1,0 +1,74 @@
+[0] (500,500)<div  />
+	[1] (49,36)<button class='flex items-center gap-2.5 flex-shrink-0 mr-2 hover:opacity-90 transition' />
+		[2] (49,36)<div  />
+			[3] (49,28)<p >Todo En Ruedas CA />
+			[4] (49,48)<p >Business Management />
+	[5] (144,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/dashboard' />
+		[6] (120,36)<div  />
+		[7] (151,36)<span >Dashboard />
+	[8] (212,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/pos' />
+		[9] (196,36)<div  />
+		[10] (219,36)<span >Ventas />
+	[11] (274,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/sales' />
+		[12] (255,36)<div  />
+		[13] (281,36)<span >Historial />
+	[14] (343,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/inventory' />
+		[15] (320,36)<div  />
+		[16] (351,36)<span >Inventario />
+	[17] (412,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/clients' />
+		[18] (394,36)<div  />
+		[19] (419,36)<span >Clientes />
+	[20] (492,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/accounts-receivable' />
+		[21] (458,36)<div  />
+		[22] (500,36)<span >Deudas Clientes />
+	[23] (583,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/daily-close' />
+		[24] (555,36)<div  />
+		[25] (590,36)<span >Cierre Diario />
+	[26] (779,36)<button class='flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap
+                                text-gray-400 hover:bg-white/10 hover:text-white'>Más />
+	[27] (850,36)<button class='hidden md:flex items-center gap-2 bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-gray-200 text-xs font-medium px-3 py-1.5 rounded-lg transition'>Buscar />
+		[28] (872,36)<kbd >Ctrl+K />
+	[29] (908,36)<button class='hidden md:flex w-8 h-8 items-center justify-center rounded-xl bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-white transition' title='Modo oscuro' />
+	[30] (958,36)<button class='flex items-center gap-2 px-2 py-1 rounded-xl transition border
+                                    border-transparent hover:bg-white/10 hover:border-white/10' />
+		[31] (951,36)<div  />
+			[32] (951,23)<p >Admin User />
+			[33] (954,50)<span >👑 Admin />
+	[34] (500,500)<main class='flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-950 relative pt-14' scrollable='true' />
+		Configuración
+		Control total del sistema (Sincronizado en la nube)
+		[35] (902,149)<button class='w-full md:w-auto px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 flex items-center justify-center gap-2 transition active:scale-95'>Guardar Cambios />
+		Datos Fiscales (Encabezado de Ticket)
+		[36] (184,342)<label class='block text-xs font-bold text-gray-500 mb-1 uppercase'>Nombre Empresa />
+		[37] (184,385)<input class='w-full border border-gray-200 rounded-lg p-2 font-bold focus:ring-2 focus:ring-blue-100 outline-none transition' />
+		[38] (379,342)<label class='block text-xs font-bold text-gray-500 mb-1 uppercase'>Tipo />
+		[39] (379,384)<select class='w-full border border-gray-200 rounded-lg p-2 font-bold bg-white outline-none focus:ring-2 focus:ring-blue-100' />
+		[40] (529,342)<label class='block text-xs font-bold text-gray-500 mb-1 uppercase'>RIF / CI />
+		[41] (529,385)<input class='w-full border border-gray-200 rounded-lg p-2 font-bold focus:ring-2 focus:ring-blue-100 outline-none transition' />
+		[42] (806,342)<label class='block text-xs font-bold text-gray-500 mb-1 uppercase'>Moneda Impresión />
+		[43] (806,384)<select class='w-full border border-gray-200 rounded-lg p-2 font-bold bg-gray-50 text-gray-700 outline-none focus:ring-2 focus:ring-blue-100' />
+		[44] (495,453)<label class='block text-xs font-bold text-gray-500 mb-1 uppercase'>Dirección Fiscal />
+		[45] (495,492)<input class='w-full border border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-100 outline-none transition' />
+		Tasas de Cambio
+		[46] (254,708)<label class='block text-sm font-bold text-gray-700 mb-2'>Tasa BCV (Oficial) />
+		Bs.
+		[47] (254,766)<input class='w-full pl-12 pr-4 py-3 border-2 border-blue-100 rounded-xl focus:border-blue-500 outline-none text-xl font-black text-gray-800 transition' />
+		[48] (65,848)<label class='block text-sm font-bold text-gray-700'>Tasa Monitor />
+		[49] (434,848)<button class='text-xs flex items-center gap-1 text-blue-600 font-bold hover:bg-blue-50 px-2 py-1 rounded transition'>Oculto en POS />
+		Bs.
+		Márgenes e Impuestos
+		[50] (625,705)<label class='block text-xs font-bold text-gray-500 mb-1 uppercase'>Ganancia Default />
+		[51] (625,756)<input class='w-full border-2 border-orange-50 rounded-xl p-3 text-lg font-bold text-gray-800 outline-none focus:border-orange-300 transition' />
+		%
+		Se aplica a productos nuevos si no se especifica otro.
+		[52] (847,705)<label class='block text-xs font-bold text-gray-500 mb-1 uppercase'>IVA / Impuesto />
+		[53] (847,756)<input class='w-full border-2 border-orange-50 rounded-xl p-3 text-lg font-bold text-gray-800 outline-none focus:border-orange-300 transition' />
+		%
+		Impuesto al Valor Agregado (Aplica general).

@@ -1,0 +1,105 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+[0] (500,500)<div  />
+	[1] (50,35)<button class='flex items-center gap-2.5 flex-shrink-0 mr-2 hover:opacity-90 transition' />
+		[2] (50,35)<div  />
+			[3] (50,28)<p >Todo En Ruedas CA />
+			[4] (50,47)<p >Business Management />
+	[5] (145,35)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/dashboard' />
+		[6] (121,35)<div  />
+		[7] (153,35)<span >Dashboard />
+	[8] (213,35)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/pos' />
+		[9] (198,35)<div  />
+		[10] (221,35)<span >Ventas />
+	[11] (276,35)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/sales' />
+		[12] (257,35)<div  />
+		[13] (283,35)<span >Historial />
+	[14] (346,35)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    bg-red-600 text-white shadow-lg shadow-red-900/40' href='/inventory' />
+		[15] (323,35)<div  />
+		[16] (354,35)<span >Inventario />
+	[17] (415,35)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/clients' />
+		[18] (397,35)<div  />
+		[19] (423,35)<span >Clientes />
+	[20] (497,35)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/accounts-receivable' />
+		[21] (461,35)<div  />
+		[22] (504,35)<span >Deudas Clientes />
+	[23] (588,35)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/daily-close' />
+		[24] (559,35)<div  />
+		[25] (595,35)<span >Cierre Diario />
+	[26] (777,35)<button class='flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap
+                                text-gray-400 hover:bg-white/10 hover:text-white'>Más />
+	[27] (849,35)<button class='hidden md:flex items-center gap-2 bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-gray-200 text-xs font-medium px-3 py-1.5 rounded-lg transition'>Buscar />
+		[28] (871,35)<kbd >Ctrl+K />
+	[29] (908,35)<button class='hidden md:flex w-8 h-8 items-center justify-center rounded-xl bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-white transition' title='Modo oscuro' />
+	[30] (958,35)<button class='flex items-center gap-2 px-2 py-1 rounded-xl transition border
+                                    border-transparent hover:bg-white/10 hover:border-white/10' />
+		[31] (951,35)<div  />
+			[32] (951,22)<p >Admin User />
+			[33] (954,49)<span >👑 Admin />
+	[34] (500,500)<main class='flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-950 relative pt-14' scrollable='true' />
+		Inventario
+		Gestión de existencias y costos
+		[35] (569,104)<label class='px-4 py-3 bg-white border-2 border-dashed border-gray-300 text-gray-600 rounded-xl hover:bg-gray-50 font-bold flex justify-center items-center gap-2 transition cursor-pointer' title='Importar productos desde CSV'>Importar />
+		[36] (671,104)<button class='px-5 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold flex justify-center items-center gap-2 shadow-lg transition active:scale-95' title='Generar PDF A4'>Imprimir PDF />
+		[37] (785,104)<button class='px-5 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-bold flex justify-center items-center gap-2 shadow-lg transition active:scale-95'>Exportar CSV />
+		[38] (907,104)<button class='px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold flex justify-center items-center gap-2 shadow-lg hover:shadow-red-200 transition active:scale-95'>Cargar Compra />
+		[39] (359,222)<input class='w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 transition font-medium text-gray-700' placeholder='Buscar por nombre o código...' />
+		[40] (759,222)<select class='w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 transition font-bold text-gray-700 appearance-none cursor-pointer' />
+		[41] (895,222)<select class='w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-red-100 transition font-bold text-gray-700 appearance-none cursor-pointer' />
+		Producto
+		Stock
+		Costo ($)
+		P. TH ($)
+		PVP ($)
+		PVP (Bs)
+		Acciones
+		Producto BCV
+		BCV001
+		General
+		Proveedor Test
+		9
+		$5.00
+		BCV
+		—
+		$7.54
+		Bs.
+		271,44
+		[42] (893,387)<button class='p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition' />
+		[43] (920,387)<button class='p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition' />
+		Producto TH
+		TH001
+		General
+		Proveedor Test
+		9
+		$5.00
+		TH
+		$7.54
+		$7.96
+		Bs.
+		286,56
+		[44] (893,489)<button class='p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition' />
+		[45] (920,489)<button class='p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition' />
+		Producto Importado
+		NVO01
+		General
+		Proveedor Test
+		100
+		$11.00
+		BCV
+		—
+		$16.59
+		Bs.
+		597,24
+		[46] (893,592)<button class='p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition' />
+		[47] (920,592)<button class='p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition' />
+
+</current_dom>

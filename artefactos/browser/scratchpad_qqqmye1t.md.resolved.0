@@ -1,0 +1,16 @@
+# Part 2: POS Cash Sale & Stock Verification
+
+## Plan
+1. [ ] Check current stock of 'Producto BCV' in `/inventory`.
+2. [ ] Navigate to `/pos`.
+3. [ ] Add 1 unit of 'Producto BCV' to the cart.
+4. [ ] Click 'Cobrar' (Checkout).
+5. [ ] Ensure payment method is 'EFECTIVO' (Cash).
+6. [ ] Click 'Confirmar Pago'.
+7. [ ] Observe success and receipt modal.
+8. [ ] Navigate back to `/inventory`.
+9. [ ] Verify stock decreased by 1 unit.
+10. [ ] Return markdown report.
+
+## Initial Stock
+- Producto BCV: 

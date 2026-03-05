@@ -1,0 +1,124 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+[0] (500,500)<div  />
+	[1] (50,28)<p >Todo En Ruedas CA />
+	Business Management
+	Dashboard
+	Ventas
+	Historial
+	Inventario
+	Clientes
+	Deudas Clientes
+	Cierre Diario
+	Más
+	Buscar
+	Ctrl+K
+	[2] (951,22)<p >Admin User />
+	👑 Admin
+	[3] (500,500)<main class='flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-950 relative pt-14' scrollable='true' />
+		Inventario
+		Gestión de existencias y costos
+		Importar
+		Imprimir PDF
+		Exportar CSV
+		Cargar Compra
+		Producto
+		Stock
+		Costo ($)
+		P. TH ($)
+		PVP ($)
+		PVP (Bs)
+		Acciones
+		Producto BCV
+		BCV001
+		General
+		Proveedor Test
+		9
+		$5.00
+		BCV
+		—
+		$7.54
+		Bs.
+		271,44
+		Producto TH
+		TH001
+		General
+		Proveedor Test
+		9
+		$5.00
+		TH
+		$7.54
+		$7.96
+		Bs.
+		286,56
+		Producto Importado
+		NVO01
+		General
+		Proveedor Test
+		50
+		$11.00
+		BCV
+		—
+		$16.59
+		Bs.
+		597,24
+		Cargar Compra
+		Ingresa la mercancía y la deuda.
+		[4] (747,96)<label class='px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-sm bg-purple-600 text-white hover:bg-purple-700 hover:shadow-purple-200'>✨ Escaneo IA />
+		[5] (811,96)<button class='bg-white p-2 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition' />
+		[6] (500,515)<div class='flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar' scrollable='true' />
+			Datos del Documento
+			[7] (211,259)<label class='text-[10px] font-bold text-gray-500 uppercase'>Nº Control />
+			[8] (264,302)<input class='w-full border rounded-lg p-2 mt-1 font-bold bg-white' />
+			[9] (366,259)<label class='text-[10px] font-bold text-gray-500 uppercase'>Proveedor />
+			[10] (498,302)<select class='w-full border rounded-lg p-2 mt-1 bg-white font-bold outline-none focus:ring-2 focus:ring-red-100' />
+			[11] (685,259)<label class='text-[10px] font-bold text-gray-500 uppercase'>Tasa de Costo />
+			[12] (733,302)<select class='w-full border rounded-lg p-2 mt-1 bg-white font-bold text-gray-700' />
+			[13] (216,388)<label class='text-[10px] font-bold text-gray-500 uppercase'>Fecha Emisión />
+			[14] (264,433)<input class='w-full border rounded-lg p-2 mt-1 bg-white' />
+			[15] (366,388)<label class='text-[10px] font-bold text-gray-500 uppercase'>Condición />
+			[16] (384,427)<button class='flex-1 py-2 text-xs font-bold transition bg-green-100 text-green-700'>CONTADO />
+			[17] (456,427)<button class='flex-1 py-2 text-xs font-bold transition text-gray-400 hover:bg-gray-50'>CRÉDITO />
+			Comprado a
+			Proveedor Test
+			[18] (236,598)<button class='flex-shrink-0 bg-white border hover:border-red-400 rounded-lg p-2 text-left min-w-[140px] shadow-sm transition active:scale-95 group' />
+				[19] (236,578)<p >BCV001 />
+				[20] (236,597)<p >Producto BCV />
+				[21] (236,616)<p >$
+1 />
+			[22] (337,598)<button class='flex-shrink-0 bg-white border hover:border-red-400 rounded-lg p-2 text-left min-w-[140px] shadow-sm transition active:scale-95 group' />
+				[23] (337,578)<p >TH001 />
+				[24] (337,597)<p >Producto TH />
+				[25] (337,616)<p >$
+5 />
+			[26] (438,598)<button class='flex-shrink-0 bg-white border hover:border-red-400 rounded-lg p-2 text-left min-w-[140px] shadow-sm transition active:scale-95 group' />
+				[27] (438,578)<p >NVO01 />
+				[28] (438,597)<p >Producto Importado />
+				[29] (438,616)<p >$
+10 />
+			Agregar Ítem
+			[30] (213,774)<label class='text-[10px] font-bold text-gray-500 uppercase'>Código / SKU />
+			[31] (231,810)<input class='w-full border rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-red-100 outline-none' placeholder='Escanear...' />
+			[32] (301,774)<label class='text-[10px] font-bold text-gray-500 uppercase'>Descripción />
+			[33] (365,810)<input class='w-full border rounded-lg p-2 text-sm bg-white' placeholder='Producto...' />
+			[34] (467,774)<label class='text-[10px] font-bold text-gray-500 uppercase'>Cant. />
+			[35] (498,810)<input class='w-full border rounded-lg p-2 text-sm text-center font-bold bg-white' />
+			[36] (567,774)<label class='text-[10px] font-bold text-gray-500 uppercase'>Costo U. ($) />
+			[37] (587,810)<input class='w-full border rounded-lg p-2 text-sm text-right bg-white' />
+			[38] (655,774)<label class='text-[10px] font-bold text-red-500 uppercase'>Min. Stock />
+			[39] (676,810)<input class='w-full border rounded-lg p-2 text-sm text-center border-red-100 bg-white' />
+			[40] (765,811)<button class='bg-gray-900 text-white p-2 rounded-lg font-bold hover:bg-black flex justify-center shadow-md active:scale-95 transition' />
+			Código
+			Descripción
+			Cant.
+			Min
+			Costo
+			Subtotal
+			0
+			$500.00
+		[41] (634,934)<button class='px-6 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition'>Cancelar />
+		[42] (751,934)<button class='px-8 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 flex items-center gap-2 transition active:scale-95'>Procesar Compra />
+
+</current_dom>

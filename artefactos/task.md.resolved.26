@@ -1,0 +1,9 @@
+# Checklist: Gestión de Correos y Contraseñas de Usuarios
+
+## Pending
+- [x] **SQL Scripts** — Add `admin_update_user_email` function to both [schema.sql](file:///c:/Users/Khris/todo-en-ruedas/supabase/schema.sql) and [reset.sql](file:///c:/Users/Khris/todo-en-ruedas/supabase/reset.sql).
+- [x] **User Interface (Users.tsx)** — Restrict Password Change button strictly to `isAdmin`.
+- [x] **User Interface (Users.tsx)** — Add `email` input field to [EditUserModal](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Users.tsx#330-405).
+- [x] **Store Logic (userSlice.ts)** — Update [updateUser](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/userSlice.ts#324-387) parameter type to accept `email?: string`.
+- [x] **Store Logic (userSlice.ts)** — Trigger `admin_update_user_email` RPC when `email` is updated.
+- [x] **Build Validation** — Run TypeScript compilation (`npm run build`) to guarantee type sanity.

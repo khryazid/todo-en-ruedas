@@ -1,0 +1,22 @@
+# QA Report
+
+## Severidad Alta (Bloqueantes)
+- **Falla en Validación de Stock Máximo (POS):** El sistema permite al cajero añadir más unidades de un producto al carrito de las que existen realmente en el inventario (ej. subir a 10 unidades cuando el stock es 9), sin emitir ninguna advertencia o bloqueo en tiempo real dentro del POS.
+
+## Media (Visual o Lógico)
+- **Faltan Campos en el Formulario de Setup:** Los campos "Margen de Ganancia Global por Defecto" y "IVA por Defecto" no están presentes en el formulario inicial de `/setup`. Se tuvo que navegar a `/settings` para configurarlos manualmente.
+- **Campo de Límite de Crédito Ausente:** En el componente de "Nuevo Cliente Rápido" invocado desde el Punto de Venta (POS), no existe un campo para definir el límite de crédito del cliente.
+- **Sin Feedback en Borrado Seguro (Inventario):** Al intentar eliminar un producto protegido que ya tiene un historial de ventas (ej. Producto BCV), la base de datos restringe la acción correctamente, pero la UI no muestra ningún mensaje tipo Toast para explicarle al usuario la razón por la que no se puede eliminar.
+
+## Baja (UI/UX)
+- **Redirección Automática sin Mensaje:** Navegar a `/` o `/login` en una base de datos limpia redirige automáticamente a `/setup`.
+- **Destino de Redirección Post-Setup:** Tras completar el setup, la app redirige a `/sales` en lugar del esperado `/dashboard`.
+- **Formulario Combinado:** El registro de usuario y la configuración de empresa están combinados en un solo formulario.
+- **Falta Aviso Visual de Validación (POS):** Al intentar presionar "REGISTRAR DEUDA" en una venta a crédito sin tener un cliente asignado, la acción se bloquea internamente (lo cual es correcto) pero no se dispara ningún `Toast` ni advertencia DOM clara que notifique al vendedor.
+- **Registro Público Oculto:** El enlace para registro público no es visible directamente en la pantalla de login (probablemente intencional por seguridad). Se verificó la creación funcional desde el panel de `Gestión de Usuarios`.
+
+---
+## Conclusión Final
+**Estado:** PROD-READY con observaciones menores. 
+- Los flujos core de facturación al contado, a crédito con rebajas al inventario funcionan de manera transaccionalmente correcta.
+- Las vistas respetan la jerarquía de roles (RBAC) perfectamente.

@@ -69,7 +69,6 @@
 - [ ] Log de edición de pagos con `fxRateUsed` en gastos y facturas
 - [ ] Log de cambio de rol/permisos de usuarios
 - [ ] Log de intentos de login fallidos y bloqueo/desbloqueo de usuario
-
 ---
 
 ## 🟢 Sprint C — Premium (Diferenciadores del producto)

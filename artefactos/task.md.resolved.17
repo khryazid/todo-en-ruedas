@@ -1,0 +1,15 @@
+# Price Lists — Task Checklist
+
+## In Progress
+- [/] **Step 1** — Add `PriceList` type + `priceList` to [Client](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts#53-63) + `marginMayorista/marginEspecial` to [AppSettings](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts#221-240) in [types/index.ts](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts)
+- [/] **Step 2** — Update [calculatePrices()](file:///c:/Users/Khris/todo-en-ruedas/src/utils/pricing.ts#15-54) in [pricing.ts](file:///c:/Users/Khris/todo-en-ruedas/src/utils/pricing.ts) to accept `priceList?`
+- [/] **Step 3** — Add margin fields to [Settings.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Settings.tsx) UI
+- [/] **Step 4** — Update [settingsSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/settingsSlice.ts) to fetch/save new margin fields
+- [/] **Step 5** — Update [cartSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/cartSlice.ts) [addToCart](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/cartSlice.ts#13-32) to accept and apply `priceList`
+- [/] **Step 6** — Update [POS.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/POS.tsx) to pass `priceList` from selected client + show badge
+- [/] **Step 7** — Update [Clients.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Clients.tsx) modal to include price list selector
+- [/] **Step 8** — Update [clientSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/clientSlice.ts) to save `price_list` to Supabase
+
+## Pending
+- [ ] TypeScript build check (`npx tsc --noEmit`)
+- [ ] Browser verification
