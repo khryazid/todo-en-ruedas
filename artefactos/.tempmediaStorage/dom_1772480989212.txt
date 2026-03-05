@@ -1,0 +1,50 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+[0] (500,500)<div  />
+	Todo En Ruedas CA
+	Business Management
+	Dashboard
+	Ventas
+	Historial
+	Inventario
+	Clientes
+	Deudas Clientes
+	Cierre Diario
+	Más
+	Buscar
+	Ctrl+K
+	Admin User
+	👑 Admin
+	BCV001
+	8
+	un.
+	Producto BCV
+	Precio
+	$1.51
+	Desc. %
+	−
+	%
+	+
+	Total a Pagar
+	Bs.
+	0,00
+	$0.00
+	COBRAR
+	¡Venta Exitosa!
+	La venta #
+	16
+	ha sido registrada correctamente.
+	Total Pagado
+	$0.00
+	Ref. Bs
+	Bs.
+	0,00
+	Deuda Pendiente
+	$1.51
+	ENVIAR RECIBO POR WHATSAPP
+	[1] (500,710)<button class='w-full flex items-center justify-center gap-2 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition'>IMPRIMIR RECIBO />
+	[2] (500,788)<button class='w-full py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition'>PROCESAR NUEVA VENTA />
+
+</current_dom>

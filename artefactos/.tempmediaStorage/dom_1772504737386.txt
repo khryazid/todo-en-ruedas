@@ -1,0 +1,137 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+[0] (500,500)<div  />
+	[1] (49,28)<p >Todo En Ruedas CA />
+	Business Management
+	Dashboard
+	Ventas
+	Historial
+	Inventario
+	Clientes
+	Deudas Clientes
+	Cierre Diario
+	Más
+	Buscar
+	Ctrl+K
+	[2] (951,23)<p >Admin User />
+	👑 Admin
+	[3] (500,500)<main class='flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-950 relative pt-14' scrollable='true' />
+		Inventario
+		Gestión de existencias y costos
+		Importar
+		Imprimir PDF
+		Exportar CSV
+		Cargar Compra
+		Producto
+		Stock
+		Costo ($)
+		P. TH ($)
+		PVP ($)
+		PVP (Bs)
+		Acciones
+		Producto BCV
+		BCV001
+		General
+		Proveedor Test
+		9
+		$5.00
+		BCV
+		—
+		$7.54
+		Bs.
+		271,44
+		Producto TH
+		TH001
+		General
+		Proveedor Test
+		9
+		$5.00
+		TH
+		$7.54
+		$7.96
+		Bs.
+		286,56
+		Producto Importado
+		NVO01
+		General
+		Proveedor Test
+		100
+		$11.00
+		BCV
+		—
+		$16.59
+		Bs.
+		597,24
+		Cargar Compra
+		Ingresa la mercancía y la deuda.
+		[4] (745,97)<label class='px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer shadow-sm bg-purple-600 text-white hover:bg-purple-700 hover:shadow-purple-200'>✨ Escaneo IA />
+		[5] (809,97)<button class='bg-white p-2 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition' />
+		[6] (500,515)<div class='flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar' scrollable='true' />
+			Datos del Documento
+			Nº Control
+			[7] (266,184)<input class='w-full border rounded-lg p-2 mt-1 font-bold bg-white' />
+			Proveedor
+			[8] (498,183)<select class='w-full border rounded-lg p-2 mt-1 bg-white font-bold outline-none focus:ring-2 focus:ring-red-100' />
+			Tasa de Costo
+			[9] (731,183)<select class='w-full border rounded-lg p-2 mt-1 bg-white font-bold text-gray-700' />
+			[10] (218,271)<label class='text-[10px] font-bold text-gray-500 uppercase'>Fecha Emisión />
+			[11] (266,317)<input class='w-full border rounded-lg p-2 mt-1 bg-white' />
+			[12] (367,271)<label class='text-[10px] font-bold text-gray-500 uppercase'>Condición />
+			[13] (385,311)<button class='flex-1 py-2 text-xs font-bold transition text-gray-400 hover:bg-gray-50'>CONTADO />
+			[14] (457,311)<button class='flex-1 py-2 text-xs font-bold transition bg-red-100 text-red-700'>CRÉDITO />
+			[15] (526,271)<label class='text-[10px] font-bold text-red-500 uppercase'>Vencimiento />
+			[16] (576,317)<input class='w-full border rounded-lg p-2 mt-1 bg-white border-red-200' />
+			[17] (688,271)<label class='text-[10px] font-bold text-gray-500 uppercase'>Abono Inicial ($) />
+			[18] (731,316)<input class='w-full border rounded-lg p-2 mt-1 bg-white font-bold text-green-700' placeholder='0.00' />
+			Comprado a
+			Proveedor Test
+			[19] (238,484)<button class='flex-shrink-0 bg-white border hover:border-red-400 rounded-lg p-2 text-left min-w-[140px] shadow-sm transition active:scale-95 group' />
+				[20] (238,464)<p >BCV001 />
+				[21] (238,483)<p >Producto BCV />
+				[22] (238,503)<p >$
+1 />
+			[23] (338,484)<button class='flex-shrink-0 bg-white border hover:border-red-400 rounded-lg p-2 text-left min-w-[140px] shadow-sm transition active:scale-95 group' />
+				[24] (338,464)<p >TH001 />
+				[25] (338,483)<p >Producto TH />
+				[26] (338,503)<p >$
+5 />
+			[27] (438,484)<button class='flex-shrink-0 bg-white border hover:border-red-400 rounded-lg p-2 text-left min-w-[140px] shadow-sm transition active:scale-95 group' />
+				[28] (438,464)<p >NVO01 />
+				[29] (438,483)<p >Producto Importado />
+				[30] (438,503)<p >$
+10 />
+			Agregar Ítem
+			[31] (215,663)<label class='text-[10px] font-bold text-gray-500 uppercase'>Código / SKU />
+			[32] (233,700)<input class='w-full border rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-red-100 outline-none' placeholder='Escanear...' />
+			[33] (303,663)<label class='text-[10px] font-bold text-gray-500 uppercase'>Descripción />
+			[34] (366,700)<input class='w-full border rounded-lg p-2 text-sm bg-white' placeholder='Producto...' />
+			[35] (467,663)<label class='text-[10px] font-bold text-gray-500 uppercase'>Cant. />
+			[36] (498,700)<input class='w-full border rounded-lg p-2 text-sm text-center font-bold bg-white' />
+			[37] (566,663)<label class='text-[10px] font-bold text-gray-500 uppercase'>Costo U. ($) />
+			[38] (586,700)<input class='w-full border rounded-lg p-2 text-sm text-right bg-white' />
+			[39] (653,663)<label class='text-[10px] font-bold text-red-500 uppercase'>Min. Stock />
+			[40] (675,700)<input class='w-full border rounded-lg p-2 text-sm text-center border-red-100 bg-white' />
+			[41] (763,701)<button class='bg-gray-900 text-white p-2 rounded-lg font-bold hover:bg-black flex justify-center shadow-md active:scale-95 transition' />
+			Código
+			Descripción
+			Cant.
+			Min
+			Costo
+			Subtotal
+			[42] (237,866)<input class='w-full bg-transparent font-mono text-xs text-gray-500 outline-none' />
+			[43] (357,864)<input class='w-full bg-transparent font-medium text-gray-700 outline-none focus:ring-1 rounded' />
+			[44] (497,864)<input class='w-full border border-gray-200 rounded p-1 text-center font-bold bg-white' />
+			5
+			[45] (668,864)<input class='w-full border border-gray-200 rounded p-1 text-right bg-white' />
+			$500.00
+			[46] (800,861)<button class='text-gray-300 hover:text-red-600 transition' />
+			Flete:
+			IVA / Tax:
+			Total Factura
+			$500.00
+		[47] (633,934)<button class='px-6 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition'>Cancelar />
+		[48] (749,934)<button class='px-8 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 flex items-center gap-2 transition active:scale-95'>Procesar Compra />
+
+</current_dom>

@@ -1,0 +1,17 @@
+# QA Checklist Execution - Todo En Ruedas
+
+## 🔄 In Progress
+- [/] **Sección 0** — Setup & Onboarding
+- [/] **Sección 1** — Auth & Roles
+- [/] **Sección 2** — POS (Catálogo, Carrito, Checkout, Post-Venta)
+
+## ⏳ Pending
+- [ ] **Sección 3** — Inventario
+- [ ] **Sección 4** — Compras
+- [ ] **Sección 5** — Cotizaciones
+- [ ] **Sección 6** — Historial de Ventas
+- [ ] **Sección 7** — Cuentas por Cobrar
+- [ ] **Sección 8** — Gastos
+- [ ] **Sección 9** — Cierre Diario
+- [ ] **Sección 10** — Dashboard
+- [ ] **Sección 11** — Configuración

@@ -1,0 +1,40 @@
+[0] (500,500)<div  />
+	Todo En Ruedas CA
+	Business Management
+	Dashboard
+	Ventas
+	Historial
+	Inventario
+	Clientes
+	Deudas Clientes
+	Cierre Diario
+	Más
+	Buscar
+	Ctrl+K
+	Admin User
+	👑 Admin
+	Gestión de Usuarios
+	Administra los usuarios y sus permisos
+	Nuevo Usuario
+	Usuario
+	Rol
+	Estado
+	Último Acceso
+	Acciones
+	A
+	Admin User
+	admin@test.com
+	Administrador
+	Activo
+	2/3/2026
+	Crear Nuevo Usuario
+	[1] (500,294)<label class='block text-sm font-medium text-gray-700 mb-1'>Nombre Completo />
+	[2] (500,339)<input class='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent' />
+	[3] (500,399)<label class='block text-sm font-medium text-gray-700 mb-1'>Email />
+	[4] (500,444)<input class='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent' />
+	[5] (500,505)<label class='block text-sm font-medium text-gray-700 mb-1'>Contraseña />
+	[6] (500,549)<input class='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent' />
+	[7] (500,610)<label class='block text-sm font-medium text-gray-700 mb-1'>Rol />
+	[8] (500,654)<select class='w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent' />
+	[9] (434,748)<button class='flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50'>Cancelar />
+	[10] (567,748)<button class='flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700'>Crear Usuario />

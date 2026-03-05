@@ -1,0 +1,47 @@
+# Plan de Implementación para Corrección de Bugs
+
+## User Review Required
+No major design changes are required. This plan focuses strictly on fixing the bugs documented in the QA report. Please review the proposed approaches.
+
+---
+
+## Proposed Changes
+
+### POS Module (Ventas)
+#### [MODIFY] [src/pages/POS.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/POS.tsx)
+- **Max Stock Validation**: Envolver las llamadas a `addToCart` y `updateCartQuantity` en comprobaciones que validen si la cantidad resultante excede el `product.stock`. Si es así, mostrar error usando `react-hot-toast` (`toast.error`) y evitar que se actualice el carrito.
+- **Quick Client Credit Limit**: Añadir el campo `creditLimit` (Límite de Crédito) al formulario modal de "Nuevo Cliente Rápido".
+- **Save Quote from POS**: Añadir un botón "Guardar Cotización" al lado de "Cobrar" y "Vaciar", que tome los items y el cliente actual, lo envíe a Supabase (tabla `quotes`), y limpie el carrito, devolviendo éxito con un Toast.
+- **Missing Client Warning**: En la lógica del botón "Registrar Deuda", agregar una validación antes de procesar: `if (!selectedClient) { toast.error("Por favor selecciona un cliente para la venta a crédito."); return; }`.
+
+### Quotes Module (Cotizaciones)
+#### [MODIFY] [src/pages/Quotes.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Quotes.tsx)
+- **Complete Quote-to-Sale Conversion**: En el botón "Convertir en Venta", agregar un manejador `onClick` que haga lo siguiente:
+  1. Limpie el carrito actual (`clearCart()`).
+  2. Inserte los items de la cotización en el carrito del POS iterando sobre `quote.items`.
+  3. Establezca al cliente de la cotización como el `selectedClient` global del POS (si aplica a la arquitectura).
+  4. Redirija a la página del POS (`navigate('/sales')`).
+
+### Inventory Module (Inventario / Compras)
+#### [MODIFY] [src/pages/Inventory.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Inventory.tsx)
+- **Purchase Validation Feedback**: En la función que procesa "Cargar Compra", añadir validaciones explícitas (ej. `if (!purchaseData.controlNumber)`) antes del envío. Si falta algo, arrojar `toast.error("El Nº de Control es obligatorio")`.
+- **Safe Delete Feedback**: En la acción que elimina un producto, envolver la llamada al backend en un bloque `try/catch`. En el `catch`, comprobar el mensaje de error o arrojar siempre un `toast.error("No se puede eliminar: El producto tiene un historial de ventas asociado.")` para proteger en caso de llave foránea.
+
+### Setup Module (Configuración Inicial)
+#### [MODIFY] [src/pages/Setup.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Setup.tsx)
+- **Missing Fields**: Añadir los campos `defaultMargin` (Margen Global %) y `defaultIva` (IVA %) al formulario que inicializa los ajustes (settings) de la base de datos para que no estén vacíos.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+*N/A - El proyecto utiliza pruebas visuales y de extremo a extremo gestionadas con Browser Subagent.*
+
+### Manual / Browser Verification
+Se volverá a llamar a un Browser Subagent para:
+1.  **Validar Stock POS:** Intentar añadir 11 unidades de un producto con 10 de stock y verificar que salga el mensaje de error y no se agreguen.
+2.  **Validar Cotizaciones:** Crear una cotización desde el POS, ir a Historial, y darle Convertir a Venta, esperando aparecer en la pantalla de ventas con el carrito lleno.
+3.  **Validar Compras:** Ir a cargar compra y presionar procesar compra sin llenar datos para ver el mensaje de error de validación.
+4.  **Validar Cliente POS:** Intentar venta a crédito sin cliente para ver el error.
+5.  **Validar Borrado Seguro:** Intentar borrar un producto con historial (ej. Producto BCV) y confirmar que salga el aviso de error por pantalla.

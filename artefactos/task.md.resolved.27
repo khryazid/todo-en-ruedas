@@ -1,0 +1,9 @@
+# Checklist: Flujo de Recuperación de Contraseña
+
+## Pending
+- [ ] **Store Logic (authSlice.ts)** — Add `sendPasswordResetEmail(email)` method calling Supabase Auth.
+- [ ] **Store Logic (authSlice.ts)** — Add `updateRecoveredPassword(password)` method.
+- [ ] **User Interface (Login.tsx)** — Add UI toggle for "Forgot Password" mode vs "Login" mode.
+- [ ] **User Interface (Login.tsx)** — Wire up the email input to `sendPasswordResetEmail`.
+- [ ] **New Route (ResetPassword.tsx)** — Create the incoming password reset form screen.
+- [ ] **Routing (App.tsx)** — Register the `/reset-password` public route pointing to `ResetPassword.tsx`.

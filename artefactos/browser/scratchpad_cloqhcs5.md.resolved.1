@@ -1,0 +1,16 @@
+# QA Checklist Section 4: Compras (Módulo Facturas) y Registro Manual
+
+## Checklist
+- [x] Navigate to Inventory page
+- [ ] Locate and click 'Cargar Compra' (Attempted, need to handle supplier creation)
+- [ ] Create/Select Supplier 'Importadora QA'
+- [ ] Add new product: SKU `NVO01`, Name `Producto Importado`, Qty `50`, Cost `$10.00`
+- [ ] Add Freight (Flete) cost of `$50.00`
+- [ ] Process Purchase
+- [ ] Verify Inventory for `Producto Importado` (Stock 50, Unit Cost calculated)
+- [ ] Check if cost is `$11.00` (Cascading Update)
+
+## Notes
+- Current URL: http://localhost:5173/clients (Checking for supplier management)
+- Admin Login: admin@test.com / Kh123123!
+- Supplier 'Importadora QA' needs to be created or identified.

@@ -1,0 +1,100 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+[0] (500,500)<div  />
+	[1] (49,36)<button class='flex items-center gap-2.5 flex-shrink-0 mr-2 hover:opacity-90 transition' />
+		[2] (49,36)<div  />
+			[3] (49,28)<p >Todo En Ruedas CA />
+			[4] (49,48)<p >Business Management />
+	[5] (144,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/dashboard' />
+		[6] (120,36)<div  />
+		[7] (151,36)<span >Dashboard />
+	[8] (212,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/pos' />
+		[9] (196,36)<div  />
+		[10] (219,36)<span >Ventas />
+	[11] (274,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/sales' />
+		[12] (255,36)<div  />
+		[13] (281,36)<span >Historial />
+	[14] (343,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/inventory' />
+		[15] (320,36)<div  />
+		[16] (351,36)<span >Inventario />
+	[17] (412,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/clients' />
+		[18] (394,36)<div  />
+		[19] (419,36)<span >Clientes />
+	[20] (492,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/accounts-receivable' />
+		[21] (458,36)<div  />
+		[22] (500,36)<span >Deudas Clientes />
+	[23] (583,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/daily-close' />
+		[24] (555,36)<div  />
+		[25] (590,36)<span >Cierre Diario />
+	[26] (779,36)<button class='flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap
+                                text-gray-400 hover:bg-white/10 hover:text-white'>Más />
+	[27] (850,36)<button class='hidden md:flex items-center gap-2 bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-gray-200 text-xs font-medium px-3 py-1.5 rounded-lg transition'>Buscar />
+		[28] (872,36)<kbd >Ctrl+K />
+	[29] (908,36)<button class='hidden md:flex w-8 h-8 items-center justify-center rounded-xl bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-white transition' title='Modo oscuro' />
+	[30] (958,36)<button class='flex items-center gap-2 px-2 py-1 rounded-xl transition border
+                                    border-transparent hover:bg-white/10 hover:border-white/10' />
+		[31] (951,36)<div  />
+			[32] (951,23)<p >Admin User />
+			[33] (954,50)<span >👑 Admin />
+	[34] (500,500)<main class='flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-950 relative pt-14' scrollable='true' />
+		Gastos y Egresos
+		Control de gastos operativos
+		[35] (819,149)<button class='flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 text-sm transition'>Exportar />
+		[36] (915,149)<button class='flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 shadow-lg shadow-red-200 text-sm transition active:scale-95'>Registrar Gasto />
+		[37] (56,243)<button class='px-5 py-2.5 text-sm font-bold border-b-2 transition-all border-red-500 text-red-600'>📋 Gastos />
+		[38] (141,243)<button class='px-5 py-2.5 text-sm font-bold border-b-2 transition-all border-transparent text-gray-500 hover:text-gray-700'>🔁 Recurrentes />
+		[39] (135,355)<button class='p-4 rounded-2xl border text-left transition-all bg-white border-gray-100 hover:border-red-200' />
+			[40] (135,334)<p >Hoy />
+			[41] (135,368)<p >$5.00 />
+		[42] (375,355)<button class='p-4 rounded-2xl border text-left transition-all bg-white border-gray-100 hover:border-red-200' />
+			[43] (375,334)<p >Esta semana />
+			[44] (375,368)<p >$5.00 />
+		[45] (615,355)<button class='p-4 rounded-2xl border text-left transition-all bg-red-600 border-red-600 text-white shadow-lg shadow-red-200' />
+			[46] (615,334)<p >Este mes />
+			[47] (615,368)<p >$5.00 />
+		[48] (855,355)<button class='p-4 rounded-2xl border text-left transition-all bg-white border-gray-100 hover:border-red-200' />
+			[49] (855,334)<p >Total />
+			[50] (855,368)<p >$5.00 />
+		[51] (66,462)<button class='px-3 py-1.5 rounded-full text-xs font-bold transition-all border bg-gray-900 text-white border-gray-900'>Todas las categorías />
+		[52] (142,462)<button class='px-3 py-1.5 rounded-full text-xs font-bold transition-all border bg-white text-gray-600 border-gray-200 hover:border-gray-400'>Operativo />
+		[53] (197,462)<button class='px-3 py-1.5 rounded-full text-xs font-bold transition-all border bg-white text-gray-600 border-gray-200 hover:border-gray-400'>Nómina />
+		[54] (250,462)<button class='px-3 py-1.5 rounded-full text-xs font-bold transition-all border bg-white text-gray-600 border-gray-200 hover:border-gray-400'>Servicios />
+		[55] (308,462)<button class='px-3 py-1.5 rounded-full text-xs font-bold transition-all border bg-white text-gray-600 border-gray-200 hover:border-gray-400'>Transporte />
+		[56] (364,462)<button class='px-3 py-1.5 rounded-full text-xs font-bold transition-all border bg-white text-gray-600 border-gray-200 hover:border-gray-400'>Alquiler />
+		[57] (407,462)<button class='px-3 py-1.5 rounded-full text-xs font-bold transition-all border bg-white text-gray-600 border-gray-200 hover:border-gray-400'>Luz />
+		[58] (445,462)<button class='px-3 py-1.5 rounded-full text-xs font-bold transition-all border bg-white text-gray-600 border-gray-200 hover:border-gray-400'>Agua />
+		[59] (491,462)<button class='px-3 py-1.5 rounded-full text-xs font-bold transition-all border bg-white text-gray-600 border-gray-200 hover:border-gray-400'>Internet />
+		[60] (541,462)<button class='px-3 py-1.5 rounded-full text-xs font-bold transition-all border bg-white text-gray-600 border-gray-200 hover:border-gray-400'>Seguro />
+		[61] (584,462)<button class='px-3 py-1.5 rounded-full text-xs font-bold transition-all border bg-white text-gray-600 border-gray-200 hover:border-gray-400'>Otro />
+		[62] (886,462)<select class='w-full pl-9 pr-8 py-2 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 outline-none focus:border-red-300 appearance-none cursor-pointer' />
+		1
+		gasto
+		Total:
+		$5.00
+		Fecha
+		Descripción
+		Categoría
+		Monto
+		USD
+		Método
+		Registrado por
+		3/3/2026
+		Comida
+		Otro
+		$5.00
+		$5.00
+		Efectivo
+		Admin User
+		[63] (876,696)<button class='p-1.5 hover:bg-blue-50 text-blue-500 rounded-lg transition' />
+		[64] (895,696)<button class='p-1.5 hover:bg-red-50 text-red-500 rounded-lg transition' />
+
+</current_dom>

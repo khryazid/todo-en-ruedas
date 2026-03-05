@@ -1,0 +1,11 @@
+# QA Hero Path: Part 1 - Create Categories and Products
+
+## Checklist
+- [x] Go to http://localhost:5173 / Login (admin@test.com / Kh123123!)
+- [x] Navigate to 'Inventario'
+- [x] Remove filters in the search box
+- [/] Check if "Producto BCV" exists with stock 10 (Found stock 8, creating 10 more)
+- [ ] Check if "Producto TH" exists with stock 10
+- [ ] Create "Producto BCV" if not exists: 'Cargar Compra' -> 'Proveedor' -> 'CONTADO' -> SKU, 'Producto BCV', Qty 10, Cost 5, Rate 'Tasa BCV' -> '+' -> 'Procesar Compra'
+- [ ] Create "Producto TH" if not exists: 'Cargar Compra' -> 'Proveedor' -> 'CONTADO' -> SKU, 'Producto TH', Qty 10, Cost 5, Rate 'Tasa Monitor/TH' -> '+' -> 'Procesar Compra'
+- [ ] Verify both exist in 'Inventario' with 10 stock

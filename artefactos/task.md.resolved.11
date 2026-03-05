@@ -1,0 +1,17 @@
+# Bug Fixing Checklist
+
+## High Severity (Critical)
+- [x] 1. **POS Max Stock Validation:** Prevent adding more items to the cart than the available inventory stock.
+- [x] 2. **Convert Quote to Sale:** Make the "Convertir en Venta" button load the quote into the POS and redirect.
+
+## Medium Severity
+- [ ] 3. **Setup Form Missing Fields:** Add Default Margin and Default Tax to the initial `/setup` configuration page.
+- [ ] 4. **Quick Client Credit Limit:** Add a Credit Limit field to the Quick Client creation modal in the POS.
+- [ ] 5. **Safe Delete Feedback (Inventory):** Show a Toast message when failing to delete a product that has existing sales history.
+- [ ] 6. **Purchase Validation Feedback:** Show a Toast message in `Cargar Compra` when trying to submit without a Control Number or other required fields.
+- [x] 7. **Save Quote from POS:** Add a button in the POS cart area to save the current cart as a Quotation.
+
+## Low Severity (UI/UX)
+- [ ] 8. **Setup Redirect Message:** Add a welcoming toast/message when automatically redirected to `/setup`.
+- [ ] 9. **Post-Setup Redirection:** Change the post-setup redirect from `/sales` to `/dashboard`.
+- [x] 10. **Credit Sale Missing Client Warning:** Show a Toast warning when attempting a credit sale without selecting a client.

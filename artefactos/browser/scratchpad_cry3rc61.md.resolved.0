@@ -1,0 +1,21 @@
+# Verification Checklist for Suppliers Module
+
+- [ ] Navigate to `http://localhost:5173`
+- [ ] Verify "Proveedores" is in the Sidebar
+- [ ] Navigate to `http://localhost:5173/suppliers`
+- [ ] Verify split-panel layout (list on left)
+- [ ] Click "+ Nuevo" and verify modal fields:
+    - [ ] Name, RIF, Category pills, Contact, Phone, Email, Address, Notes
+- [ ] Create a new supplier:
+    - [ ] Name: "Proveedor Test S.A."
+    - [ ] RIF type: "J"
+    - [ ] RIF: "30123456-9"
+    - [ ] Category: "Importador"
+    - [ ] Contact: "Juan Perez"
+    - [ ] Phone: "+58 414 1234567"
+- [ ] Verify success toast and list update
+- [ ] Click new supplier to open detail panel
+- [ ] Verify detail panel content:
+    - [ ] Contact info
+    - [ ] KPIs (Total Comprado, Deuda Pendiente, Facturas)
+    - [ ] Historial de Compras section

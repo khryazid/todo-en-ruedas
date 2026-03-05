@@ -1,0 +1,18 @@
+# QA Checklist - Sections 6 & 7
+
+## Section 6: Historial de Ventas (Sale Voiding)
+- [ ] Login as admin (admin@test.com / Kh123123!)
+- [ ] Navigate to 'Inventario' and memorize 'Producto BCV' stock
+- [ ] Go to 'Historial'
+- [ ] Find and view a sale with 'Producto BCV' (e.g. Sale #16)
+- [ ] Void the sale (Confirm modal)
+- [ ] Verify 'Producto BCV' stock increased correctly
+
+## Section 7: Cuentas por Cobrar (Debts)
+- [ ] Navigate to 'Deudas Clientes'
+- [ ] Find 'Test Client QA' (expected debt ~$5.96)
+- [ ] Perform a partial payment ($3.00)
+- [ ] Verify remaining debt is ~$2.96
+
+## Observations & Bugs
+- 

@@ -1,0 +1,56 @@
+# Todo en Ruedas - QA Bug Fixes Walkthrough
+
+This document outlines the bug fixes that were implemented to address the issues identified in the QA Report ([QA_REPORT.md](file:///C:/Users/Khris/.gemini/antigravity/brain/ff8595c2-6af2-4937-b581-44e39f72f48b/QA_REPORT.md)) during the recent testing phase of the application.
+
+## 🛠️ High Severity (Critical) Fixes
+
+### 1. POS Max Stock Validation
+**Issue:** Users could add more items to the cart than the available inventory stock.
+**Fix:** Added robust stock validation in the [POS.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/POS.tsx) `handleAddToCart` and [updateCartQuantity](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/cartSlice.ts#37-42) functions. If a user attempts to add a quantity that exceeds the `product.stock`, a `toast.error` alert prevents the action and notifies the user of the available stock.
+
+### 2. Convert Quote to Sale
+**Issue:** The "Convertir en Venta" button in the Quotes module was using an outdated logic that bypassed the POS, which failed to generate the sale correctly.
+**Fix:** Reworked the Quotes flow so that the *Convertir en Venta* button now loads the quote items securely into the POS cart and automatically redirects the user to the POS view, fetching the assigned client context along the way.
+- **Added [loadQuoteIntoCart](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/cartSlice.ts#45-61)** in [cartSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/cartSlice.ts)
+- **Updated [Quotes.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Quotes.tsx)** to navigate to `/sales` (POS) passing `clientId` in state.
+- **Updated [POS.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/POS.tsx)** to hydrate the selected client automatically on load.
+
+## 🟡 Medium Severity Fixes
+
+### 3. Setup Form Missing Fields
+**Issue:** Default Margin and Default Tax were missing from the initial `/setup` configuration page.
+**Fix:** Injected the `defaultMargin` and `defaultVAT` fields into [Setup.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Setup.tsx), allowing the admin to set these values upon their first login. Updated [userSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/userSlice.ts) to save these fields into the database successfully.
+
+### 4. Quick Client Credit Limit
+**Issue:** Missing Credit Limit field in the Quick Client creation modal in the POS.
+**Fix:** Expanded [QuickClientModal.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/components/QuickClientModal.tsx) to include an input for `creditLimit`. This connects correctly with the underlying `addClient` action which saves the limit to the DB.
+
+### 5. Safe Delete Feedback (Inventory)
+**Issue:** Deleting a product with an existing sales history failed silently in the UI.
+**Fix:** Modified the error handling inside [deleteProduct](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/productSlice.ts#66-83) ([productSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/productSlice.ts)) to intercept PostgreSQL `23503` (Foreign Key Constraint Warning) and show a descriptive `toast.error` explaining why it cannot be deleted.
+
+### 6. Purchase Validation Feedback
+**Issue:** Trying to submit a purchase in `Cargar Compra` without required fields triggered a raw HTML alert.
+**Fix:** Upgraded the error handling in [Inventory.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Inventory.tsx)'s [handleInvoiceSubmit](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Inventory.tsx#131-155) to use a non-intrusive UI `toast.error` instead of a harsh `alert()`.
+
+### 7. Save Quote from POS
+**Issue:** No quick way to save a cart as a Quote without losing context in the POS.
+**Fix:** Added a new **[Guardar como Cotización]** button directly in the POS cart footer (next to the "Vaciar" and "Cobrar" buttons). Selecting this generates a proper `DRAFT` quote and resets the cart for the next customer seamlessly. 
+
+## 🟢 Low Severity (UI/UX)
+
+### 8. Setup Redirect Message
+**Issue:** Sudden redirection to `/setup` on a fresh system lacked an announcement.
+**Fix:** Included an introductory Welcome toast in [Setup.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Setup.tsx) that appears right as the admin prepares their instance.
+
+### 9. Post-Setup Redirection
+**Issue:** Changing the catch-all redirect.
+**Fix:** Updated [App.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/App.tsx) so the main application fallback route resolves to `/dashboard` instead of `/sales`, offering a much better landing page out of the box, cascading smoothly through Role-Based permissions.
+
+### 10. Credit Sale Missing Client Warning
+**Issue:** Credit sales threw generic alerts when attempted without a Client.
+**Fix:** Enhanced checkout verifications in [POS.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/POS.tsx) to require a selected client before allowing a Credit Sale checkout, using `toast.error`.
+
+---
+## ✅ Conclusion
+With these fixes applied, the 10 identified items on the QA checklist have been fully resolved. The `npm run build` process has successfully compiled without TypeScript errors, ensuring stability.

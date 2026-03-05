@@ -1,0 +1,8 @@
+# QA Testing Checklist
+
+- [ ] Check `.env` configuration
+- [ ] Start dev server
+- [ ] Run QA Flow 1: Registration and Setup
+- [ ] Run QA Flow 2: POS Hero Path (Categories, Inventory, Cash Checkout, Credit Checkout)
+- [ ] Run QA Flow 3: Roles and Permissions (Register Seller, Assign Role, Verify Access)
+- [ ] Document any errors in `QA_REPORT.md`

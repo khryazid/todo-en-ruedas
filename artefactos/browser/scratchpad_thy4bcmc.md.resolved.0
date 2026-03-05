@@ -1,0 +1,19 @@
+# Task: Hero Path - POS Module
+
+## Progress Checklist
+- [x] Login to the application (already logged in as Admin User)
+- [x] Check for existing products in Inventory
+- [ ] POS: Checkout in Cash
+    - [ ] Navigate to POS (/pos)
+    - [ ] Add a product to cart
+    - [ ] Complete checkout in cash
+- [ ] POS: Checkout on Credit
+    - [ ] Add another product to cart
+    - [ ] Create a client (if needed)
+    - [ ] Complete checkout on credit
+- [ ] Document results
+
+## Findings
+- Application URL: http://localhost:5173
+- Current Session: Admin User (Admin)
+- Initial State: On /inventory with "Cargar Compra" modal open. Existing product "Producto BCV" found.
