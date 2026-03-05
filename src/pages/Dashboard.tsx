@@ -60,6 +60,7 @@ export const Dashboard = () => {
   const [customEndMonth, setCustomEndMonth] = useState(initialMonth);
   const [customEndYear, setCustomEndYear] = useState(initialYear);
   const [remoteRecurringTemplates, setRemoteRecurringTemplates] = useState<RecurringExpense[]>([]);
+  const [remoteRecurringLoaded, setRemoteRecurringLoaded] = useState(false);
 
   const MAX_CHART_DAYS = 180;
 
@@ -73,7 +74,8 @@ export const Dashboard = () => {
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (cancelled || error) return;
+      if (cancelled) return;
+      if (error) return;
 
       const mapped = (data || []).map((row) => ({
         id: row.id as string,
@@ -88,6 +90,7 @@ export const Dashboard = () => {
       } satisfies RecurringExpense));
 
       setRemoteRecurringTemplates(mapped);
+      setRemoteRecurringLoaded(true);
     };
 
     fetchRecurringTemplates();
@@ -556,9 +559,9 @@ export const Dashboard = () => {
 
   const pendingRecurringExpenses = useMemo(() => {
     const localTemplates = loadRecurringTemplates();
-    const templates = localTemplates.length > 0
-      ? localTemplates
-      : (remoteRecurringTemplates.length > 0 ? remoteRecurringTemplates : deriveRecurringTemplatesFromExpenses(expenses));
+    const templates = remoteRecurringLoaded
+      ? remoteRecurringTemplates
+      : (localTemplates.length > 0 ? localTemplates : deriveRecurringTemplatesFromExpenses(expenses));
     return getPendingRecurringForMonth(templates, expenses, new Date())
       .sort((a, b) => {
         const aDay = a.dayOfMonth ?? 99;
@@ -566,7 +569,7 @@ export const Dashboard = () => {
         if (aDay !== bDay) return aDay - bDay;
         return a.description.localeCompare(b.description, 'es', { sensitivity: 'base' });
       });
-  }, [expenses, remoteRecurringTemplates]);
+  }, [expenses, remoteRecurringTemplates, remoteRecurringLoaded]);
 
   const currentMonthLabel = useMemo(() => {
     return new Date().toLocaleDateString('es-VE', { month: 'long', year: 'numeric' });

@@ -117,8 +117,6 @@ export const Expenses = () => {
                 active: row.is_active !== false,
             } satisfies RecurringExpense));
 
-            if (mapped.length === 0) return;
-
             setRecurring(mapped);
             saveRecurringTemplates(mapped);
         };
