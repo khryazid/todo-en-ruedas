@@ -3,51 +3,7 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return undefined
-
-          const normalizedId = id.replace(/\\/g, '/')
-
-          if (
-            normalizedId.includes('/node_modules/react/') ||
-            normalizedId.includes('/node_modules/react-dom/') ||
-            normalizedId.includes('/node_modules/scheduler/')
-          ) {
-            return 'vendor-react'
-          }
-
-          if (normalizedId.includes('/node_modules/react-router-dom/')) {
-            return 'vendor-router'
-          }
-
-          if (normalizedId.includes('/node_modules/@supabase/supabase-js/')) {
-            return 'vendor-supabase'
-          }
-
-          if (normalizedId.includes('/node_modules/recharts/') || normalizedId.includes('/node_modules/d3-')) {
-            return 'vendor-charts'
-          }
-
-          if (normalizedId.includes('/node_modules/lucide-react/')) {
-            return 'vendor-icons'
-          }
-
-          if (
-            normalizedId.includes('/node_modules/react-hook-form/') ||
-            normalizedId.includes('/node_modules/@hookform/resolvers/') ||
-            normalizedId.includes('/node_modules/zod/')
-          ) {
-            return 'vendor-forms'
-          }
-
-          return 'vendor-misc'
-        }
-      }
-    }
-  },
+  build: {},
   plugins: [
     react(),
     VitePWA({
