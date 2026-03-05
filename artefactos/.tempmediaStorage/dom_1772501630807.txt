@@ -1,0 +1,133 @@
+[0] (500,500)<div  />
+	[1] (49,36)<button class='flex items-center gap-2.5 flex-shrink-0 mr-2 hover:opacity-90 transition' />
+		[2] (49,36)<div  />
+			[3] (49,28)<p >Todo En Ruedas CA />
+			[4] (49,48)<p >Business Management />
+	[5] (144,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/dashboard' />
+		[6] (120,36)<div  />
+		[7] (151,36)<span >Dashboard />
+	[8] (212,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/pos' />
+		[9] (196,36)<div  />
+		[10] (219,36)<span >Ventas />
+	[11] (274,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    bg-red-600 text-white shadow-lg shadow-red-900/40' href='/sales' />
+		[12] (255,36)<div  />
+		[13] (281,36)<span >Historial />
+	[14] (343,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/inventory' />
+		[15] (320,36)<div  />
+		[16] (351,36)<span >Inventario />
+	[17] (412,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/clients' />
+		[18] (394,36)<div  />
+		[19] (419,36)<span >Clientes />
+	[20] (492,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/accounts-receivable' />
+		[21] (458,36)<div  />
+		[22] (500,36)<span >Deudas Clientes />
+	[23] (583,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/daily-close' />
+		[24] (555,36)<div  />
+		[25] (590,36)<span >Cierre Diario />
+	[26] (779,36)<button class='flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap
+                                text-gray-400 hover:bg-white/10 hover:text-white'>Más />
+	[27] (850,36)<button class='hidden md:flex items-center gap-2 bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-gray-200 text-xs font-medium px-3 py-1.5 rounded-lg transition'>Buscar />
+		[28] (872,36)<kbd >Ctrl+K />
+	[29] (908,36)<button class='hidden md:flex w-8 h-8 items-center justify-center rounded-xl bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-white transition' title='Modo oscuro' />
+	[30] (958,36)<button class='flex items-center gap-2 px-2 py-1 rounded-xl transition border
+                                    bg-white/15 border-white/20' />
+		[31] (951,36)<div  />
+			[32] (951,23)<p >Admin User />
+			[33] (954,50)<span >👑 Admin />
+	Admin User
+	admin@test.com
+	👑 Admin
+	[34] (914,232)<button class='w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-300 hover:bg-white/10 hover:text-white transition text-sm font-semibold'>Personalizar barra />
+	[35] (914,284)<button class='w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-300 hover:bg-white/10 hover:text-white transition text-sm font-semibold'>Gestión de Usuarios />
+	[36] (914,335)<button class='w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-300 hover:bg-white/10 hover:text-white transition text-sm font-semibold'>Configuración />
+	[37] (914,398)<button class='w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400 hover:bg-red-500/15 hover:text-red-300 transition text-sm font-semibold'>Cerrar Sesión />
+	[38] (500,500)<main class='flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-950 relative pt-14' scrollable='true' />
+		Historial de Ventas
+		Auditoría y control de operaciones
+		[39] (686,149)<button class='w-full sm:w-auto bg-red-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-red-700 transition shadow-lg active:scale-95'>Imprimir A4 />
+		[40] (796,149)<button class='w-full sm:w-auto bg-green-600 text-white px-5 py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-green-700 transition shadow-lg active:scale-95'>Exportar CSV />
+		Ticket Térmico
+		[41] (73,257)<label class='text-[10px] font-bold text-gray-400 uppercase'>Buscar Ticket o Cliente />
+		[42] (205,297)<input class='w-full pl-10 pr-4 py-2.5 bg-gray-50 border-none rounded-xl outline-none focus:ring-2 focus:ring-red-100 font-medium' placeholder='Nº Referencia o Nombre Cliente...' />
+		[43] (398,259)<label class='text-[10px] font-bold text-gray-400 uppercase'>Desde />
+		[44] (440,299)<input class='w-full py-2.5 px-3 bg-gray-50 rounded-xl text-sm font-bold text-gray-700' />
+		[45] (508,259)<label class='text-[10px] font-bold text-gray-400 uppercase'>Hasta />
+		[46] (550,299)<input class='w-full py-2.5 px-3 bg-gray-50 rounded-xl text-sm font-bold text-gray-700' />
+		[47] (630,257)<label class='text-[10px] font-bold text-gray-400 uppercase'>Vendedor />
+		[48] (785,297)<select class='w-full pl-10 pr-4 py-2.5 bg-gray-50 border-none rounded-xl outline-none focus:ring-2 focus:ring-red-100 font-medium appearance-none cursor-pointer' />
+		Fecha / Ticket
+		Cliente
+		Ítems
+		Método
+		Vendedor
+		Total ($)
+		Ref. (Bs)
+		Estado
+		Acciones
+		2/3/2026, 4:26:33 p. m.
+		#
+		18
+		Anónimo / General
+		1
+		Efectivo
+		Admin User
+		$7.96
+		Bs.
+		286,56
+		PENDIENTE
+		[49] (848,485)<button class='p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition' title='Ver Detalle' />
+		[50] (875,485)<button class='p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition' title='Imprimir' />
+		[51] (902,485)<button class='p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition' title='Registrar Devolución' />
+		[52] (930,485)<button class='p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition' title='Borrar Venta Definitivamente' />
+		2/3/2026, 4:21:15 p. m.
+		#
+		17
+		Anónimo / General
+		1
+		Efectivo
+		Admin User
+		$7.54
+		Bs.
+		271,44
+		COMPLETADA
+		[53] (848,574)<button class='p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition' title='Ver Detalle' />
+		[54] (875,574)<button class='p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition' title='Imprimir' />
+		[55] (902,574)<button class='p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition' title='Registrar Devolución' />
+		[56] (930,574)<button class='p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition' title='Borrar Venta Definitivamente' />
+		2/3/2026, 3:37:52 p. m.
+		#
+		16
+		Anónimo / General
+		1
+		Efectivo
+		Admin User
+		$1.51
+		Bs.
+		54,36
+		PENDIENTE
+		[57] (848,662)<button class='p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition' title='Ver Detalle' />
+		[58] (875,662)<button class='p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition' title='Imprimir' />
+		[59] (902,662)<button class='p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition' title='Registrar Devolución' />
+		[60] (930,662)<button class='p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition' title='Borrar Venta Definitivamente' />
+		2/3/2026, 3:35:56 p. m.
+		#
+		15
+		Anónimo / General
+		1
+		Efectivo
+		Admin User
+		$1.51
+		Bs.
+		54,36
+		COMPLETADA
+		[61] (848,751)<button class='p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition' title='Ver Detalle' />
+		[62] (875,751)<button class='p-2 text-gray-400 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition' title='Imprimir' />
+		[63] (902,751)<button class='p-2 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition' title='Registrar Devolución' />
+		[64] (930,751)<button class='p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition' title='Borrar Venta Definitivamente' />

@@ -1,0 +1,96 @@
+# Notas de Crédito / Devoluciones — Implementation Plan
+
+The existing `returnSlice` handles stock restoration and marks sales as CANCELLED.
+This sprint extends it to also generate a **Nota de Crédito (NC-001)** and optionally apply a **credit balance** to the client's account, which can then be used in the next sale in the POS.
+
+## Proposed Changes
+
+---
+
+### Database (Supabase SQL)
+
+```sql
+-- 1. Add credit_balance to clients
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS credit_balance NUMERIC(10,2) DEFAULT 0;
+
+-- 2. Rename returns -> credit_notes with extra fields (or add columns to returns)
+ALTER TABLE returns
+  ADD COLUMN IF NOT EXISTS nc_number     TEXT,
+  ADD COLUMN IF NOT EXISTS option        TEXT DEFAULT 'REEMBOLSO'  -- 'CREDIT' | 'REEMBOLSO'
+    CHECK (option IN ('CREDIT', 'REEMBOLSO')),
+  ADD COLUMN IF NOT EXISTS client_id     UUID REFERENCES clients(id);
+
+-- 3. Add a sequence for NC numbering
+CREATE SEQUENCE IF NOT EXISTS nc_number_seq START 1;
+```
+
+---
+
+### Types — [MODIFY] [src/types/index.ts](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts)
+- Add `ReturnOption = 'CREDIT' | 'REEMBOLSO'` union type
+- Add `ncNumber?: string`, `option?: ReturnOption`, `clientId?: string` to [SaleReturn](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts#42-53)
+- Add `creditBalance?: number` to [Client](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts#71-82)
+
+---
+
+### Store — [MODIFY] [src/store/slices/clientSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/clientSlice.ts)
+- Persist `credit_balance` on `fetchClients`
+- Add `applyClientCredit(clientId: string, amount: number): Promise<void>` — deducts credit balance and saves to Supabase
+
+---
+
+### Store — [MODIFY] [src/store/slices/returnSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/returnSlice.ts)
+- [addReturn](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/returnSlice.ts#42-122) receives `option: ReturnOption` and `clientId?: string`
+- When `option === 'CREDIT'`, after return is created → call [updateClient(clientId, { creditBalance: currentBalance + refundAmount })](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/clientSlice.ts#33-52)
+- Fetch NC number from sequence: `SELECT nextval('nc_number_seq')` → format as `NC-${String(n).padStart(4, '0')}`
+- Store `nc_number`, `option`, `client_id` in Supabase `returns` row
+
+---
+
+### Store — [MODIFY] [src/store/slices/saleSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/saleSlice.ts)
+- [completeSale](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/saleSlice.ts#15-170) accepts optional `creditUsed?: number` param
+- If `creditUsed > 0` → deduct from `clients.credit_balance` after sale completes
+
+---
+
+### Store — [MODIFY] [src/store/types.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/types.ts)
+- Update [addReturn](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/returnSlice.ts#42-122) signature
+- Add `applyClientCredit` to StoreState
+
+---
+
+### Page — [MODIFY] [src/pages/Sales.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Sales.tsx)
+- In the return/devolution modal:
+  - Add **Opción** toggle: `💳 Saldo a Favor` | `💰 Reembolso` (default: Reembolso)
+  - Show "NC generará automáticamente el número"
+  - Display final NC number after success: `"✅ NC-0001 generada. Saldo cliente: +$XX.XX"`
+
+---
+
+### Page — [MODIFY] [src/pages/Clients.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Clients.tsx)
+- In client card/modal: show `💳 Saldo a Favor: $XX.XX` badge (yellow when > 0)
+- Option to manually clear/adjust the credit balance (ADMIN only)
+
+---
+
+### Page — [MODIFY] [src/pages/POS.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/POS.tsx)
+- When a client with `creditBalance > 0` is selected:
+  - Show a green banner: `💳 Este cliente tiene $XX.XX de saldo a favor`
+  - Add "Aplicar Saldo" toggle in the checkout modal
+  - If applied, `creditUsed = min(creditBalance, totalUSD)` → reduce amount owed
+
+---
+
+### Routing — No new routes needed (returns stay in Sales.tsx modal)
+
+## Verification Plan
+
+### Automated
+- `npx tsc --noEmit`
+
+### Manual
+1. Open a sale → click Devolver → choose "Saldo a Favor" → confirm
+2. Check: NC number assigned (NC-0001), client credit balance updated in Clients page
+3. Go to POS → select same client → banner "💳 Saldo a favor: $XX.XX" appears
+4. Checkout → apply credit → verify balance deducted correctly
+5. Do a REEMBOLSO return → verify no credit balance change, NC still generated

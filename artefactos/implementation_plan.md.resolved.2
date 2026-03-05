@@ -1,0 +1,86 @@
+# Listas de Precio por Cliente — Plan de Implementación
+
+## Objetivo
+Permitir que cada cliente tenga asignada una **lista de precio** (Detal, Mayorista, Especial). El POS aplica automáticamente el margen correspondiente al agregar productos al carrito cuando ese cliente está seleccionado.
+
+## Estado actual
+- [calculatePrices(product, settings)](file:///c:/Users/Khris/todo-en-ruedas/src/utils/pricing.ts#15-54) usa `product.customMargin ?? settings.defaultMargin` — un solo margen global
+- [Client](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts#53-63) no tiene campo de lista de precio
+- `CartItem.priceFinalUSD` se calcula en el momento de agregar al carrito
+
+---
+
+## Diseño
+
+### Listas de precio = márgenes diferenciados en Settings
+En lugar de una tabla separada, las listas de precio son simplemente **3 márgenes diferentes** configurados en [AppSettings](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts#221-240). Esto es lo más simple y flexible para el negocio.
+
+| Lista | Margen sugerido | Descripción |
+|---|---|---|
+| Detal | `defaultMargin` (ya existe) | Precio público / mostrador |
+| Mayorista | ~80% del margen Detal | Compradores frecuentes al por mayor |
+| Especial | ~60% del margen Detal | Clientes VIP o distribuidores |
+
+---
+
+## Cambios Propuestos
+
+### 1. Tipos — [src/types/index.ts](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts)
+**[MODIFY]** Agregar:
+```ts
+export type PriceList = 'Detal' | 'Mayorista' | 'Especial';
+
+// En Client:
+priceList?: PriceList; // lista asignada al cliente
+
+// En AppSettings:
+marginMayorista?: number; // margen para lista Mayorista
+marginEspecial?: number;  // margen para lista Especial
+```
+
+### 2. Pricing util — [src/utils/pricing.ts](file:///c:/Users/Khris/todo-en-ruedas/src/utils/pricing.ts)
+**[MODIFY]** Agregar sobrecarga a [calculatePrices](file:///c:/Users/Khris/todo-en-ruedas/src/utils/pricing.ts#15-54) que acepta `priceList?`:
+```ts
+export const calculatePrices = (product, settings, priceList?: PriceList)
+```
+- Si `priceList === 'Mayorista'` → usa `settings.marginMayorista ?? (settings.defaultMargin * 0.6)`
+- Si `priceList === 'Especial'` → usa `settings.marginEspecial ?? (settings.defaultMargin * 0.4)`
+- `priceList === 'Detal'` o undefined → comportamiento actual
+
+> **Nota:** `customMargin` de producto tiene siempre prioridad sobre la lista.
+
+### 3. Configuración — [src/pages/Settings.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Settings.tsx)
+**[MODIFY]** Agregar en la sección de márgenes dos campos nuevos:
+- **Margen Mayorista %** (default: 0 = usar `defaultMargin × 0.6`)
+- **Margen Especial %** (default: 0 = usar `defaultMargin × 0.4`)
+
+### 4. Store Settings — [src/store/slices/settingsSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/settingsSlice.ts)
+**[MODIFY]** Agregar `marginMayorista` y `marginEspecial` al fetch y update de settings.
+
+### 5. POS — [src/pages/POS.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/POS.tsx)
+**[MODIFY]**
+- Cuando se selecciona un cliente con `priceList`, mostrar un badge en el carrito:
+  `🏷️ Precio Mayorista` / `⭐ Precio Especial`
+- Al agregar un producto al carrito, pasar `priceList` del cliente a [calculatePrices](file:///c:/Users/Khris/todo-en-ruedas/src/utils/pricing.ts#15-54)
+
+### 6. Cart Slice — [src/store/slices/cartSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/cartSlice.ts)
+**[MODIFY]** La acción [addToCart](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/cartSlice.ts#13-32) recibe `priceList?` y recalcula `priceFinalUSD` con esa lista.
+
+### 7. Clientes — [src/pages/Clients.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Clients.tsx)
+**[MODIFY]** En el modal de crear/editar cliente:
+- Agregar campo **Lista de Precio** con 3 opciones visuales (pills/radio): Detal / Mayorista / Especial
+- Mostrar en la tarjeta del cliente qué lista tiene asignada
+
+### 8. Client Slice — [src/store/slices/clientSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/clientSlice.ts)
+**[MODIFY]** Asegurar que `priceList` se guarda en Supabase (`price_list` columna).
+
+---
+
+## Verificación
+1. Crear/editar cliente y asignar lista "Mayorista"
+2. En POS seleccionar ese cliente → badge "Precio Mayorista" visible
+3. Agregar producto → precio debe ser MENOR que el precio Detal
+4. Cambiar cliente a uno con lista "Especial" → precio aún más bajo
+5. Verificar que productos con `customMargin` propio NO se ven afectados por la lista
+6. Configurar márgenes en Settings → verificar que afectan el cálculo
+7. TypeScript: `npx tsc --noEmit`

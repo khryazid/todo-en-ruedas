@@ -1,0 +1,15 @@
+# Suppliers Module — Task Checklist
+
+## In Progress
+- [/] **Step 1** — Expand [Supplier](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts#172-179) type in [src/types/index.ts](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts)
+- [/] **Step 2** — Add supplier actions to [src/store/types.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/types.ts)
+- [/] **Step 3** — Create `src/store/slices/supplierSlice.ts`
+- [/] **Step 4** — Wire supplierSlice into [src/store/useStore.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/useStore.ts)
+- [/] **Step 5** — Create `src/pages/Suppliers.tsx`
+- [/] **Step 6** — Add "Proveedores" to [Sidebar.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/components/layout/Sidebar.tsx)
+- [/] **Step 7** — Add `/suppliers` route in [App.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/App.tsx)
+- [/] **Step 8** — Supplier autocomplete in [Inventory.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Inventory.tsx) purchase form
+
+## Pending
+- [ ] TypeScript build check (`npx tsc --noEmit`)
+- [ ] Browser verification

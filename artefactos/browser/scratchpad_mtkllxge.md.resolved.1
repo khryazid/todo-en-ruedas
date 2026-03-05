@@ -1,0 +1,16 @@
+# QA testing Flow 2: Zero to Sales (Hero Path)
+
+- [ ] Step 1: Create Categories ('Repuestos', 'Accesorios') in Inventario. (Finding where to create them)
+- [ ] Step 2: Create Products ('Producto BCV', 'Producto TH') with specific stock and pricing.
+- [ ] Step 3: Go to POS.
+- [ ] Step 4: Sell 1 unit of 'Producto BCV' (Cash). Verify sale.
+- [ ] Step 5: Verify stock of 'Producto BCV' is 9 in Inventario.
+- [ ] Step 6: Go to POS, add 'Producto TH' to cart, try 'A Crédito'.
+- [ ] Step 7: Observe credit limit/client warning.
+- [ ] Step 8: Create 'Cliente Rápido' ($50 limit) and assign to sale.
+- [ ] Step 9: Complete credit checkout with partial payment.
+
+## Findings
+- Initial State: Logged in as Admin User.
+- Issue: Cannot find where to create Categories. Looking in POS or other menus.
+- Note: 'Producto BCV' already exists with stock 8. I need to create it with stock 10 as per instructions (or update it).

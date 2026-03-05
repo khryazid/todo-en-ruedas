@@ -1,0 +1,14 @@
+# Inventory Movement Log — Task Checklist
+
+## Completed ✅
+- [x] **SQL** — `stock_movements` table + RLS ready (pending user to execute in Supabase)
+- [x] **Types** — Added [StockMovementType](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts#24-25) + [StockMovement](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts#26-41) to [types/index.ts](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts)
+- [x] **Slice** — Created [stockMovementSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/stockMovementSlice.ts) (state + fetch + add)
+- [x] **Store** — Registered slice in [useStore.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/useStore.ts) and [store/types.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/types.ts)
+- [x] **Auto-log Sales** — [saleSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/saleSlice.ts): SALE movements logged in [completeSale](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/saleSlice.ts#15-170)
+- [x] **Auto-log Returns** — [returnSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/returnSlice.ts): RETURN movements logged in [addReturn](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/returnSlice.ts#42-122)
+- [x] **Auto-log Adjustments** — [productSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/productSlice.ts): ADJUSTMENT when stock is changed directly
+- [x] **Page** — Created [InventoryMovements.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/InventoryMovements.tsx) with table, type filter pills, text search, CSV export
+- [x] **Route** — Added `/inventory/movements` to [App.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/App.tsx)
+- [x] **Inventory UI** — Added "Ver Movimientos" (History icon) + "Ajuste Manual" (Wrench icon + modal) to [Inventory.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Inventory.tsx)
+- [x] **TypeScript check** — `npx tsc --noEmit` → ✅ PASS
