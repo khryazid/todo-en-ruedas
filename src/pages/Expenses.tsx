@@ -290,7 +290,10 @@ export const Expenses = () => {
             const { error } = await supabase.from('recurring_expenses').delete().eq('id', id);
             if (error) {
                 const message = (error as { message?: string })?.message || '';
-                toast.error(`No se pudo eliminar en Supabase: ${message || 'Error desconocido'}`);
+                const updatedLocalOnly = recurring.filter(r => r.id !== id);
+                setRecurring(updatedLocalOnly);
+                saveRecurringTemplates(updatedLocalOnly);
+                toast.error(`No se pudo eliminar en Supabase: ${message || 'Error desconocido'}. Se eliminó solo en este dispositivo.`);
                 return;
             }
 
