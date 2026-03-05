@@ -16,6 +16,45 @@ export const saveRecurringTemplates = (list: RecurringExpense[]) => {
   localStorage.setItem(RECURRING_KEY, JSON.stringify(list));
 };
 
+const templateKeyFromExpense = (expense: Expense) => {
+  if (expense.recurringId) return `id:${expense.recurringId}`;
+  const desc = normalizeText(expense.description);
+  const category = normalizeText(expense.category);
+  const method = normalizeText(expense.paymentMethod);
+  const currency = normalizeText(expense.currency || 'USD');
+  return `legacy:${desc}|${category}|${method}|${currency}`;
+};
+
+export const deriveRecurringTemplatesFromExpenses = (expenses: Expense[]): RecurringExpense[] => {
+  const recurringExpenses = expenses
+    .filter((expense) => Boolean(expense.isRecurring))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const map = new Map<string, RecurringExpense>();
+
+  recurringExpenses.forEach((expense) => {
+    const key = templateKeyFromExpense(expense);
+    if (map.has(key)) return;
+
+    const expenseDate = new Date(expense.date);
+    const dayOfMonth = Number.isNaN(expenseDate.getTime()) ? undefined : expenseDate.getDate();
+
+    map.set(key, {
+      id: expense.recurringId || key,
+      description: expense.description,
+      category: expense.category,
+      amountUSD: expense.amountUSD,
+      amountBS: expense.amountBS,
+      currency: expense.currency || 'USD',
+      paymentMethod: expense.paymentMethod,
+      dayOfMonth,
+      active: true,
+    });
+  });
+
+  return Array.from(map.values());
+};
+
 const sameMonth = (dateText: string, reference: Date) => {
   const date = new Date(dateText);
   return date.getMonth() === reference.getMonth() && date.getFullYear() === reference.getFullYear();

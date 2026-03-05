@@ -21,7 +21,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
-import { getPendingRecurringForMonth, loadRecurringTemplates } from '../utils/recurringExpenses';
+import { deriveRecurringTemplatesFromExpenses, getPendingRecurringForMonth, loadRecurringTemplates } from '../utils/recurringExpenses';
 
 export const Dashboard = () => {
   const { sales, products, invoices, clients, expenses, cashLedger, paymentMethods, settings, currentUserData, deleteCashMovement } = useStore();
@@ -518,7 +518,8 @@ export const Dashboard = () => {
 
 
   const pendingRecurringExpenses = useMemo(() => {
-    const templates = loadRecurringTemplates();
+    const localTemplates = loadRecurringTemplates();
+    const templates = localTemplates.length > 0 ? localTemplates : deriveRecurringTemplatesFromExpenses(expenses);
     return getPendingRecurringForMonth(templates, expenses, new Date())
       .sort((a, b) => {
         const aDay = a.dayOfMonth ?? 99;

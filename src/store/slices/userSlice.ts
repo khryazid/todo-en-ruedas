@@ -9,6 +9,15 @@ import type { SetState, GetState } from '../types';
 import type { AppUser } from '../../types';
 import { logAudit } from '../../utils/audit';
 
+const isValidRole = (role: unknown): role is AppUser['role'] => {
+    return role === 'ADMIN' || role === 'MANAGER' || role === 'SELLER' || role === 'VIEWER';
+};
+
+const getFallbackNameFromEmail = (email?: string | null): string => {
+    if (!email) return 'Usuario';
+    return email.split('@')[0] || 'Usuario';
+};
+
 const mapSetupErrorMessage = (error: unknown): string => {
     const message = error instanceof Error ? error.message : String(error || '');
     const normalized = message.toLowerCase();
@@ -103,7 +112,76 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             }
 
             if (!data) {
-                console.warn('⚠️ No se encontró el usuario en la tabla');
+                const metadataRole = user.user_metadata?.role;
+                const fallbackRole: AppUser['role'] = isValidRole(metadataRole) ? metadataRole : 'VIEWER';
+                const fallbackName = user.user_metadata?.full_name || getFallbackNameFromEmail(user.email);
+
+                const { error: upsertError } = await supabase
+                    .from('users')
+                    .upsert(
+                        {
+                            id: user.id,
+                            email: user.email || '',
+                            full_name: fallbackName,
+                            role: fallbackRole,
+                            is_active: true,
+                        },
+                        { onConflict: 'id' }
+                    );
+
+                if (upsertError) {
+                    console.warn('⚠️ No se encontró el usuario en la tabla y no se pudo autocrear:', upsertError.message);
+
+                    // Fallback local para evitar pantalla en blanco por role=null en rutas protegidas.
+                    set({
+                        currentUserData: {
+                            id: user.id,
+                            email: user.email || '',
+                            fullName: fallbackName,
+                            role: fallbackRole,
+                            isActive: true,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                            lastLogin: undefined,
+                        }
+                    });
+                    return;
+                }
+
+                const { data: recoveredUser, error: recoveredError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                if (recoveredError || !recoveredUser) {
+                    set({
+                        currentUserData: {
+                            id: user.id,
+                            email: user.email || '',
+                            fullName: fallbackName,
+                            role: fallbackRole,
+                            isActive: true,
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString(),
+                            lastLogin: undefined,
+                        }
+                    });
+                    return;
+                }
+
+                set({
+                    currentUserData: {
+                        id: recoveredUser.id,
+                        email: recoveredUser.email,
+                        fullName: recoveredUser.full_name,
+                        role: recoveredUser.role,
+                        isActive: recoveredUser.is_active,
+                        createdAt: recoveredUser.created_at,
+                        updatedAt: recoveredUser.updated_at,
+                        lastLogin: recoveredUser.last_login,
+                    }
+                });
                 return;
             }
 

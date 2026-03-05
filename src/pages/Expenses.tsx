@@ -7,7 +7,7 @@
  *   - Autor: muestra quién registró el gasto
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import {
@@ -17,7 +17,7 @@ import {
 import type { Expense, RecurringExpense, ExpenseCurrency } from '../types';
 import { DEFAULT_EXPENSE_CATEGORIES } from '../types';
 import toast from 'react-hot-toast';
-import { loadRecurringTemplates, saveRecurringTemplates } from '../utils/recurringExpenses';
+import { deriveRecurringTemplatesFromExpenses, loadRecurringTemplates, saveRecurringTemplates } from '../utils/recurringExpenses';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 type Period = 'today' | 'week' | 'month' | 'all';
@@ -83,6 +83,16 @@ export const Expenses = () => {
     };
     const [recForm, setRecForm] = useState<Omit<RecurringExpense, 'id'>>(emptyRec);
     const [recAmount, setRecAmount] = useState('');
+
+    useEffect(() => {
+        if (recurring.length > 0) return;
+
+        const recovered = deriveRecurringTemplatesFromExpenses(expenses);
+        if (recovered.length === 0) return;
+
+        setRecurring(recovered);
+        saveRecurringTemplates(recovered);
+    }, [expenses, recurring.length]);
 
     const rate = settings.tasaBCV || 1;
     const selectedExpenseMethod = useMemo(
