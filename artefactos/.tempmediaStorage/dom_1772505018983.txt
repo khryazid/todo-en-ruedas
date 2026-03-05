@@ -1,0 +1,64 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+[0] (500,500)<div  />
+	[1] (49,28)<p >Todo En Ruedas CA />
+	Business Management
+	Dashboard
+	Ventas
+	Historial
+	Inventario
+	Clientes
+	Deudas Clientes
+	Cierre Diario
+	Más
+	Buscar
+	Ctrl+K
+	[2] (951,23)<p >Admin User />
+	👑 Admin
+	[3] (500,500)<main class='flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-950 relative pt-14' scrollable='true' />
+		Cotizaciones
+		Propuestas de precio para clientes
+		Nueva Cotización
+		1
+		cotizaciones
+		COT-001
+		2/3/2026
+		Test Client QA
+		1
+		producto
+		• Vence:
+		9/3/2026
+		$7.54
+		Bs
+		271,44
+		Borrador
+		COT-001
+		2/3/2026, 10:29:29 p. m.
+		[4] (642,209)<button class='bg-white p-2 rounded-full text-gray-400 hover:text-red-500 transition shadow-sm' />
+		Cliente
+		Test Client QA
+		Válida hasta
+		9/3/2026
+		Producto BCV
+		1
+		×
+		$7.54
+		$7.54
+		TOTAL
+		$7.54
+		Cambiar Estado
+		[5] (378,615)<button class='flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition border-2 bg-gray-100 text-gray-600 border-current'>Borrador />
+		[6] (443,615)<button class='flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition border-2 bg-white text-gray-400 border-gray-200 hover:border-gray-300'>Enviada />
+		[7] (509,615)<button class='flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition border-2 bg-white text-gray-400 border-gray-200 hover:border-gray-300'>Aceptada />
+		[8] (580,615)<button class='flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition border-2 bg-white text-gray-400 border-gray-200 hover:border-gray-300'>Rechazada />
+		[9] (375,665)<button class='flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition border-2 bg-white text-gray-400 border-gray-200 hover:border-gray-300'>Vencida />
+		[10] (443,758)<select class='flex-1 border-2 border-blue-200 rounded-xl px-3 py-2 text-sm font-bold bg-white outline-none' />
+		[11] (588,758)<button class='px-5 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition'>✓ Confirmar />
+		[12] (644,758)<button class='px-3 py-2 bg-white border border-gray-200 rounded-xl text-gray-500 font-bold text-sm hover:bg-gray-50 transition'>✕ />
+		[13] (394,824)<button class='flex-1 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 flex justify-center items-center gap-2 shadow-lg shadow-green-100 transition'>WhatsApp />
+		[14] (500,824)<button class='flex-1 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black flex justify-center items-center gap-2 transition'>Ticket />
+		[15] (606,824)<button class='flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 flex justify-center items-center gap-2 transition shadow-lg shadow-red-100' title='Generar PDF A4 profesional'>PDF A4 />
+
+</current_dom>

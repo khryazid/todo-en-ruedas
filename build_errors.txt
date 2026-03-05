@@ -1,0 +1,13 @@
+
+> todo-en-ruedas@0.0.0 build
+> tsc -b && vite build
+
+src/store/slices/invoiceSlice.ts(40,13): error TS2345: Argument of type '(state: StoreState) => { suppliers: (Supplier | undefined)[]; }' is not assignable to parameter of type 'Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)'.
+  Type '(state: StoreState) => { suppliers: (Supplier | undefined)[]; }' is not assignable to type '(state: StoreState) => Partial<StoreState>'.
+    Call signature return types '{ suppliers: (Supplier | undefined)[]; }' and 'Partial<StoreState>' are incompatible.
+      The types of 'suppliers' are incompatible between these types.
+        Type '(Supplier | undefined)[]' is not assignable to type 'Supplier[]'.
+          Type 'Supplier | undefined' is not assignable to type 'Supplier'.
+            Type 'undefined' is not assignable to type 'Supplier'.
+src/store/slices/invoiceSlice.ts(43,20): error TS18048: 'existingSupplier' is possibly 'undefined'.
+src/store/slices/invoiceSlice.ts(44,22): error TS18048: 'existingSupplier' is possibly 'undefined'.

@@ -1,0 +1,99 @@
+Todo En Ruedas CA
+Business Management
+Dashboard
+Ventas
+Historial
+Inventario
+Clientes
+Deudas Clientes
+Cierre Diario
+Más
+Buscar
+Ctrl+K
+Admin User
+👑 Admin
+:(
+Algo salio mal
+Ocurrio un error inesperado. Puedes intentar recargar la pagina.
+Recargar pagina
+[0] (500,500)<div class='backdrop' scrollable='true' />
+	[plugin:vite:react-babel]
+	C:\Users\Khris\todo-en-ruedas\src\pages\Inventory.tsx: Unexpected token, expected "," (727:6)
+  730 |       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
+	C:
+	[1] (310,190)<a class='file-link'>/Users/Khris/todo-en-ruedas/src/pages/Inventory.tsx:727:6 />
+	[2] (495,305)<pre class='frame' scrollable='true'>736 |              <button onClick={() => setAdjustTarget(null)} className="p-2 rounded-xl hover:bg-gray-100"><X size={20} /...
+737 |            </div>
+738 |            <div className="bg-gray-50 rounded-xl p-3 mb-4">
+    |                                                        ^
+739 |              <p className="font-bold text-gray-800">{adjustTarget.name}</p>
+740 |              <p className="text-xs text-gray-400 font-mono">{adjustTarget.sku} · Stock actual: <strong>{adjustTarget.s... />
+	at constructor (
+	[3] (405,437)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:367:19 />
+	)
+    at TypeScriptParserMixin.raise (
+	[4] (482,463)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:6624:19 />
+	)
+    at TypeScriptParserMixin.unexpected (
+	[5] (505,488)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:6644:16 />
+	)
+    at TypeScriptParserMixin.expect (
+	[6] (486,513)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:6924:12 />
+	)
+    at TypeScriptParserMixin.parseParenAndDistinguishExpression (
+	[7] (619,538)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:11733:14 />
+	)
+    at TypeScriptParserMixin.parseExprAtom (
+	[8] (521,563)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:11395:23 />
+	)
+    at TypeScriptParserMixin.parseExprAtom (
+	[9] (519,588)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:4793:20 />
+	)
+    at TypeScriptParserMixin.parseExprSubscripts (
+	[10] (549,613)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:11145:23 />
+	)
+    at TypeScriptParserMixin.parseUpdate (
+	[11] (512,638)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:11130:21 />
+	)
+    at TypeScriptParserMixin.parseMaybeUnary (
+	[12] (531,664)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:11110:23 />
+	)
+    at TypeScriptParserMixin.parseMaybeUnary (
+	[13] (528,689)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:9890:18 />
+	)
+    at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (
+	[14] (572,714)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10963:61 />
+	)
+    at TypeScriptParserMixin.parseExprOps (
+	[15] (517,739)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10968:23 />
+	)
+    at TypeScriptParserMixin.parseMaybeConditional (
+	[16] (559,764)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10945:23 />
+	)
+    at TypeScriptParserMixin.parseMaybeAssign (
+	[17] (535,789)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10895:21 />
+	)
+    at TypeScriptParserMixin.parseMaybeAssign (
+	[18] (533,814)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:9839:20 />
+	)
+    at TypeScriptParserMixin.parseExpressionBase (
+	[19] (549,839)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10848:23 />
+	)
+    at
+	[20] (349,865)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10844:39 />
+	at TypeScriptParserMixin.allowInAnd (
+	[21] (507,890)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:12495:16 />
+	)
+    at TypeScriptParserMixin.parseExpression (
+	[22] (531,915)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10844:17 />
+	)
+    at TypeScriptParserMixin.parseReturnStatement (
+	[23] (554,940)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:13218:28 />
+	)
+    at TypeScriptParserMixin.parseStatementContent (
+	C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:12874:21
+	)
+    at TypeScriptParserMixin.parseStatementContent (
+	C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:9569:18
+	)
+    at TypeScriptParserMixin.parseStatementLike (

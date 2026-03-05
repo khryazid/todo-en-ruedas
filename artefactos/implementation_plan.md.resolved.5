@@ -1,0 +1,23 @@
+# Gestión Avanzada de Usuarios: Edición de Correo y Restricciones de Clave
+
+## Descripción del Problema
+1. Actualmente el botón de cambiar contraseña (icono de llave) es visible para los Gerentes (Managers), pero al usarlo falla porque la función SQL (`admin_update_user_password`) ya restringe esta acción únicamente a Administradores (ADMIN).
+2. El modal de "Editar Usuario" solo permite modificar el Nombre Completo y el Rol. No existe un campo para cambiar el correo electrónico del usuario.
+3. Cambiar el correo electrónico directamente en la tabla `public.users` no altera el acceso de inicio de sesión real en Supabase Auth (`auth.users`).
+
+## Proposed Changes
+
+### 1. Base de Datos / Supabase
+- **Crear RPC `admin_update_user_email`:** Se creará una función segura (`SECURITY DEFINER`) en [schema.sql](file:///c:/Users/Khris/todo-en-ruedas/supabase/schema.sql) y [reset.sql](file:///c:/Users/Khris/todo-en-ruedas/supabase/reset.sql) para permitir que un ADMIN modifique directamente la tabla `auth.users` y actualice el correo electrónico de autenticación de cualquier usuario, simulando el mismo patrón de seguridad usado para las contraseñas.
+
+### 2. Frontend / Interfaz de Usuario
+- **[src/pages/Users.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Users.tsx):** 
+  - Restringir la visibilidad del botón de cambiar contraseña (`<Key />`) obligando a que `isAdmin` sea `true`.
+  - Agregar el campo **Email** dentro del componente [EditUserModal](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Users.tsx#328-393).
+- **[src/store/slices/userSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/userSlice.ts):**
+  - Modificar el método [updateUser](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/userSlice.ts#324-372) para verificar si la propiedad `email` viene en los cambios.
+  - De ser así, se invocará primero la nueva llamada `supabase.rpc('admin_update_user_email', ...)` antes de actualizar el resto de los datos (Nombre/Rol).
+
+## User Review Required
+> [!WARNING]
+> Dado que estamos agregando una función nueva de Supabase RPC, será necesario que copies y pegues un script SQL en el editor de Supabase una vez que esté programado. ¿Estás de acuerdo con este enfoque?

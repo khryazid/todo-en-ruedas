@@ -1,0 +1,94 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+[0] (500,500)<div  />
+	[1] (49,36)<button class='flex items-center gap-2.5 flex-shrink-0 mr-2 hover:opacity-90 transition' />
+		[2] (49,36)<div  />
+			[3] (49,28)<p >Todo En Ruedas CA />
+			[4] (49,48)<p >Business Management />
+	[5] (144,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/dashboard' />
+		[6] (120,36)<div  />
+		[7] (151,36)<span >Dashboard />
+	[8] (212,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    bg-red-600 text-white shadow-lg shadow-red-900/40' href='/pos' />
+		[9] (196,36)<div  />
+		[10] (219,36)<span >Ventas />
+	[11] (274,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/sales' />
+		[12] (255,36)<div  />
+		[13] (281,36)<span >Historial />
+	[14] (343,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/inventory' />
+		[15] (320,36)<div  />
+		[16] (351,36)<span >Inventario />
+	[17] (412,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/clients' />
+		[18] (394,36)<div  />
+		[19] (419,36)<span >Clientes />
+	[20] (492,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/accounts-receivable' />
+		[21] (458,36)<div  />
+		[22] (500,36)<span >Deudas Clientes />
+	[23] (583,36)<a class='relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all duration-150 whitespace-nowrap
+                                    text-gray-400 hover:bg-white/10 hover:text-white' href='/daily-close' />
+		[24] (555,36)<div  />
+		[25] (590,36)<span >Cierre Diario />
+	[26] (779,36)<button class='flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap
+                                text-gray-400 hover:bg-white/10 hover:text-white'>Más />
+	[27] (850,36)<button class='hidden md:flex items-center gap-2 bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-gray-200 text-xs font-medium px-3 py-1.5 rounded-lg transition'>Buscar />
+		[28] (872,36)<kbd >Ctrl+K />
+	[29] (908,36)<button class='hidden md:flex w-8 h-8 items-center justify-center rounded-xl bg-white/8 hover:bg-white/15 border border-white/10 text-gray-400 hover:text-white transition' title='Modo oscuro' />
+	[30] (958,36)<button class='flex items-center gap-2 px-2 py-1 rounded-xl transition border
+                                    border-transparent hover:bg-white/10 hover:border-white/10' />
+		[31] (951,36)<div  />
+			[32] (951,23)<p >Admin User />
+			[33] (954,50)<span >👑 Admin />
+	[34] (376,111)<input class='w-full pl-10 pr-4 py-2 bg-gray-100 border-none rounded-xl outline-none focus:ring-2 focus:ring-red-500 text-sm font-medium' placeholder='Buscar producto o SKU...' />
+	[35] (79,274)<div  />
+		[36] (79,239)<div  />
+			[37] (79,205)<div  />
+				[38] (36,205)<span >BCV001 />
+				[39] (126,205)<span >9
+un. />
+			[40] (79,248)<h3 >Producto BCV />
+		[41] (79,319)<div  />
+			[42] (37,328)<div  />
+				[43] (37,309)<span >Precio />
+				[44] (37,336)<span >$7.54 />
+			[45] (127,334)<div  />
+	[46] (228,274)<div  />
+		[47] (228,239)<div  />
+			[48] (228,205)<div  />
+				[49] (183,205)<span >TH001 />
+				[50] (274,205)<span >9
+un. />
+			[51] (228,248)<h3 >Producto TH />
+		[52] (228,319)<div  />
+			[53] (186,328)<div  />
+				[54] (186,309)<span >Precio />
+				[55] (186,336)<span >$7.96 />
+			[56] (276,334)<div  />
+	[57] (871,112)<input class='w-full bg-white border border-blue-200 text-sm rounded-lg pl-3 pr-8 py-2 font-bold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-200' placeholder='Buscar Cliente (Nombre o RIF)...' />
+	[58] (981,112)<button class='bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-lg shadow flex-shrink-0 transition' title='Añadir Cliente Rápido' />
+	Producto BCV
+	BCV001
+	$7.54
+	[59] (949,205)<button class='p-1 hover:bg-gray-200 text-gray-600 transition' />
+	1
+	[60] (978,205)<button class='p-1 hover:bg-gray-200 text-gray-600 transition' />
+	[61] (982,230)<button class='text-[10px] text-red-400 hover:text-red-600 font-bold flex items-center gap-1' />
+	Desc. %
+	[62] (803,811)<button class='px-2 py-1 text-gray-500 hover:bg-gray-100 font-black text-sm transition'>− />
+	[63] (828,811)<input class='w-12 text-center font-black text-sm bg-transparent outline-none' placeholder='0' />
+	%
+	[64] (861,811)<button class='px-2 py-1 text-gray-500 hover:bg-gray-100 font-black text-sm transition'>+ />
+	Total a Pagar
+	Bs.
+	271,44
+	$7.54
+	[65] (789,948)<button class='col-span-1 flex items-center justify-center p-3 rounded-xl border border-red-100 text-red-500 bg-red-50 hover:bg-red-100 disabled:opacity-50 transition' />
+	[66] (906,948)<button class='col-span-3 flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-900 text-white font-bold hover:bg-black shadow-lg disabled:opacity-50 transition active:scale-95'>COBRAR />
+
+</current_dom>

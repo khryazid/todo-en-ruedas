@@ -1,0 +1,63 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+[0] (500,500)<div  />
+	Todo En Ruedas CA
+	Business Management
+	Dashboard
+	Ventas
+	Historial
+	Inventario
+	Clientes
+	Deudas Clientes
+	Cierre Diario
+	Más
+	Buscar
+	Ctrl+K
+	Admin User
+	👑 Admin
+	Proveedores
+	1
+	registrados
+	Nuevo
+	Deuda Total
+	$1,050.00
+	Total Comprado
+	$1,760.01
+	Todos
+	Importador
+	Nacional
+	Fabricante
+	Distribuidor
+	Otro
+	P
+	Proveedor Test
+	$1,050.00
+	5
+	factura(s)
+	[1] (500,500)<div class='bg-white w-full md:w-[560px] rounded-t-3xl md:rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom duration-300' scrollable='true' />
+		Nuevo Proveedor
+		[2] (645,104)<button class='p-2 hover:bg-gray-100 rounded-full transition' />
+		[3] (495,201)<label class='text-xs font-bold text-gray-500 uppercase block mb-1.5 flex items-center gap-1'>Nombre de la Empresa * />
+		[4] (495,252)<input class='w-full border-2 border-gray-100 rounded-xl p-3 font-semibold text-gray-800 focus:border-red-300 outline-none transition' placeholder='Ej: Distribuidora Caribe C.A.' />
+		[5] (495,321)<label class='text-xs font-bold text-gray-500 uppercase block mb-1.5'>RIF />
+		[6] (353,372)<select class='border-2 border-gray-100 rounded-xl px-3 py-3 font-bold text-gray-700 outline-none focus:border-red-300' />
+		[7] (517,372)<input class='flex-1 border-2 border-gray-100 rounded-xl p-3 font-mono font-semibold text-gray-700 focus:border-red-300 outline-none' placeholder='12345678-9' />
+		[8] (495,441)<label class='text-xs font-bold text-gray-500 uppercase block mb-1.5 flex items-center gap-1'>Categoría />
+		[9] (363,478)<button class='px-3 py-1.5 rounded-xl text-xs font-bold transition border bg-white text-gray-500 border-gray-200 hover:border-gray-300'>Importador />
+		[10] (422,478)<button class='px-3 py-1.5 rounded-xl text-xs font-bold transition border bg-white text-gray-500 border-gray-200 hover:border-gray-300'>Nacional />
+		[11] (479,478)<button class='px-3 py-1.5 rounded-xl text-xs font-bold transition border bg-white text-gray-500 border-gray-200 hover:border-gray-300'>Fabricante />
+		[12] (542,478)<button class='px-3 py-1.5 rounded-xl text-xs font-bold transition border bg-white text-gray-500 border-gray-200 hover:border-gray-300'>Distribuidor />
+		[13] (595,478)<button class='px-3 py-1.5 rounded-xl text-xs font-bold transition border bg-red-600 text-white border-red-600'>Otro />
+		[14] (412,533)<label class='text-xs font-bold text-gray-500 uppercase block mb-1.5 flex items-center gap-1'>Contacto />
+		[15] (412,584)<input class='w-full border-2 border-gray-100 rounded-xl p-3 font-semibold text-gray-700 focus:border-red-300 outline-none' placeholder='Nombre de contacto' />
+		[16] (578,533)<label class='text-xs font-bold text-gray-500 uppercase block mb-1.5 flex items-center gap-1'>Teléfono />
+		[17] (578,584)<input class='w-full border-2 border-gray-100 rounded-xl p-3 font-semibold text-gray-700 focus:border-red-300 outline-none' placeholder='+58 412...' />
+		[18] (495,653)<label class='text-xs font-bold text-gray-500 uppercase block mb-1.5 flex items-center gap-1'>Email />
+		[19] (495,704)<input class='w-full border-2 border-gray-100 rounded-xl p-3 font-semibold text-gray-700 focus:border-red-300 outline-none' placeholder='proveedor@email.com' />
+		[20] (495,773)<label class='text-xs font-bold text-gray-500 uppercase block mb-1.5 flex items-center gap-1'>Dirección />
+		[21] (495,824)<input class='w-full border-2 border-gray-100 rounded-xl p-3 font-semibold text-gray-700 focus:border-red-300 outline-none' placeholder='Av. Principal, Local 4...' />
+		[22] (495,893)<label class='text-xs font-bold text-gray-500 uppercase block mb-1.5 flex items-center gap-1'>Notas />
+
+</current_dom>

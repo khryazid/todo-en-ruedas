@@ -1,0 +1,15 @@
+# Inventory Movement Log — Task Checklist
+
+## Pending
+- [ ] **SQL** — Run `stock_movements` table + RLS in Supabase
+- [ ] **Types** — Add `StockMovementType` + `StockMovement` to [types/index.ts](file:///c:/Users/Khris/todo-en-ruedas/src/types/index.ts)
+- [ ] **Slice** — Create `stockMovementSlice.ts` (state + fetch + add)
+- [ ] **Store** — Register slice in [useStore.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/useStore.ts) and [store/types.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/types.ts)
+- [ ] **Auto-log Sales** — [saleSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/saleSlice.ts): log SALE movements after `completeSale`
+- [ ] **Auto-log Returns** — [returnSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/returnSlice.ts): log RETURN movements after `addReturn`
+- [ ] **Auto-log Adjustments** — [productSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/productSlice.ts): log ADJUSTMENT when stock is changed directly
+- [ ] **Page** — Create `InventoryMovements.tsx` with table, filters, CSV export
+- [ ] **Route** — Add `/inventory/movements` to [App.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/App.tsx)
+- [ ] **Inventory UI** — Add "Ver Movimientos" + "Ajuste Manual" modal to [Inventory.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Inventory.tsx)
+- [ ] **TypeScript check** — `npx tsc --noEmit`
+- [ ] **Browser verification** — Test sale → SALE row, manual adjust → ADJUSTMENT row, CSV download

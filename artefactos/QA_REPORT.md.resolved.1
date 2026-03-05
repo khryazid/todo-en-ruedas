@@ -1,0 +1,11 @@
+# QA Report
+
+## Severidad Alta (Bloqueantes)
+
+## Media (Visual o Lógico)
+- **Faltan Campos en el Formulario de Setup:** Los campos "Margen de Ganancia Global por Defecto" y "IVA por Defecto" no están presentes en el formulario inicial de `/setup`. Se tuvo que navegar a `/settings` para configurarlos manualmente.
+
+## Baja (UI/UX)
+- **Redirección Automática sin Mensaje:** Navegar a `/` o `/login` en una base de datos limpia redirige automáticamente a `/setup`.
+- **Destino de Redirección Post-Setup:** Tras completar el setup, la app redirige a `/sales` en lugar del esperado `/dashboard`.
+- **Formulario Combinado:** El registro de usuario y la configuración de empresa están combinados en un solo formulario.

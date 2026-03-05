@@ -1,0 +1,41 @@
+# Flujo de Recuperación de Contraseña
+
+## Descripción del Problema
+Actualmente, la pantalla de inicio de sesión ([Login.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Login.tsx)) muestra el texto *"Si olvidaste tu clave, contacta al soporte técnico"*. Esto indica que no hay un flujo automatizado para que el usuario recupere su propia contraseña. El usuario ha solicitado implementar esta funcionalidad.
+
+## Requisitos de Supabase
+Supabase Auth ofrece la función `resetPasswordForEmail`. Cuando se invoca, envía un correo al usuario con un enlace que contiene un token "Magic Link". Al hacer clic en el enlace, el usuario es redirigido a la aplicación (generalmente a una ruta configurada, como `/reset-password`), donde puede escribir y guardar una nueva contraseña usando [updateUser](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/userSlice.ts#324-387).
+
+## Proposed Changes
+
+### 1. Actualización del Estado Global ([authSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/authSlice.ts))
+- **[MODIFICAR] [src/store/slices/authSlice.ts](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/authSlice.ts)**
+  - Agregar un método `sendPasswordResetEmail(email: string)` que invoque `supabase.auth.resetPasswordForEmail`.
+  - Agregar un método `updateRecoveredPassword(newPassword: string)` que utilice `supabase.auth.updateUser({ password: newPassword })` para confirmar el cambio.
+
+### 2. Formulario de Solicitud en la Pantalla de Login
+- **[MODIFICAR] [src/pages/Login.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/pages/Login.tsx)**
+  - Añadir un estado local `isRecovering` (boolean).
+  - Al activar `isRecovering = true`, cambiar la interfaz para mostrar solo el campo de "Correo Electrónico" y un botón "Enviar Enlace de Recuperación".
+  - Proveer un botón "Volver al inicio de sesión".
+
+### 3. Pantalla de Restablecimiento de Contraseña
+- **[NUEVO] `src/pages/ResetPassword.tsx`**
+  - Crear un nuevo componente que será la página de destino cuando el usuario haga clic en el enlace de su correo.
+  - La URL del correo vendrá en formato hash (`#access_token=...`), lo que significa que el usuario ya estará logueado temporalmente por Supabase.
+  - Mostrar un formulario para ingresar "Nueva Contraseña" y "Confirmar Contraseña".
+  - Al enviar, invocar `updateRecoveredPassword` y redirigir al `/dashboard` o `/login`.
+
+### 4. Configurar Enrutamiento
+- **[MODIFICAR] [src/App.tsx](file:///c:/Users/Khris/todo-en-ruedas/src/App.tsx)**
+  - Añadir la ruta pública `/reset-password` que cargue el nuevo componente `ResetPassword.tsx`.
+
+## Configuración Especial en el Panel de Supabase
+> [!IMPORTANT]
+> Para que el envío de correos funcione de manera óptima:
+> 1. Asegúrate de que las **URL(s) del sitio** (Site URL y Redirect URLs) en el panel de `Supabase -> Authentication -> URL Configuration` estén apuntando a tu URL en producción (o `http://localhost:5173` para pruebas locales).
+> 2. En `Supabase -> Authentication -> Email Templates -> Reset Password`, asegúrate de que el enlace en la plantilla envíe a los usuarios hacia `{{ .SiteURL }}/reset-password#access_token={{ .TokenHash }}...` (Supabase maneja esto automáticamente por defecto, pero es bueno verificarlo).
+
+## User Review Required
+> [!NOTE]
+> Para este flujo, se requiere que **la configuración de correos de tu proyecto en Supabase (SMTP)** esté activa. Supabase otorga un límite de unos pocos correos por hora en la capa gratuita por defecto. ¿Estás de acuerdo con este plan para avanzar?

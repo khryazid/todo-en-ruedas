@@ -1,0 +1,18 @@
+# QA Checklist Section 4: Compras (Módulo Facturas) y Registro Manual
+
+## Checklist
+- [x] Navigate to Inventory page
+- [x] Locate and click 'Cargar Compra'
+- [ ] Create/Select Supplier 'Importadora QA' (Encountered issues, using 'Proveedor Test' for now)
+- [ ] Add new product: SKU `NVO01`, Name `Producto Importado`, Qty `50`, Cost `$10.00`
+- [ ] Add Freight (Flete) cost of `$50.00`
+- [ ] Process Purchase
+- [ ] Verify Inventory for `Producto Importado` (Stock 50, Unit Cost calculated)
+- [ ] Check if cost is `$11.00` (Cascading Update)
+
+## Notes
+- Current URL: http://localhost:5173/inventory
+- Admin Login: admin@test.com / Kh123123!
+- Modal "Cargar Compra" requires Nº Control and Proveedor to add items.
+- JS `value` property setting didn't seem to persist for some fields. Using manual clicks and typing.
+- Flete input is at the bottom and has been set to 50.

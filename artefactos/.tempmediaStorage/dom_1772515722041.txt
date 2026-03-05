@@ -1,0 +1,134 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+Todo En Ruedas CA
+Business Management
+Dashboard
+Ventas
+Historial
+Inventario
+Clientes
+Deudas Clientes
+Cierre Diario
+Más
+Buscar
+Ctrl+K
+Admin User
+👑 Admin
+[0] (500,500)<main class='flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-950 relative pt-14' scrollable='true' />
+	Cartera de Clientes
+	Gestión de fidelidad y contactos
+	Nuevo Cliente
+	T
+	Test Client QA
+	V-12345678
+	NUEVO
+	Total Gastado
+	$0.00
+	Última Visita
+	Nunca
+	Historial
+	Q
+	QA Client
+	V-123456
+	NUEVO
+	Total Gastado
+	$0.00
+	Última Visita
+	Nunca
+	Historial
+	C
+	Cliente Mayorista Test
+	V-25123456
+	🏷️
+	Mayorista
+	NUEVO
+	Total Gastado
+	$0.00
+	Última Visita
+	Nunca
+	Historial
+[1] (500,500)<div class='backdrop' scrollable='true' />
+	[plugin:vite:react-babel]
+	C:\Users\Khris\todo-en-ruedas\src\pages\POS.tsx: Unexpected token, expected "," (622:12)
+  625 |             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end md:items-center justify-center p-0 md:p-4 animate-in fade-in">
+	C:
+	[2] (295,190)<a class='file-link'>/Users/Khris/todo-en-ruedas/src/pages/POS.tsx:622:12 />
+	[3] (495,305)<pre class='frame' scrollable='true'>628 |                          <div className="text-center">
+629 |                              <CheckCircle className="text-green-500 mx-auto mb-4" size={64} />
+630 |                              <h3 className="text-2xl font-black text-gray-800 mb-2">¡Venta Exitosa!</h3>
+    |                                     ^
+631 |                              <p className="text-gray-500 mb-6">La venta #{completedSale.localId || completedSale.id.sl...
+632 | />
+	at constructor (
+	[4] (405,437)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:367:19 />
+	)
+    at TypeScriptParserMixin.raise (
+	[5] (482,463)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:6624:19 />
+	)
+    at TypeScriptParserMixin.unexpected (
+	[6] (505,488)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:6644:16 />
+	)
+    at TypeScriptParserMixin.expect (
+	[7] (486,513)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:6924:12 />
+	)
+    at TypeScriptParserMixin.parseParenAndDistinguishExpression (
+	[8] (619,538)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:11733:14 />
+	)
+    at TypeScriptParserMixin.parseExprAtom (
+	[9] (521,563)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:11395:23 />
+	)
+    at TypeScriptParserMixin.parseExprAtom (
+	[10] (519,588)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:4793:20 />
+	)
+    at TypeScriptParserMixin.parseExprSubscripts (
+	[11] (549,613)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:11145:23 />
+	)
+    at TypeScriptParserMixin.parseUpdate (
+	[12] (512,638)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:11130:21 />
+	)
+    at TypeScriptParserMixin.parseMaybeUnary (
+	[13] (531,664)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:11110:23 />
+	)
+    at TypeScriptParserMixin.parseMaybeUnary (
+	[14] (528,689)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:9890:18 />
+	)
+    at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (
+	[15] (572,714)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10963:61 />
+	)
+    at TypeScriptParserMixin.parseExprOps (
+	[16] (517,739)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10968:23 />
+	)
+    at TypeScriptParserMixin.parseMaybeConditional (
+	[17] (559,764)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10945:23 />
+	)
+    at TypeScriptParserMixin.parseMaybeAssign (
+	[18] (535,789)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10895:21 />
+	)
+    at TypeScriptParserMixin.parseMaybeAssign (
+	[19] (533,814)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:9839:20 />
+	)
+    at TypeScriptParserMixin.parseExpressionBase (
+	[20] (549,839)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10848:23 />
+	)
+    at
+	[21] (349,865)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10844:39 />
+	at TypeScriptParserMixin.allowInAnd (
+	[22] (507,890)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:12495:16 />
+	)
+    at TypeScriptParserMixin.parseExpression (
+	[23] (531,915)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:10844:17 />
+	)
+    at TypeScriptParserMixin.parseReturnStatement (
+	[24] (554,940)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:13218:28 />
+	)
+    at TypeScriptParserMixin.parseStatementContent (
+	[25] (559,965)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:12874:21 />
+	)
+    at TypeScriptParserMixin.parseStatementContent (
+	[26] (556,990)<a class='file-link'>C:\Users\Khris\todo-en-ruedas\node_modules\@babel\parser\lib\index.js:9569:18 />
+	)
+    at TypeScriptParserMixin.parseStatementLike (
+
+</current_dom>

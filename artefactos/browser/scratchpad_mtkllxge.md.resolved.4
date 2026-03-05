@@ -1,0 +1,18 @@
+# QA testing Flow 2: Zero to Sales (Hero Path)
+
+- [ ] Step 1: Create Categories ('Repuestos', 'Accesorios') in Inventario. (ISSUE: UI not found, using General)
+- [ ] Step 2: Create Products ('Producto BCV', 'Producto TH') with specific stock and pricing. (In progress: Updating BCV)
+- [ ] Step 3: Go to POS.
+- [ ] Step 4: Sell 1 unit of 'Producto BCV' (Cash). Verify sale.
+- [ ] Step 5: Verify stock of 'Producto BCV' is 9 in Inventario.
+- [ ] Step 6: Go to POS, add 'Producto TH' to cart, try 'A Crédito'.
+- [ ] Step 7: Observe credit limit/client warning.
+- [ ] Step 8: Create 'Cliente Rápido' ($50 limit) and assign to sale.
+- [ ] Step 9: Complete credit checkout with partial payment.
+
+## Findings
+- Initial State: Logged in as Admin User.
+- Issue 1: Cannot find where to create Categories in UI. Checked Inventario, POS, and Settings tabs.
+- Issue 2: Primary editing of products via modal is slightly flaky (values didn't stick first time).
+- Note: 'Producto BCV' currently has $15 cost and stock 8. Need Cost 5, Stock 10.
+- Plan: Retry updating 'Producto BCV' correctly.

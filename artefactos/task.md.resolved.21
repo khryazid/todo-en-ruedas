@@ -1,0 +1,14 @@
+# Notas de Crédito / Devoluciones — Task Checklist
+
+## Pending
+- [ ] **SQL** — `credit_balance` in clients + NC columns in returns + sequence `nc_number_seq`
+- [ ] **Types** — Add `ReturnOption`, `ncNumber`, `option`, `clientId` to SaleReturn; `creditBalance` to Client
+- [ ] **clientSlice** — Persist `credit_balance`; add `applyClientCredit(clientId, amount)`
+- [ ] **returnSlice** — Generate NC number, handle CREDIT/REEMBOLSO option, update client balance
+- [ ] **saleSlice** — Accept `creditUsed` param in [completeSale](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/saleSlice.ts#15-170), deduct from client balance
+- [ ] **store/types.ts** — Update signatures for [addReturn](file:///c:/Users/Khris/todo-en-ruedas/src/store/slices/returnSlice.ts#42-122), add `applyClientCredit`
+- [ ] **Sales.tsx** — Add option toggle + NC number display in return modal
+- [ ] **Clients.tsx** — Show `creditBalance` badge; allow manual adjustment (ADMIN)
+- [ ] **POS.tsx** — Show credit balance banner + "Aplicar Saldo" toggle at checkout
+- [ ] **TypeScript check** — `npx tsc --noEmit`
+- [ ] **Browser verification** — Test full flow: return → NC → credit applied in POS

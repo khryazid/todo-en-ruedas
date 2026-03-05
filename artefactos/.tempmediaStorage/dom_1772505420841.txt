@@ -1,0 +1,113 @@
+<current_dom_explanation>
+This is a temporary snapshot of the current page's DOM structure. The DOM will change if you navigate to or interact with another page. Use a tool like browser_get_dom to capture and preserve the DOM in your trajectory if needed for later reference.
+</current_dom_explanation>
+<current_dom>
+[0] (500,500)<div  />
+	[1] (49,28)<p >Todo En Ruedas CA />
+	Business Management
+	Dashboard
+	Ventas
+	Historial
+	Inventario
+	Clientes
+	Deudas Clientes
+	Cierre Diario
+	Más
+	Buscar
+	Ctrl+K
+	[2] (951,23)<p >Admin User />
+	👑 Admin
+	[3] (500,500)<main class='flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 dark:bg-gray-950 relative pt-14' scrollable='true' />
+		Historial de Ventas
+		Auditoría y control de operaciones
+		Imprimir A4
+		Exportar CSV
+		Ticket Térmico
+		Buscar Ticket o Cliente
+		Desde
+		Hasta
+		Vendedor
+		Fecha / Ticket
+		Cliente
+		Ítems
+		Método
+		Vendedor
+		Total ($)
+		Ref. (Bs)
+		Estado
+		Acciones
+		2/3/2026, 4:26:33 p. m.
+		#
+		18
+		Anónimo / General
+		1
+		Efectivo
+		Admin User
+		$7.96
+		Bs.
+		286,56
+		PENDIENTE
+		2/3/2026, 4:21:15 p. m.
+		#
+		17
+		Anónimo / General
+		1
+		Efectivo
+		Admin User
+		$7.54
+		Bs.
+		271,44
+		COMPLETADA
+		2/3/2026, 3:37:52 p. m.
+		#
+		16
+		Anónimo / General
+		1
+		Efectivo
+		Admin User
+		$1.51
+		Bs.
+		54,36
+		PENDIENTE
+		2/3/2026, 3:35:56 p. m.
+		#
+		15
+		Anónimo / General
+		1
+		Efectivo
+		Admin User
+		$1.51
+		Bs.
+		54,36
+		COMPLETADA
+		Detalle de Venta
+		Ticket #
+		402e4d
+		•
+		2/3/2026, 4:21:15 p. m.
+		[4] (725,293)<button class='bg-white p-2 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition shadow-sm' />
+		Venta a Cliente General / Anónimo
+		Código
+		Producto
+		Cant.
+		Precio Unit.
+		Subtotal
+		BCV001
+		Producto BCV
+		1
+		$7.54
+		$7.54
+		Método:
+		Efectivo
+		Estado:
+		COMPLETADA
+		Total Venta
+		$7.54
+		Ref. Bs
+		271,44
+		[5] (280,738)<button class='px-4 py-3 bg-white border border-orange-200 text-orange-600 font-bold rounded-xl hover:bg-orange-50 flex items-center justify-center gap-2 transition' title='Registrar Devolución' />
+		[6] (323,738)<button class='px-4 py-3 bg-white border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 flex items-center justify-center gap-2 transition' title='Anular Venta' />
+		[7] (365,738)<button class='px-4 py-3 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 shadow-lg shadow-green-200 transition flex items-center justify-center gap-2' title='Enviar por WhatsApp' />
+		[8] (564,738)<button class='flex-1 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black flex justify-center items-center gap-2 shadow-lg transition transform active:scale-95'>REIMPRIMIR TICKET />
+
+</current_dom>

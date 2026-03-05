@@ -1,0 +1,21 @@
+# QA Checklist Execution - Final Sections (8-11)
+
+## Plan
+- [ ] Login as Admin (admin@test.com / Kh123123!)
+- [ ] **Section 8: Gastos**
+    - [ ] Navigate to 'Gastos'
+    - [ ] Register Gasto: Concepto: `Comida`, Monto: `5`, Tipo: `Variable`
+    - [ ] Verify appearance in table
+- [ ] **Section 9: Cierre Diario**
+    - [ ] Navigate to 'Cierre Diario'
+    - [ ] Verify metrics (sales + expense)
+    - [ ] Generate Reporte X/Z
+- [ ] **Section 10: Dashboard**
+    - [ ] Navigate to Dashboard
+    - [ ] Verify charts/metrics
+- [ ] **Section 11: Configuración**
+    - [ ] Navigate to Configuración via Profile
+    - [ ] Verify 'Tasas Activas' inputs
+
+## Findings
+- 
