@@ -155,3 +155,11 @@ ALTER TABLE expenses
 7. Agregar ruta en `App.tsx` con `<RoleRoute>`
 8. Agregar ítem en `TopBar.tsx`
 9. Correr `npx tsc --noEmit`
+
+---
+
+## 10. Ultimo Handover
+
+- Documento: `artefactos/HANDOVER_2026-03-05_POS_SYNC_UX.md`
+- Alcance: sincronizacion realtime/POS multi-cliente, rediseño UX movil de POS, fixes de compatibilidad y estabilidad.
+- Estado: cambios implementados y compilando; pendiente smoke test funcional A/B en dispositivos reales.
