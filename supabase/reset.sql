@@ -28,6 +28,7 @@ DROP TABLE IF EXISTS public.sales            CASCADE;
 DROP TABLE IF EXISTS public.quotes           CASCADE;
 DROP TABLE IF EXISTS public.expenses         CASCADE;
 DROP TABLE IF EXISTS public.cash_closes      CASCADE;
+DROP TABLE IF EXISTS public.cash_ledger      CASCADE;
 DROP TABLE IF EXISTS public.invoices         CASCADE;
 DROP TABLE IF EXISTS public.suppliers        CASCADE;
 DROP TABLE IF EXISTS public.payment_methods  CASCADE;
@@ -79,7 +80,7 @@ CREATE TABLE public.products (
     stock         NUMERIC DEFAULT 0,
     min_stock     NUMERIC DEFAULT 0,
     cost          NUMERIC DEFAULT 0,
-    cost_type     TEXT DEFAULT 'BCV' CHECK (cost_type IN ('BCV','MONITOR','MANUAL')),
+    cost_type     TEXT DEFAULT 'BCV' CHECK (cost_type IN ('BCV','TH')),
     freight       NUMERIC DEFAULT 0,
     supplier      TEXT,
     custom_margin NUMERIC,
@@ -167,7 +168,7 @@ CREATE TABLE public.quotes (
     total_bs    NUMERIC(10,2) NOT NULL,
     notes       TEXT,
     status      TEXT DEFAULT 'DRAFT'
-                    CHECK (status IN ('DRAFT','SENT','ACCEPTED','EXPIRED','CANCELLED')),
+                    CHECK (status IN ('DRAFT','SENT','ACCEPTED','REJECTED','EXPIRED')),
     user_id     UUID,
     seller_name TEXT,
     created_at  TIMESTAMPTZ DEFAULT now()
@@ -224,6 +225,8 @@ CREATE TABLE public.expenses (
     currency       TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS')),
     category       TEXT NOT NULL,
     payment_method TEXT NOT NULL,
+    fx_rate_used   NUMERIC(12,6),
+    fx_source      TEXT CHECK (fx_source IN ('BCV','TH','MANUAL')),
     user_id        UUID,
     seller_name    TEXT,
     is_recurring   BOOLEAN DEFAULT false,
@@ -246,6 +249,33 @@ CREATE TABLE public.cash_closes (
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 
+-- cash_ledger
+CREATE TABLE public.cash_ledger (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    date           TEXT NOT NULL,
+    direction      TEXT NOT NULL CHECK (direction IN ('IN','OUT')),
+    kind           TEXT NOT NULL
+                       CHECK (kind IN ('VENTA_COBRADA','ABONO_CLIENTE','ABONO_PROVEEDOR','GASTO_OPERATIVO','AJUSTE')),
+    amount_usd     NUMERIC(10,2) NOT NULL,
+    amount_bs      NUMERIC(10,2),
+    currency       TEXT NOT NULL DEFAULT 'USD' CHECK (currency IN ('USD','BS')),
+    payment_method TEXT NOT NULL,
+    description    TEXT NOT NULL,
+    reference_type TEXT,
+    reference_id   TEXT,
+    user_id        UUID,
+    seller_name    TEXT,
+    created_at     TIMESTAMPTZ DEFAULT now(),
+    updated_at     TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX idx_cash_ledger_date      ON public.cash_ledger(date);
+CREATE INDEX idx_cash_ledger_direction ON public.cash_ledger(direction);
+CREATE INDEX idx_cash_ledger_kind      ON public.cash_ledger(kind);
+CREATE INDEX idx_cash_ledger_reference ON public.cash_ledger(reference_type, reference_id);
+CREATE UNIQUE INDEX uq_cash_ledger_reference
+    ON public.cash_ledger(reference_type, reference_id)
+    WHERE reference_type IS NOT NULL AND reference_id IS NOT NULL;
+
 -- users
 CREATE TABLE public.users (
     id         UUID PRIMARY KEY,
@@ -263,9 +293,14 @@ CREATE TABLE public.users (
 CREATE TABLE public.suppliers (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name         TEXT NOT NULL,
+    rif          TEXT,
+    rif_type     TEXT,
     contact_name TEXT,
     phone        TEXT,
     email        TEXT,
+    address      TEXT,
+    category     TEXT,
+    notes        TEXT,
     catalog      JSONB DEFAULT '[]'::jsonb,
     created_at   TIMESTAMPTZ DEFAULT now()
 );
@@ -280,7 +315,7 @@ CREATE TABLE public.invoices (
     date_due          TEXT NOT NULL,
     status            TEXT DEFAULT 'PENDING'
                           CHECK (status IN ('PENDING','PARTIAL','PAID','CANCELLED')),
-    cost_type         TEXT DEFAULT 'BCV' CHECK (cost_type IN ('BCV','MONITOR','MANUAL')),
+    cost_type         TEXT DEFAULT 'BCV' CHECK (cost_type IN ('BCV','TH')),
     items             JSONB DEFAULT '[]'::jsonb,
     subtotal_usd      NUMERIC(10,2) DEFAULT 0,
     freight_total_usd NUMERIC(10,2) DEFAULT 0,
@@ -298,13 +333,14 @@ CREATE TABLE public.payment_methods (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name       TEXT NOT NULL,
     currency   TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS')),
+    commission_pct NUMERIC(5,2) DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now()
 );
-INSERT INTO public.payment_methods (name, currency) VALUES
-    ('Efectivo USD', 'USD'),
-    ('Zelle',        'USD'),
-    ('Pago Móvil',   'BS'),
-    ('Punto de Venta', 'BS');
+INSERT INTO public.payment_methods (name, currency, commission_pct) VALUES
+    ('Efectivo USD', 'USD', 0),
+    ('Zelle',        'USD', 0),
+    ('Pago Móvil',   'BS', 0),
+    ('Punto de Venta', 'BS', 0);
 
 -- audit_logs
 CREATE TABLE public.audit_logs (
@@ -337,6 +373,7 @@ ALTER TABLE public.returns          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stock_movements  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.expenses         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cash_closes      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cash_ledger      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.users            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.suppliers        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invoices         ENABLE ROW LEVEL SECURITY;
@@ -355,6 +392,7 @@ CREATE POLICY "auth_full_returns"         ON public.returns          FOR ALL TO 
 CREATE POLICY "auth_full_stock_movements" ON public.stock_movements  FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_expenses"        ON public.expenses         FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_cash_closes"     ON public.cash_closes      FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "auth_full_cash_ledger"     ON public.cash_ledger      FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_users"           ON public.users            FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_suppliers"       ON public.suppliers        FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_full_invoices"        ON public.invoices         FOR ALL TO authenticated USING (true) WITH CHECK (true);

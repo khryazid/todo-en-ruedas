@@ -7,6 +7,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
+import { fromEditableIntegerValue, fromEditableNumberValue, toEditableNumberValue } from '../utils/editableNumber';
 import { printMobileQuote } from '../utils/quoteGenerator';
 import { printQuoteReport } from '../utils/ticketGenerator';
 import {
@@ -28,15 +29,13 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; color: string; icon: R
 const STATUS_ORDER: QuoteStatus[] = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'];
 
 export const Quotes = () => {
-    const { quotes, products, clients, settings, addQuote, updateQuote, deleteQuote, convertQuoteToSale, paymentMethods, loadQuoteIntoCart } = useStore();
+    const { quotes, products, clients, settings, addQuote, updateQuote, deleteQuote, loadQuoteIntoCart } = useStore();
     const navigate = useNavigate();
 
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [viewQuote, setViewQuote] = useState<Quote | null>(null);
     const [search, setSearch] = useState('');
     const [filterStatus, setFilterStatus] = useState<QuoteStatus | 'ALL'>('ALL');
-    const [showConvertModal, setShowConvertModal] = useState(false);
-    const [convertPayMethod, setConvertPayMethod] = useState<string>('');
 
     // Formulario nuevo
     const [formClientId, setFormClientId] = useState('');
@@ -118,8 +117,9 @@ export const Quotes = () => {
 
     const handleSave = () => {
         if (formItems.length === 0) return alert('Agrega al menos un producto.');
+        const effectiveValidDays = formValidDays > 0 ? formValidDays : 7;
         const validUntil = new Date();
-        validUntil.setDate(validUntil.getDate() + formValidDays);
+        validUntil.setDate(validUntil.getDate() + effectiveValidDays);
         const quote: Quote = {
             id: crypto.randomUUID(),
             number: nextNumber,
@@ -270,8 +270,8 @@ export const Quotes = () => {
                                     <input
                                         type="number" min={1} max={90}
                                         className="w-full border-2 border-gray-100 rounded-xl p-3 outline-none focus:border-blue-200 text-sm font-bold"
-                                        value={formValidDays}
-                                        onChange={e => setFormValidDays(parseInt(e.target.value) || 7)}
+                                        value={toEditableNumberValue(formValidDays)}
+                                        onChange={e => setFormValidDays(fromEditableIntegerValue(e.target.value, 0))}
                                     />
                                 </div>
                             </div>
@@ -319,16 +319,25 @@ export const Quotes = () => {
                                             <div key={item.productId} className="grid grid-cols-12 gap-2 items-center px-4 py-2 border-t border-gray-50">
                                                 <span className="col-span-4 text-sm font-bold text-gray-700 truncate">{item.name}</span>
                                                 <input type="number" min={1} value={item.quantity}
-                                                    onChange={e => updateItemQty(item.productId, parseInt(e.target.value))}
+                                                    onChange={e => updateItemQty(item.productId, fromEditableIntegerValue(e.target.value, 0))}
                                                     className="col-span-2 border border-gray-200 rounded-lg text-center p-1 text-sm font-bold w-full"
                                                 />
+<<<<<<< HEAD
                                                 <input type="number" min={0} step={0.01} value={item.priceFinalUSD}
                                                     onChange={e => updateItemPrice(item.productId, e.target.value === '' ? ('' as any) : parseFloat(e.target.value))}
+=======
+                                                <input type="number" min={0} step={0.01} value={toEditableNumberValue(item.priceFinalUSD)}
+                                                    onChange={e => updateItemPrice(item.productId, fromEditableNumberValue(e.target.value))}
+>>>>>>> QA
                                                     className="col-span-2 border border-gray-200 rounded-lg text-center p-1 text-sm font-bold w-full"
                                                 />
                                                 <div className="col-span-2 relative">
                                                     <input type="number" min={0} max={100} step={1} value={item.discountPct ?? ''}
+<<<<<<< HEAD
                                                         onChange={e => updateItemDiscount(item.productId, e.target.value === '' ? ('' as any) : parseFloat(e.target.value))}
+=======
+                                                        onChange={e => updateItemDiscount(item.productId, fromEditableNumberValue(e.target.value))}
+>>>>>>> QA
                                                         placeholder="0"
                                                         className="border border-red-200 rounded-lg text-center p-1 text-sm font-bold w-full text-red-600 focus:border-red-400 outline-none"
                                                     />
@@ -440,16 +449,16 @@ export const Quotes = () => {
                         </div>
 
                         <div className="p-4 border-t bg-gray-50 space-y-2">
-                            {/* Botón Convertir a Venta */}
-                            {viewQuote.status !== 'ACCEPTED' && viewQuote.status !== 'REJECTED' && viewQuote.status !== 'EXPIRED' && (
+                            {/* Botón Procesar Venta (solo cuando está aceptada) */}
+                            {viewQuote.status === 'ACCEPTED' && (
                                 <button
                                     onClick={() => {
                                         loadQuoteIntoCart(viewQuote, products);
-                                        navigate('/sales', { state: { clientId: viewQuote.clientId } });
+                                        navigate('/pos', { state: { clientId: viewQuote.clientId, clientName: viewQuote.clientName } });
                                     }}
                                     className="w-full py-2.5 bg-blue-50 border border-blue-200 text-blue-700 font-bold rounded-xl hover:bg-blue-100 flex justify-center items-center gap-2 transition text-sm shadow-sm"
                                 >
-                                    <ShoppingBag size={16} /> Cargar en Punto de Venta (POS)
+                                    <ShoppingBag size={16} /> Enviar a POS para Procesar Venta
                                 </button>
                             )}
                             <div className="flex gap-2">

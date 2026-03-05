@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { Building2, User, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { fromEditableNumberValue, toEditableNumberValue } from '../utils/editableNumber';
 
 export const Setup = () => {
     const setupFirstAdmin = useStore(s => s.setupFirstAdmin);
@@ -257,8 +258,13 @@ export const Setup = () => {
                                     <input
                                         type="number"
                                         min="0"
+<<<<<<< HEAD
                                         value={formData.defaultMargin}
                                         onChange={(e) => setFormData({ ...formData, defaultMargin: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
+=======
+                                        value={toEditableNumberValue(formData.defaultMargin)}
+                                        onChange={(e) => setFormData({ ...formData, defaultMargin: fromEditableNumberValue(e.target.value) })}
+>>>>>>> QA
                                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
                                         required
                                     />
@@ -268,8 +274,13 @@ export const Setup = () => {
                                     <input
                                         type="number"
                                         min="0"
+<<<<<<< HEAD
                                         value={formData.defaultVAT}
                                         onChange={(e) => setFormData({ ...formData, defaultVAT: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
+=======
+                                        value={toEditableNumberValue(formData.defaultVAT)}
+                                        onChange={(e) => setFormData({ ...formData, defaultVAT: fromEditableNumberValue(e.target.value) })}
+>>>>>>> QA
                                         className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 transition"
                                         required
                                     />

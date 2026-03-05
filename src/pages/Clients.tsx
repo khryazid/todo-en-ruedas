@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
+import { fromEditableNumberValue, toEditableNumberValue } from '../utils/editableNumber';
 import { printInvoice, sendToWhatsApp } from '../utils/ticketGenerator';
 import {
     Users, Search, Plus, Edit, Trash2,
@@ -263,8 +264,8 @@ export const Clients = () => {
                                         type="number" min="0" step="0.01"
                                         className="w-full border-2 border-gray-100 rounded-xl p-3 pl-7 font-bold font-mono focus:border-red-200 outline-none"
                                         placeholder="0.00 = sin límite"
-                                        value={formData.creditLimit ?? ''}
-                                        onChange={e => setFormData({ ...formData, creditLimit: Number(e.target.value) || 0 })}
+                                        value={toEditableNumberValue(formData.creditLimit ?? 0)}
+                                        onChange={e => setFormData({ ...formData, creditLimit: fromEditableNumberValue(e.target.value) })}
                                     />
                                 </div>
                             </div>

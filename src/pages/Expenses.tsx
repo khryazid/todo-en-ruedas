@@ -17,6 +17,7 @@ import {
 import type { Expense, RecurringExpense, ExpenseCurrency } from '../types';
 import { DEFAULT_EXPENSE_CATEGORIES } from '../types';
 import toast from 'react-hot-toast';
+import { loadRecurringTemplates, saveRecurringTemplates } from '../utils/recurringExpenses';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 type Period = 'today' | 'week' | 'month' | 'all';
@@ -38,18 +39,10 @@ const filterByPeriod = (expenses: Expense[], period: Period): Expense[] => {
     });
 };
 
-const RECURRING_KEY = 'recurring-expenses-v1';
-
-const loadRecurring = (): RecurringExpense[] => {
-    try { return JSON.parse(localStorage.getItem(RECURRING_KEY) || '[]'); } catch { return []; }
-};
-const saveRecurring = (list: RecurringExpense[]) => {
-    localStorage.setItem(RECURRING_KEY, JSON.stringify(list));
-};
-
 // ─── Componente ──────────────────────────────────────────────────────────────
 export const Expenses = () => {
-    const { expenses, addExpense, updateExpense, deleteExpense, settings, currentUserData } = useStore();
+    const { expenses, addExpense, updateExpense, deleteExpense, settings, currentUserData, paymentMethods } = useStore();
+    const defaultPaymentMethod = paymentMethods[0]?.name || 'Efectivo USD';
 
     // Filtros
     const [period, setPeriod] = useState<Period>('month');
@@ -64,7 +57,7 @@ export const Expenses = () => {
     const [activeTab, setActiveTab] = useState<'expenses' | 'recurring'>('expenses');
 
     // Gastos recurrentes (localStorage)
-    const [recurring, setRecurring] = useState<RecurringExpense[]>(loadRecurring);
+    const [recurring, setRecurring] = useState<RecurringExpense[]>(loadRecurringTemplates);
     const [recurringModal, setRecurringModal] = useState(false);
     const [editingRecurring, setEditingRecurring] = useState<RecurringExpense | null>(null);
 
@@ -74,9 +67,10 @@ export const Expenses = () => {
         description: '',
         currency: 'USD' as ExpenseCurrency,
         amount: '',
+        rateUsed: String(settings.tasaBCV || 1),
         category: 'Otro' as string,
         customCategory: '',
-        paymentMethod: 'Efectivo',
+        paymentMethod: defaultPaymentMethod,
         isRecurring: false,
     };
     const [form, setForm] = useState(emptyForm);
@@ -85,12 +79,17 @@ export const Expenses = () => {
     const emptyRec: Omit<RecurringExpense, 'id'> = {
         description: '',
         category: 'Otro',
-        amountUSD: 0, currency: 'USD', paymentMethod: 'Efectivo', dayOfMonth: 1, active: true
+        amountUSD: 0, currency: 'USD', paymentMethod: defaultPaymentMethod, dayOfMonth: 1, active: true
     };
     const [recForm, setRecForm] = useState<Omit<RecurringExpense, 'id'>>(emptyRec);
     const [recAmount, setRecAmount] = useState('');
 
     const rate = settings.tasaBCV || 1;
+    const selectedExpenseMethod = useMemo(
+        () => paymentMethods.find(pm => pm.name === form.paymentMethod),
+        [paymentMethods, form.paymentMethod]
+    );
+    const isBSMethod = selectedExpenseMethod?.currency === 'BS';
 
     // ─── Datos filtrados ───────────────────────────────────────────────────────
     const periodExpenses = useMemo(() => filterByPeriod(expenses, period), [expenses, period]);
@@ -117,7 +116,7 @@ export const Expenses = () => {
 
     // ─── Handlers de form ──────────────────────────────────────────────────────
     const openNew = (prefill?: Partial<typeof emptyForm>) => {
-        setForm({ ...emptyForm, ...prefill });
+        setForm({ ...emptyForm, paymentMethod: defaultPaymentMethod, rateUsed: String(settings.tasaBCV || 1), ...prefill });
         setEditingId(null);
         setIsModalOpen(true);
     };
@@ -128,6 +127,7 @@ export const Expenses = () => {
             description: e.description,
             currency: e.currency || 'USD',
             amount: e.currency === 'BS' ? String(e.amountBS || e.amountUSD * rate) : String(e.amountUSD),
+            rateUsed: String(e.fxRateUsed || settings.tasaBCV || 1),
             category: DEFAULT_EXPENSE_CATEGORIES.includes(e.category as never) ? e.category : 'custom',
             customCategory: DEFAULT_EXPENSE_CATEGORIES.includes(e.category as never) ? '' : e.category,
             paymentMethod: e.paymentMethod,
@@ -139,21 +139,31 @@ export const Expenses = () => {
 
     const handleSave = async () => {
         const rawAmount = parseFloat(form.amount || '0');
+        const fxRateUsed = Math.max(0.0001, parseFloat(form.rateUsed || String(settings.tasaBCV || 1)) || (settings.tasaBCV || 1));
         if (!form.description.trim()) return toast.error('Ingresa una descripción');
         if (rawAmount <= 0) return toast.error('El monto debe ser mayor a 0');
 
         const finalCategory = form.category === 'custom' ? form.customCategory.trim() || 'Otro' : form.category;
-        const amountUSD = form.currency === 'BS' ? rawAmount / rate : rawAmount;
-        const amountBS = form.currency === 'BS' ? rawAmount : undefined;
+        const amountUSD = form.currency === 'BS' ? rawAmount / fxRateUsed : rawAmount;
+        const amountBS = form.currency === 'BS'
+            ? rawAmount
+            : isBSMethod
+                ? (rawAmount * fxRateUsed)
+                : undefined;
+        const fxSource = isBSMethod
+            ? (Math.abs(fxRateUsed - (settings.tasaBCV || 0)) < 0.0001 ? 'BCV' : 'MANUAL')
+            : undefined;
 
         const payload: Omit<Expense, 'id'> = {
             date: form.date,
             description: form.description.trim(),
             amountUSD: Math.round(amountUSD * 100) / 100,
-            amountBS,
+            amountBS: amountBS !== undefined ? Math.round(amountBS * 100) / 100 : undefined,
             currency: form.currency,
             category: finalCategory,
             paymentMethod: form.paymentMethod,
+            fxRateUsed: fxSource ? fxRateUsed : undefined,
+            fxSource,
             userId: currentUserData?.id,
             sellerName: currentUserData?.fullName,
             isRecurring: form.isRecurring,
@@ -183,10 +193,10 @@ export const Expenses = () => {
             ? recurring.map(r => r.id === editingRecurring.id ? item : r)
             : [...recurring, item];
         setRecurring(updated);
-        saveRecurring(updated);
+        saveRecurringTemplates(updated);
         setRecurringModal(false);
         setEditingRecurring(null);
-        setRecForm(emptyRec);
+        setRecForm({ ...emptyRec, paymentMethod: defaultPaymentMethod });
         setRecAmount('');
         toast.success(editingRecurring ? 'Plantilla actualizada' : 'Plantilla creada');
     };
@@ -195,7 +205,7 @@ export const Expenses = () => {
         if (!confirm('¿Eliminar esta plantilla?')) return;
         const updated = recurring.filter(r => r.id !== id);
         setRecurring(updated);
-        saveRecurring(updated);
+        saveRecurringTemplates(updated);
     };
 
     const registerRecurring = async (rec: RecurringExpense) => {
@@ -386,7 +396,7 @@ export const Expenses = () => {
                             <h3 className="font-bold text-gray-800">Gastos Recurrentes</h3>
                             <p className="text-xs text-gray-500">Plantillas para gastos fijos (luz, agua, alquiler…)</p>
                         </div>
-                        <button onClick={() => { setEditingRecurring(null); setRecForm(emptyRec); setRecAmount(''); setRecurringModal(true); }}
+                        <button onClick={() => { setEditingRecurring(null); setRecForm({ ...emptyRec, paymentMethod: defaultPaymentMethod }); setRecAmount(''); setRecurringModal(true); }}
                             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition">
                             <Plus size={16} /> Nueva Plantilla
                         </button>
@@ -484,9 +494,28 @@ export const Expenses = () => {
                                         />
                                     </div>
                                 </div>
+                                {isBSMethod && (
+                                    <div className="mt-2">
+                                        <label className="text-[10px] font-bold text-gray-500 uppercase block mb-1">Tasa usada para este pago</label>
+                                        <input
+                                            type="number"
+                                            min="0.0001"
+                                            step="0.0001"
+                                            className="w-full border border-orange-200 bg-orange-50 rounded-lg p-2 font-bold text-sm text-orange-800"
+                                            value={form.rateUsed}
+                                            onChange={e => setForm(f => ({ ...f, rateUsed: e.target.value }))}
+                                        />
+                                    </div>
+                                )}
                                 {form.currency === 'BS' && form.amount && (
                                     <p className="text-xs text-gray-400 mt-1 ml-1">
-                                        ≈ {formatCurrency(parseFloat(form.amount) / rate, 'USD')} a tasa {rate.toFixed(2)}
+                                        ≈ {formatCurrency(parseFloat(form.amount) / (parseFloat(form.rateUsed || '0') || rate), 'USD')} a tasa {(parseFloat(form.rateUsed || '0') || rate).toFixed(2)}
+                                    </p>
+                                )}
+                                {form.currency === 'USD' && isBSMethod && form.amount && (
+                                    <p className="text-xs text-gray-400 mt-1 ml-1">
+                                        Se pagarán aprox. Bs. {(parseFloat(form.amount) * (parseFloat(form.rateUsed || '0') || rate)).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        {' '}a tasa {(parseFloat(form.rateUsed || '0') || rate).toFixed(2)}
                                     </p>
                                 )}
                             </div>
@@ -521,9 +550,13 @@ export const Expenses = () => {
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase block mb-1">Método de Pago</label>
-                                    <input className="w-full border-2 border-gray-100 rounded-xl p-3 font-semibold focus:border-red-200 outline-none"
-                                        placeholder="Efectivo, Transferencia..."
-                                        value={form.paymentMethod} onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))} />
+                                    <select
+                                        className="w-full border-2 border-gray-100 rounded-xl p-3 font-semibold focus:border-red-200 outline-none bg-white"
+                                        value={form.paymentMethod}
+                                        onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))}
+                                    >
+                                        {paymentMethods.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
+                                    </select>
                                 </div>
                             </div>
 
@@ -584,9 +617,13 @@ export const Expenses = () => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
-                                <input className="w-full border-2 border-gray-100 rounded-xl p-3 font-semibold focus:border-blue-200 outline-none"
-                                    placeholder="Método de Pago" value={recForm.paymentMethod}
-                                    onChange={e => setRecForm(f => ({ ...f, paymentMethod: e.target.value }))} />
+                                <select
+                                    className="w-full border-2 border-gray-100 rounded-xl p-3 font-semibold focus:border-blue-200 outline-none bg-white"
+                                    value={recForm.paymentMethod}
+                                    onChange={e => setRecForm(f => ({ ...f, paymentMethod: e.target.value }))}
+                                >
+                                    {paymentMethods.map(pm => <option key={pm.id} value={pm.name}>{pm.name}</option>)}
+                                </select>
                                 <div>
                                     <label className="text-xs text-gray-400 block mb-1">Día del mes (1-31)</label>
                                     <input type="number" min="1" max="31"

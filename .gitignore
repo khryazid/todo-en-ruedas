@@ -17,5 +17,17 @@ dist/
 .DS_Store
 Thumbs.db
 
+<<<<<<< HEAD
 # Context artifacts for AI
 artefactos/
+=======
+# Artefactos generados por agentes/resoluciones
+artefactos/**/*.resolved*
+artefactos/**/*.metadata.json
+artefactos/.tempmediaStorage/
+artefactos/.system_generated/
+artefactos/*.png
+artefactos/*.webp
+artefactos/*.jpg
+artefactos/*.jpeg
+>>>>>>> QA

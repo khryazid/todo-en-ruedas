@@ -1,0 +1,15 @@
+# Task: Check POS Page for Vite Errors
+
+## Goals:
+- [ ] Open http://localhost:5173/pos
+- [ ] Check for Vite error overlay
+- [ ] Take screenshots of findings
+- [ ] Report URL, success/error, and error text if any
+
+## Progress:
+- [X] Read scratchpad
+- [X] Open URL http://localhost:5173/pos
+- [/] Capture screenshot/read page state (Page is currently stuck on "Cargando aplicación...")
+
+## Findings:
+- Initially stuck on loading spinner. Checking console for JS/Vite errors.

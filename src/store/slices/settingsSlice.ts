@@ -85,11 +85,12 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
     }
   },
 
-  addPaymentMethod: async (name: string, currency: 'USD' | 'BS') => {
+  addPaymentMethod: async (name: string, currency: 'USD' | 'BS', commissionPct = 0) => {
     try {
+      const safeCommission = Number.isFinite(commissionPct) ? Math.max(0, commissionPct) : 0;
       const { data, error } = await supabase
         .from('payment_methods')
-        .insert({ name, currency })
+        .insert({ name, currency, commission_pct: safeCommission })
         .select()
         .single();
 
@@ -97,12 +98,41 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
 
       if (data) {
         set((state) => ({
-          paymentMethods: [...state.paymentMethods, { id: data.id, name: data.name, currency: data.currency }]
+          paymentMethods: [...state.paymentMethods, {
+            id: data.id,
+            name: data.name,
+            currency: data.currency,
+            commissionPct: Number(data.commission_pct) || 0,
+          }]
         }));
         toast.success("Método de pago agregado");
       }
     } catch (error: unknown) {
       toast.error("Error al agregar método: " + (error as Error).message);
+    }
+  },
+
+  updatePaymentMethodCommission: async (id: string, commissionPct: number) => {
+    try {
+      const safeCommission = Number.isFinite(commissionPct) ? Math.max(0, commissionPct) : 0;
+      const { error } = await supabase
+        .from('payment_methods')
+        .update({ commission_pct: safeCommission })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      set((state) => ({
+        paymentMethods: state.paymentMethods.map((method) =>
+          method.id === id
+            ? { ...method, commissionPct: safeCommission }
+            : method
+        )
+      }));
+
+      toast.success('Comisión actualizada');
+    } catch (error: unknown) {
+      toast.error('Error al actualizar comisión: ' + (error as Error).message);
     }
   },
 

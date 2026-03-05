@@ -95,6 +95,27 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
 export type ExpenseCategory = typeof DEFAULT_EXPENSE_CATEGORIES[number] | string;
 
 export type ExpenseCurrency = 'USD' | 'BS';
+export type FxSource = 'BCV' | 'TH' | 'MANUAL';
+
+export type CashDirection = 'IN' | 'OUT';
+export type CashLedgerKind = 'VENTA_COBRADA' | 'ABONO_CLIENTE' | 'ABONO_PROVEEDOR' | 'GASTO_OPERATIVO' | 'AJUSTE';
+
+export interface CashLedgerEntry {
+  id: string;
+  date: string;
+  direction: CashDirection;
+  kind: CashLedgerKind;
+  amountUSD: number;
+  amountBS?: number;
+  currency: ExpenseCurrency;
+  paymentMethod: string;
+  description: string;
+  referenceType?: string;
+  referenceId?: string;
+  userId?: string;
+  sellerName?: string;
+  createdAt: string;
+}
 
 export interface Expense {
   id: string;
@@ -105,6 +126,8 @@ export interface Expense {
   currency: ExpenseCurrency; // Moneda de ingreso
   category: ExpenseCategory;
   paymentMethod: string;
+  fxRateUsed?: number;    // Tasa usada para convertir este gasto si aplica
+  fxSource?: FxSource;    // Origen de la tasa usada
   userId?: string;
   sellerName?: string;
   // Gastos recurrentes
@@ -172,6 +195,9 @@ export interface Payment {
   id: string;
   date: string;
   amountUSD: number;
+  amountBS?: number;
+  fxRateUsed?: number;
+  fxSource?: FxSource;
   method: string;
   note?: string;
 }
@@ -240,6 +266,7 @@ export interface PaymentMethod {
   id: string;
   name: string;
   currency: PaymentCurrency;
+  commissionPct: number;
 }
 
 export interface AppSettings {

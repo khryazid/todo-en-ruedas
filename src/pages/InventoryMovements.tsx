@@ -8,7 +8,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import {
-    ArrowDown, ArrowUp, RotateCcw, Wrench, Scissors,
+    ArrowDown, ArrowUp, Wrench, Scissors,
     Download, RefreshCw, Filter, Search, Package
 } from 'lucide-react';
 import type { StockMovementType } from '../types';
@@ -66,13 +66,12 @@ export const InventoryMovements = () => {
 
     const [searchTerm, setSearchTerm] = useState('');
     const [typeFilter, setTypeFilter] = useState<StockMovementType | 'ALL'>('ALL');
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     // Pre-select product from URL param (?product=id)
     const urlProductId = searchParams.get('product') ?? '';
 
     useEffect(() => {
-        setIsLoading(true);
         fetchStockMovements(urlProductId || undefined).finally(() => setIsLoading(false));
     }, [urlProductId]); // eslint-disable-line
 

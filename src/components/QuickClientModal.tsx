@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { X, UserPlus, Building2, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { fromEditableNumberValue, toEditableNumberValue } from '../utils/editableNumber';
 
 interface QuickClientModalProps {
     isOpen: boolean;
@@ -144,8 +145,13 @@ export const QuickClientModal = ({ isOpen, onClose, onClientCreated }: QuickClie
                             <input
                                 type="number"
                                 min="0" step="10"
+<<<<<<< HEAD
                                 value={formData.creditLimit}
                                 onChange={e => setFormData({ ...formData, creditLimit: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })}
+=======
+                                value={toEditableNumberValue(formData.creditLimit)}
+                                onChange={e => setFormData({ ...formData, creditLimit: fromEditableNumberValue(e.target.value) })}
+>>>>>>> QA
                                 className="w-full pl-8 pr-4 py-2 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition font-medium"
                                 placeholder="0.00"
                             />

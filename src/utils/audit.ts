@@ -27,6 +27,8 @@ export const logAudit = async (data: AuditLogData): Promise<void> => {
 
         await supabase.from('audit_logs').insert({
             user_id: user.id,
+            user_name: (user.user_metadata?.full_name as string | undefined) || null,
+            user_email: user.email || null,
             action: data.action,
             entity: data.entity,
             entity_id: data.entityId,
@@ -47,15 +49,14 @@ export const getRecentAuditLogs = async (limit = 50) => {
         .from('audit_logs')
         .select(`
       id,
+            user_id,
+            user_name,
+            user_email,
       action,
       entity,
       entity_id,
       changes,
-      created_at,
-      users (
-        full_name,
-        email
-      )
+            created_at
     `)
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -72,13 +73,14 @@ export const getEntityAuditLogs = async (entity: string, entityId: string) => {
         .from('audit_logs')
         .select(`
       id,
+            user_id,
+            user_name,
+            user_email,
       action,
       changes,
       created_at,
-      users (
-        full_name,
-        email
-      )
+            entity,
+            entity_id
     `)
         .eq('entity', entity)
         .eq('entity_id', entityId)
