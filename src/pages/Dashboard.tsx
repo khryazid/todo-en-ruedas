@@ -6,8 +6,10 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency, calculatePrices } from '../utils/pricing';
+import { logAudit } from '../utils/audit';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDarkMode } from '../hooks/useDarkMode';
+import toast from 'react-hot-toast';
 import { CashFlowCards } from '../components/dashboard/CashFlowCards';
 import { ExpectedByMethodTable } from '../components/dashboard/ExpectedByMethodTable';
 import { PendingRecurringExpensesCard } from '../components/dashboard/PendingRecurringExpensesCard';
@@ -22,7 +24,7 @@ import {
 import { getPendingRecurringForMonth, loadRecurringTemplates } from '../utils/recurringExpenses';
 
 export const Dashboard = () => {
-  const { sales, products, invoices, clients, expenses, cashLedger, paymentMethods, settings, currentUserData } = useStore();
+  const { sales, products, invoices, clients, expenses, cashLedger, paymentMethods, settings, currentUserData, deleteCashMovement } = useStore();
   const { isDark } = useDarkMode();
   const navigate = useNavigate();
 
@@ -463,6 +465,57 @@ export const Dashboard = () => {
     navigate('/settings', { state: { cashControlMethod: method } });
   }, [navigate]);
 
+  const handleDeleteMovement = useCallback(async (
+    movement: {
+      id: string;
+      date: string;
+      direction: 'IN' | 'OUT';
+      amountUSD: number;
+      amountBS?: number;
+      currency: 'USD' | 'BS';
+      kind: string;
+      description: string;
+    },
+    method: string,
+  ) => {
+    if (currentUserData?.role !== 'ADMIN') {
+      toast.error('Solo un administrador puede eliminar movimientos.');
+      return;
+    }
+
+    if (movement.kind !== 'AJUSTE') {
+      toast.error('Solo se pueden eliminar movimientos de tipo ajuste.');
+      return;
+    }
+
+    const confirmed = window.confirm('Esta acción eliminará el movimiento de caja. ¿Deseas continuar?');
+    if (!confirmed) return;
+
+    const deleted = await deleteCashMovement(movement.id);
+    if (!deleted) {
+      toast.error('No se pudo eliminar el movimiento.');
+      return;
+    }
+
+    await logAudit({
+      action: 'DELETE',
+      entity: 'cash_ledger',
+      entityId: movement.id,
+      changes: {
+        method,
+        kind: movement.kind,
+        direction: movement.direction,
+        currency: movement.currency,
+        amountUSD: movement.amountUSD,
+        amountBS: movement.amountBS ?? null,
+        date: movement.date,
+        description: movement.description,
+      },
+    });
+
+    toast.success('Movimiento eliminado y auditado.');
+  }, [currentUserData?.role, deleteCashMovement]);
+
 
   const pendingRecurringExpenses = useMemo(() => {
     const templates = loadRecurringTemplates();
@@ -662,6 +715,8 @@ export const Dashboard = () => {
           cutoffLabel={expectedCutoffLabel}
           movementsByMethod={movementsByMethod}
           onAdjustMethod={handleAdjustMethod}
+          isAdmin={currentUserData?.role === 'ADMIN'}
+          onDeleteMovement={handleDeleteMovement}
         />
       )}
 

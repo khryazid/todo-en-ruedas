@@ -172,4 +172,22 @@ export const createCashLedgerSlice = (set: SetState) => ({
       cashLedger: state.cashLedger.filter((movement) => !(movement.referenceType === referenceType && movement.referenceId === referenceId)),
     }));
   },
+
+  deleteCashMovement: async (id: string) => {
+    const { error } = await supabase
+      .from('cash_ledger')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('deleteCashMovement:', error);
+      return false;
+    }
+
+    set((state) => ({
+      cashLedger: state.cashLedger.filter((movement) => movement.id !== id),
+    }));
+
+    return true;
+  },
 });

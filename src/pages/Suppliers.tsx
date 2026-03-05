@@ -29,7 +29,7 @@ const CATEGORY_COLORS: Record<SupplierCategory, string> = {
 };
 
 type SupplierForm = Omit<Supplier, 'id' | 'createdAt'> & {
-    category?: SupplierCategory | '';
+    category?: SupplierCategory;
 };
 
 const emptyForm: SupplierForm = {
@@ -40,7 +40,7 @@ const emptyForm: SupplierForm = {
     phone: '',
     email: '',
     address: '',
-    category: '',
+    category: undefined,
     notes: '',
 };
 
@@ -110,7 +110,7 @@ export const Suppliers = () => {
             phone: sup.phone || '',
             email: sup.email || '',
             address: sup.address || '',
-            category: sup.category || '',
+            category: sup.category,
             notes: sup.notes || '',
         });
         setEditingId(sup.id);
