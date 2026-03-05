@@ -181,10 +181,15 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
         });
       }
 
-      set((state) => ({
-        invoices: [...state.invoices, savedInvoice],
-        products: [...state.products, ...newProducts],
-      }));
+      set((state) => {
+        const alreadyExists = state.invoices.some((existingInvoice) => existingInvoice.id === savedInvoice.id);
+        return {
+          invoices: alreadyExists
+            ? state.invoices.map((existingInvoice) => existingInvoice.id === savedInvoice.id ? savedInvoice : existingInvoice)
+            : [...state.invoices, savedInvoice],
+          products: [...state.products, ...newProducts],
+        };
+      });
 
       toast.dismiss(loadingToast);
       toast.success("Factura y Stock actualizados 📦");
@@ -192,6 +197,11 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
 
     } catch (error: unknown) {
       toast.dismiss(loadingToast);
+      const errorCode = (error as { code?: string })?.code;
+      if (errorCode === '23505') {
+        toast.error('Ya existe una factura con ese numero para ese proveedor.');
+        return false;
+      }
       toast.error("Error al registrar: " + (error as Error).message);
       return false;
     }

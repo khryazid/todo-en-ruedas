@@ -350,6 +350,8 @@ CREATE TABLE public.invoices (
 );
 CREATE INDEX idx_invoices_status   ON public.invoices(status);
 CREATE INDEX idx_invoices_supplier ON public.invoices(supplier);
+CREATE UNIQUE INDEX uq_invoices_supplier_number_normalized
+    ON public.invoices (coalesce(supplier::text, '__NO_SUPPLIER__'), lower(btrim(number)));
 
 -- payment_methods
 CREATE TABLE public.payment_methods (

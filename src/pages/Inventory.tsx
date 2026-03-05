@@ -35,6 +35,7 @@ export const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [csvPreview, setCsvPreview] = useState<Partial<typeof products[0]>[] | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isSubmittingInvoice, setIsSubmittingInvoice] = useState(false);
 
   // --- FILTROS DOBLES ---
   const [selectedCategory, setSelectedCategory] = useState<string>('Todas');
@@ -160,10 +161,16 @@ export const Inventory = () => {
   };
 
   const handleInvoiceSubmit = async () => {
+    if (isSubmittingInvoice) return;
+
     if (!invoiceHeader.number || !invoiceHeader.supplier || invoiceItems.length === 0) {
       toast.error("⚠️ Faltan datos obligatorios (Proveedor, Número o Productos).");
       return;
     }
+
+    setIsSubmittingInvoice(true);
+
+    try {
 
     let supplierId = invoiceHeader.supplier;
     const supplierInput = invoiceHeader.supplier.trim();
@@ -246,6 +253,10 @@ export const Inventory = () => {
 
     const success = await addInvoice(newInvoice);
     if (success) { setIsInvoiceModalOpen(false); setInvoiceHeader(initialInvoiceState); setInvoiceItems([]); }
+
+    } finally {
+      setIsSubmittingInvoice(false);
+    }
   };
 
   const addLineToInvoice = () => {
@@ -771,7 +782,13 @@ export const Inventory = () => {
 
             <div className="p-5 border-t bg-white flex justify-end gap-3">
               <button onClick={() => setIsInvoiceModalOpen(false)} className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-100 rounded-xl transition">Cancelar</button>
-              <button onClick={handleInvoiceSubmit} className="px-8 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 flex items-center gap-2 transition active:scale-95"><CheckCircle size={20} /> Procesar Compra</button>
+              <button
+                onClick={handleInvoiceSubmit}
+                disabled={isSubmittingInvoice}
+                className={`px-8 py-3 font-bold rounded-xl flex items-center gap-2 transition ${isSubmittingInvoice ? 'bg-red-300 text-white cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-200 active:scale-95'}`}
+              >
+                <CheckCircle size={20} /> {isSubmittingInvoice ? 'Procesando...' : 'Procesar Compra'}
+              </button>
             </div>
           </div>
         </div>

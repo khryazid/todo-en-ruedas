@@ -287,6 +287,10 @@ CREATE TABLE IF NOT EXISTS public.invoices (
     payments JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON public.invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_supplier ON public.invoices(supplier);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_supplier_number_normalized
+ON public.invoices (coalesce(supplier::text, '__NO_SUPPLIER__'), lower(btrim(number)));
 
 -- 12. TABLA MÉTODOS DE PAGO (payment_methods)
 CREATE TABLE IF NOT EXISTS public.payment_methods (
