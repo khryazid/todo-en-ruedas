@@ -16,6 +16,7 @@ import { TopBar } from './components/layout/TopBar';
 import { GlobalSearch } from './components/GlobalSearch';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { RoleRoute } from './components/RoleRoute';
+import { PWAUpdatePrompt } from './components/PWAUpdatePrompt';
 import { Permission } from './utils/permissions';
 
 import { Login } from './pages/Login';
@@ -86,6 +87,8 @@ function App() {
 
   return (
     <Router>
+      <PWAUpdatePrompt />
+
       <Toaster
         position="top-center"
         toastOptions={{

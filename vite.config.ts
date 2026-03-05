@@ -9,27 +9,37 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
 
-          if (id.includes('react') || id.includes('scheduler')) {
+          const normalizedId = id.replace(/\\/g, '/')
+
+          if (
+            normalizedId.includes('/node_modules/react/') ||
+            normalizedId.includes('/node_modules/react-dom/') ||
+            normalizedId.includes('/node_modules/scheduler/')
+          ) {
             return 'vendor-react'
           }
 
-          if (id.includes('react-router-dom')) {
+          if (normalizedId.includes('/node_modules/react-router-dom/')) {
             return 'vendor-router'
           }
 
-          if (id.includes('@supabase/supabase-js')) {
+          if (normalizedId.includes('/node_modules/@supabase/supabase-js/')) {
             return 'vendor-supabase'
           }
 
-          if (id.includes('recharts') || id.includes('d3-')) {
+          if (normalizedId.includes('/node_modules/recharts/') || normalizedId.includes('/node_modules/d3-')) {
             return 'vendor-charts'
           }
 
-          if (id.includes('lucide-react')) {
+          if (normalizedId.includes('/node_modules/lucide-react/')) {
             return 'vendor-icons'
           }
 
-          if (id.includes('react-hook-form') || id.includes('@hookform/resolvers') || id.includes('zod')) {
+          if (
+            normalizedId.includes('/node_modules/react-hook-form/') ||
+            normalizedId.includes('/node_modules/@hookform/resolvers/') ||
+            normalizedId.includes('/node_modules/zod/')
+          ) {
             return 'vendor-forms'
           }
 
