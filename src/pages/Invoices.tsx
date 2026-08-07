@@ -13,7 +13,7 @@ import { useLocation } from 'react-router-dom';
 import type { Invoice, Payment, IncomingItem } from '../types';
 
 export const Invoices = () => {
-    const { invoices, products, registerPayment, updateInvoice, updateProduct, adjustProductStock, paymentMethods, settings, deleteInvoice, setRealtimeGuard } = useStore(); // <--- AÑADIDO deleteInvoice
+    const { invoices, products, registerPayment, updateInvoice, adjustProductStock, paymentMethods, settings, deleteInvoice, setRealtimeGuard } = useStore();
     const location = useLocation();
 
     const normalizeInvoiceForEdit = (invoice: Invoice): Invoice => {

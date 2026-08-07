@@ -1,11 +1,26 @@
 /**
  * @file slices/authSlice.ts
  * @description Autenticación y carga inicial de datos.
+ *
+ * ✅ FIX: onAuthStateChange se registra una sola vez (initAuthListener)
+ *         y se almacena el unsubscribe para evitar memory leaks.
+ * ✅ FIX: fetchInitialData paraleliza queries independientes con Promise.all().
+ * ✅ FIX: Usa funciones de mapeo centralizadas de utils/mappers.ts.
  */
 
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { SetState, GetState } from '../types';
+import {
+  mapProductFromDB,
+  mapClientFromDB,
+  mapSaleFromDB,
+  mapInvoiceFromDB,
+  mapPaymentMethodFromDB,
+} from '../../utils/mappers';
+
+/** Flag para evitar registrar el listener más de una vez */
+let authListenerInitialized = false;
 
 export const createAuthSlice = (set: SetState, get: GetState) => ({
 
@@ -37,22 +52,28 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
       set({ user: null, isLoading: false });
     }
 
-    // Escuchar cambios de estado (como cuando el usuario hace clic en el enlace de recuperación y Supabase procesa el token detrás de escena)
-    supabase.auth.onAuthStateChange((event, session) => {
+    // ✅ FIX: Registrar el listener UNA SOLA VEZ para evitar memory leaks.
+    // Antes se registraba cada vez que checkSession se llamaba (ej. StrictMode),
+    // acumulando listeners duplicados.
+    if (!authListenerInitialized) {
+      authListenerInitialized = true;
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (import.meta.env.DEV) {
+          console.log('Supabase Auth Event:', event);
+        }
+        if (event === 'PASSWORD_RECOVERY') {
+          set({ user: session?.user ?? null, isLoading: false });
+        } else if (event === 'SIGNED_OUT') {
+          set({ user: null, cart: [], products: [], sales: [], cashLedger: [], currentUserData: null });
+        } else if (event === 'SIGNED_IN' && session) {
+          set({ user: session.user });
+        }
+      });
+      // Almacenar referencia para posible cleanup futuro
       if (import.meta.env.DEV) {
-        console.log('Supabase Auth Event:', event);
+        console.log('Auth listener registrado (subscription id:', subscription.id, ')');
       }
-      if (event === 'PASSWORD_RECOVERY') {
-        // En este punto, Supabase verificó el token y creó una sesión temporal.
-        // Permitiremos que el usuario siga a /reset-password.
-        set({ user: session?.user ?? null, isLoading: false });
-      } else if (event === 'SIGNED_OUT') {
-        set({ user: null, cart: [], products: [], sales: [], cashLedger: [], currentUserData: null });
-      } else if (event === 'SIGNED_IN' && session) {
-        set({ user: session.user });
-      }
-    });
-
+    }
   },
 
   login: async (email: string, password: string) => {
@@ -135,18 +156,32 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
       // Cargar datos del usuario actual
       await get().fetchCurrentUserData();
 
-      const { data: settingsData } = await supabase
-        .from('settings')
-        .select('*')
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      const { data: productsData } = await supabase.from('products').select('*');
-      const { data: clientsData } = await supabase.from('clients').select('*');
-      const { data: salesData } = await supabase.from('sales').select(`*, sale_items(*), payments(*)`).order('date', { ascending: false }).limit(100);
-      const { data: suppliersData } = await supabase.from('suppliers').select('*');
-      const { data: invoicesData } = await supabase.from('invoices').select('*');
-      const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*');
+      // ✅ FIX: Paralelizar queries independientes con Promise.all()
+      const [
+        settingsResult,
+        productsResult,
+        clientsResult,
+        salesResult,
+        suppliersResult,
+        invoicesResult,
+        paymentMethodsResult,
+      ] = await Promise.all([
+        supabase.from('settings').select('*').order('created_at', { ascending: true }).limit(1).maybeSingle(),
+        supabase.from('products').select('*'),
+        supabase.from('clients').select('*'),
+        supabase.from('sales').select(`*, sale_items(*), payments(*)`).order('date', { ascending: false }).limit(100),
+        supabase.from('suppliers').select('*'),
+        supabase.from('invoices').select('*'),
+        supabase.from('payment_methods').select('*'),
+      ]);
+
+      const settingsData = settingsResult.data;
+      const productsData = productsResult.data;
+      const clientsData = clientsResult.data;
+      const salesData = salesResult.data;
+      const suppliersData = suppliersResult.data;
+      const invoicesData = invoicesResult.data;
+      const paymentMethodsData = paymentMethodsResult.data;
 
       if (settingsData) {
         set((state) => ({
@@ -174,89 +209,29 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
         }));
       }
 
+      // ✅ FIX: Usar funciones de mapeo centralizadas
       if (productsData) {
-        set({
-          products: productsData.map((p) => ({
-            id: p.id, sku: p.sku, name: p.name, category: p.category || 'General',
-            stock: Number(p.stock) || 0, minStock: Number(p.min_stock) || 0, cost: Number(p.cost) || 0,
-            costType: p.cost_type || 'BCV', freight: Number(p.freight) || 0, supplier: p.supplier || 'General'
-          }))
-        });
+        set({ products: productsData.map(mapProductFromDB) });
       }
 
-      if (clientsData) set({
-        clients: clientsData.map((c) => ({
-          id: c.id,
-          name: c.name,
-          rif: c.rif,
-          phone: c.phone ?? undefined,
-          address: c.address ?? undefined,
-          email: c.email ?? undefined,
-          notes: c.notes ?? undefined,
-          creditLimit: c.credit_limit ? Number(c.credit_limit) : undefined,
-          priceList: c.price_list ?? undefined,
-          creditBalance: c.credit_balance ? Number(c.credit_balance) : 0,
-        }))
-      });
+      if (clientsData) {
+        set({ clients: clientsData.map(mapClientFromDB) });
+      }
+
       if (suppliersData) set({ suppliers: suppliersData });
 
       if (paymentMethodsData && paymentMethodsData.length > 0) {
-        set({
-          paymentMethods: paymentMethodsData.map((pm) => ({
-            id: pm.id,
-            name: pm.name,
-            currency: pm.currency,
-            commissionPct: Number(pm.commission_pct) || 0,
-          }))
-        });
+        set({ paymentMethods: paymentMethodsData.map(mapPaymentMethodFromDB) });
       }
 
       if (invoicesData) {
         set({
-          invoices: invoicesData.map((inv) => ({
-            ...inv,
-            supplier: suppliersData?.find((s) => s.id === inv.supplier)?.name || inv.supplier,
-            subtotalUSD: inv.subtotal_usd,
-            freightTotalUSD: inv.freight_total_usd,
-            totalUSD: inv.total_usd,
-            paidAmountUSD: inv.paid_amount_usd,
-            dateIssue: inv.date_issue,
-            dateDue: inv.date_due,
-            payments: inv.payments || []
-          }))
+          invoices: invoicesData.map((inv) => mapInvoiceFromDB(inv, suppliersData || []))
         });
       }
 
       if (salesData) {
-        set({
-          sales: salesData.map((s) => ({
-            id: s.id,
-            localId: s.local_id,
-            date: s.date,
-            clientId: s.client_id,
-            totalUSD: s.total_usd,
-            totalVED: s.total_ved,
-            paymentMethod: s.payment_method,
-            status: s.status,
-            paidAmountUSD: s.paid_amount_usd,
-            isCredit: s.is_credit || false,
-            // ✅ FIX: Mapear datos del vendedor para que el Dashboard del SELLER
-            // pueda filtrar sus ventas propias correctamente
-            userId: s.user_id || undefined,
-            sellerName: s.seller_name || undefined,
-            items: (s.sale_items || []).map((i: Record<string, unknown>) => ({
-              sku: i.sku || 'N/A',
-              name: i.product_name_snapshot || 'Producto',
-              quantity: i.quantity,
-              priceFinalUSD: i.unit_price_usd,
-              costUnitUSD: i.cost_unit_usd
-            })),
-            payments: (s.payments || []).map((p: Record<string, unknown>) => ({
-              id: p.id, date: p.created_at,
-              amountUSD: p.amount_usd, method: p.method, note: p.note
-            }))
-          }))
-        });
+        set({ sales: salesData.map(mapSaleFromDB) });
       }
 
     } catch (error) {

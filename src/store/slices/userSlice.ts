@@ -219,13 +219,17 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
         defaultVAT: number;
     }): Promise<{ success: boolean; reason?: 'RATE_LIMIT' | 'USER_EXISTS' | 'OTHER' }> => {
         try {
-            // 1. Verificar que realmente sea primera vez
-            const { count } = await supabase
-                .from('users')
+            // 1. Verificar primera configuración usando settings como fuente de verdad.
+            // users puede tener filas antiguas (backfill desde auth.users) y bloquear
+            // indebidamente el setup aunque no exista empresa configurada.
+            const { count: settingsCount, error: settingsCountError } = await supabase
+                .from('settings')
                 .select('*', { count: 'exact', head: true });
 
-            if (count && count > 0) {
-                toast.error('Ya existe un usuario administrador');
+            if (settingsCountError) throw settingsCountError;
+
+            if ((settingsCount ?? 0) > 0) {
+                toast.error('La empresa ya fue configurada. Inicia sesión.');
                 return { success: false, reason: 'USER_EXISTS' };
             }
 

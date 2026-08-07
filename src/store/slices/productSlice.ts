@@ -1,12 +1,15 @@
 /**
  * @file slices/productSlice.ts
  * @description CRUD de productos.
+ *
+ * ✅ FIX: Usa mapProductFromDB centralizado.
  */
 
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { Product } from '../../types';
 import type { SetState, GetState } from '../types';
+import { mapProductFromDB } from '../../utils/mappers';
 
 export const createProductSlice = (set: SetState, get: GetState) => ({
 
@@ -17,20 +20,8 @@ export const createProductSlice = (set: SetState, get: GetState) => ({
       const { data: productsData, error } = await supabase.from('products').select('*');
       if (error) throw error;
 
-      set({
-        products: (productsData || []).map((p) => ({
-          id: p.id,
-          sku: p.sku,
-          name: p.name,
-          category: p.category || 'General',
-          stock: Number(p.stock) || 0,
-          minStock: Number(p.min_stock) || 0,
-          cost: Number(p.cost) || 0,
-          costType: p.cost_type || 'BCV',
-          freight: Number(p.freight) || 0,
-          supplier: p.supplier || 'General'
-        }))
-      });
+      // ✅ FIX: Usar mapeo centralizado
+      set({ products: (productsData || []).map(mapProductFromDB) });
     } catch (error) {
       console.warn('fetchProducts realtime sync:', error);
     }

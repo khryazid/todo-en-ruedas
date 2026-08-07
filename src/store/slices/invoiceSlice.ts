@@ -1,42 +1,23 @@
 /**
  * @file slices/invoiceSlice.ts
  * @description CRUD de facturas de compra y abonos a proveedores.
+ *
+ * ✅ FIX: Eliminado suppliers/fetchSuppliers duplicados (supplierSlice es la fuente de verdad).
+ * ✅ FIX: Usa mapInvoiceFromDB centralizado.
  */
 
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
-import type { Invoice, Payment, Supplier, Product } from '../../types';
+import type { Invoice, Payment, Product } from '../../types';
 import type { SetState, GetState } from '../types';
+import { mapInvoiceFromDB } from '../../utils/mappers';
 
 export const createInvoiceSlice = (set: SetState, get: GetState) => ({
 
   invoices: [] as Invoice[],
-  suppliers: [] as Supplier[],
 
-  fetchSuppliers: async () => {
-    try {
-      const { data: suppliersData, error } = await supabase.from('suppliers').select('*');
-      if (error) throw error;
-
-      set({
-        suppliers: (suppliersData || []).map((s) => ({
-          id: s.id,
-          name: s.name,
-          rif: s.rif ?? undefined,
-          rifType: s.rif_type ?? undefined,
-          contactName: s.contact_name ?? undefined,
-          phone: s.phone ?? undefined,
-          email: s.email ?? undefined,
-          address: s.address ?? undefined,
-          category: s.category ?? undefined,
-          notes: s.notes ?? undefined,
-          createdAt: s.created_at ?? undefined,
-        }))
-      });
-    } catch (error) {
-      console.warn('fetchSuppliers realtime sync:', error);
-    }
-  },
+  // ✅ FIX: fetchSuppliers eliminado de aquí (supplierSlice es la fuente de verdad).
+  // suppliers[] también se elimina (lo provee supplierSlice).
 
   fetchInvoices: async () => {
     try {
@@ -45,18 +26,9 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
 
       const suppliers = get().suppliers;
 
+      // ✅ FIX: Usar mapeo centralizado
       set({
-        invoices: (invoicesData || []).map((inv) => ({
-          ...inv,
-          supplier: suppliers.find((s) => s.id === inv.supplier)?.name || inv.supplier,
-          subtotalUSD: inv.subtotal_usd,
-          freightTotalUSD: inv.freight_total_usd,
-          totalUSD: inv.total_usd,
-          paidAmountUSD: inv.paid_amount_usd,
-          dateIssue: inv.date_issue,
-          dateDue: inv.date_due,
-          payments: inv.payments || []
-        }))
+        invoices: (invoicesData || []).map((inv) => mapInvoiceFromDB(inv, suppliers))
       });
     } catch (error) {
       console.warn('fetchInvoices realtime sync:', error);

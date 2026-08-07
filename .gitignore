@@ -17,17 +17,19 @@ dist/
 .DS_Store
 Thumbs.db
 
-<<<<<<< HEAD
-# Context artifacts for AI
-artefactos/
-=======
 # Artefactos generados por agentes/resoluciones
-artefactos/**/*.resolved*
-artefactos/**/*.metadata.json
-artefactos/.tempmediaStorage/
-artefactos/.system_generated/
-artefactos/*.png
-artefactos/*.webp
-artefactos/*.jpg
-artefactos/*.jpeg
->>>>>>> QA
+artefactos/
+
+# Archivos de depuración (build, lint, errors)
+build_errors.txt
+build_output.txt
+build_output_clean.txt
+errors.txt
+lint_final.txt
+lint_output.txt
+lint_output_2.txt
+lint_text.txt
+lints.json
+lints.txt
+ts_errors.txt
+*.resolved

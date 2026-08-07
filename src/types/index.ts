@@ -315,16 +315,7 @@ export interface AppUser {
   lastLogin?: string;
 }
 
-export interface Permission {
-  canCreateSales: boolean;
-  canCancelSales: boolean;
-  canManageInventory: boolean;
-  canViewReports: boolean;
-  canManageUsers: boolean;
-  canEditSettings: boolean;
-  canManageInvoices: boolean;
-  canViewAuditLogs: boolean;
-}
+// --- AUDITORÍA ---
 
 export interface AuditLog {
   id: string;
@@ -339,46 +330,6 @@ export interface AuditLog {
   createdAt: string;
 }
 
-// Mapeo de roles a permisos
-export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
-  ADMIN: {
-    canCreateSales: true,
-    canCancelSales: true,
-    canManageInventory: true,
-    canViewReports: true,
-    canManageUsers: true,
-    canEditSettings: true,
-    canManageInvoices: true,
-    canViewAuditLogs: true,
-  },
-  MANAGER: {
-    canCreateSales: true,
-    canCancelSales: true,
-    canManageInventory: true,
-    canViewReports: true,
-    canManageUsers: false,
-    canEditSettings: true,
-    canManageInvoices: true,
-    canViewAuditLogs: false,
-  },
-  SELLER: {
-    canCreateSales: true,
-    canCancelSales: false,
-    canManageInventory: false,
-    canViewReports: true,
-    canManageUsers: false,
-    canEditSettings: false,
-    canManageInvoices: false,
-    canViewAuditLogs: false,
-  },
-  VIEWER: {
-    canCreateSales: false,
-    canCancelSales: false,
-    canManageInventory: false,
-    canViewReports: true,
-    canManageUsers: false,
-    canEditSettings: false,
-    canManageInvoices: false,
-    canViewAuditLogs: false,
-  },
-};
+// Mapeo de roles a permisos — ELIMINADO (código muerto).
+// La fuente de verdad para permisos está en utils/permissions.ts
+// que usa un sistema de strings granulares (Permission.VIEW_PRODUCTS, etc.)

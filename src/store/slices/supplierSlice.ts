@@ -1,12 +1,16 @@
 /**
  * @file store/slices/supplierSlice.ts
  * @description CRUD de Proveedores contra Supabase.
+ *
+ * ✅ FIX: Este slice es ahora la ÚNICA fuente de verdad para suppliers[].
+ *         Antes, invoiceSlice duplicaba suppliers/fetchSuppliers.
  */
 
 import { supabase } from '../../supabase/client';
 import type { SetState, GetState } from '../types';
 import type { Supplier } from '../../types';
 import toast from 'react-hot-toast';
+import { mapSupplierFromDB } from '../../utils/mappers';
 
 const normalizeNullable = (value?: string | null) => {
     const normalized = (value ?? '').trim();
@@ -14,6 +18,19 @@ const normalizeNullable = (value?: string | null) => {
 };
 
 export const createSupplierSlice = (set: SetState, get: GetState) => ({
+
+    suppliers: [] as Supplier[],
+
+    fetchSuppliers: async () => {
+        try {
+            const { data: suppliersData, error } = await supabase.from('suppliers').select('*');
+            if (error) throw error;
+
+            set({ suppliers: (suppliersData || []).map(mapSupplierFromDB) });
+        } catch (error) {
+            console.warn('fetchSuppliers realtime sync:', error);
+        }
+    },
 
     addSupplier: async (supplierData: Omit<Supplier, 'id' | 'createdAt'>) => {
         try {

@@ -8,7 +8,7 @@
  */
 
 import { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useStore } from './store/useStore';
 import { useSetupCheck } from './hooks/useSetupCheck';
@@ -59,9 +59,9 @@ const AccessDenied = () => (
       <div className="text-6xl mb-4">🔒</div>
       <h2 className="text-2xl font-black text-gray-800 mb-2">Acceso Denegado</h2>
       <p className="text-gray-500 mb-6">No tienes permisos para ver esta sección.</p>
-      <a href="/sales" className="px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition">
+      <Link to="/sales" className="px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition">
         Volver al Historial
-      </a>
+      </Link>
     </div>
   </div>
 );

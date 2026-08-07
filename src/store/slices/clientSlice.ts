@@ -1,12 +1,15 @@
 /**
  * @file slices/clientSlice.ts
  * @description CRUD de clientes.
+ *
+ * ✅ FIX: Usa mapClientFromDB centralizado.
  */
 
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { Client } from '../../types';
 import type { SetState, GetState } from '../types';
+import { mapClientFromDB } from '../../utils/mappers';
 
 export const createClientSlice = (set: SetState, get: GetState) => ({
 
@@ -17,20 +20,8 @@ export const createClientSlice = (set: SetState, get: GetState) => ({
       const { data: clientsData, error } = await supabase.from('clients').select('*');
       if (error) throw error;
 
-      set({
-        clients: (clientsData || []).map((c) => ({
-          id: c.id,
-          name: c.name,
-          rif: c.rif,
-          phone: c.phone ?? undefined,
-          address: c.address ?? undefined,
-          email: c.email ?? undefined,
-          notes: c.notes ?? undefined,
-          creditLimit: c.credit_limit ? Number(c.credit_limit) : undefined,
-          priceList: c.price_list ?? undefined,
-          creditBalance: c.credit_balance ? Number(c.credit_balance) : 0,
-        }))
-      });
+      // ✅ FIX: Usar mapeo centralizado
+      set({ clients: (clientsData || []).map(mapClientFromDB) });
     } catch (error) {
       console.warn('fetchClients realtime sync:', error);
     }

@@ -4,9 +4,11 @@ import { hasPermission, hasAnyPermission, canAccessPage } from '../utils/permiss
 
 /**
  * Hook personalizado para verificar permisos del usuario actual
+ *
+ * ✅ FIX: Usa selector específico en lugar de suscribirse al store completo.
  */
 export function usePermissions() {
-    const { currentUserData } = useStore();
+    const currentUserData = useStore((s) => s.currentUserData);
 
     const role = currentUserData?.role;
 

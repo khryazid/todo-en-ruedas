@@ -1,6 +1,10 @@
 /**
  * @file slices/saleSlice.ts
  * @description Operaciones de ventas: completar, anular, eliminar, registrar abonos.
+ *
+ * ✅ FIX: fetchSales usa mapSaleFromDB centralizado.
+ * ✅ FIX: annulSale usa adjust_product_stock RPC atómico.
+ * ✅ FIX: Eliminado return null inalcanzable al final de completeSale.
  */
 
 import { supabase } from '../../supabase/client';
@@ -8,6 +12,7 @@ import toast from 'react-hot-toast';
 import type { Sale, Payment, SaleStatus } from '../../types';
 import type { SetState, GetState } from '../types';
 import { generateId } from '../../utils/id';
+import { mapSaleFromDB } from '../../utils/mappers';
 
 export const createSaleSlice = (set: SetState, get: GetState) => ({
 
@@ -23,36 +28,8 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
 
       if (error) throw error;
 
-      set({
-        sales: (salesData || []).map((s) => ({
-          id: s.id,
-          localId: s.local_id,
-          date: s.date,
-          clientId: s.client_id,
-          totalUSD: s.total_usd,
-          totalVED: s.total_ved,
-          paymentMethod: s.payment_method,
-          status: s.status,
-          paidAmountUSD: s.paid_amount_usd,
-          isCredit: s.is_credit || false,
-          userId: s.user_id || undefined,
-          sellerName: s.seller_name || undefined,
-          items: (s.sale_items || []).map((i: Record<string, unknown>) => ({
-            sku: i.sku || 'N/A',
-            name: i.product_name_snapshot || 'Producto',
-            quantity: i.quantity,
-            priceFinalUSD: i.unit_price_usd,
-            costUnitUSD: i.cost_unit_usd
-          })),
-          payments: (s.payments || []).map((p: Record<string, unknown>) => ({
-            id: p.id,
-            date: p.created_at,
-            amountUSD: p.amount_usd,
-            method: p.method,
-            note: p.note
-          }))
-        }))
-      });
+      // ✅ FIX: Usar mapeo centralizado
+      set({ sales: (salesData || []).map(mapSaleFromDB) });
     } catch (error) {
       console.warn('fetchSales realtime sync:', error);
     }
@@ -271,8 +248,6 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
       toast.error(`Error crítico: ${message}`);
       return null;
     }
-    // ✅ FIX TypeScript: retorno explícito para garantizar Promise<Sale | null>
-    return null;
   },
 
   annulSale: async (saleId: string) => {
@@ -293,30 +268,41 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
 
       if (updateError) throw updateError;
 
+      // ✅ FIX: Usar adjust_product_stock RPC atómico en lugar de
+      // updates raw basados en stock local (evita race conditions)
       if (saleItems) {
-        const { products } = get();
         for (const item of saleItems) {
           if (item.product_id) {
-            const product = products.find((p) => p.id === item.product_id);
-            if (product) {
-              const restoredStock = Number(product.stock) + Number(item.quantity);
-              await supabase.from('products').update({ stock: restoredStock }).eq('id', item.product_id);
-            }
+            await supabase.rpc('adjust_product_stock', {
+              p_product_id: item.product_id,
+              p_delta: Number(item.quantity), // positivo = restaurar stock
+            });
           }
         }
       }
 
-      // Incremental update: update sale status and restore stock locally
-      set((state) => ({
-        sales: state.sales.map((s) => s.id === saleId ? { ...s, status: 'CANCELLED' as SaleStatus } : s),
-        products: state.products.map((p) => {
-          const restoredItem = saleItems?.find((si) => si.product_id === p.id);
-          if (restoredItem) {
-            return { ...p, stock: Number(p.stock) + Number(restoredItem.quantity) };
-          }
-          return p;
-        })
-      }));
+      // Refrescar stock real desde la DB para evitar desajustes visuales
+      const affectedIds = (saleItems || []).map((si) => si.product_id).filter(Boolean) as string[];
+      if (affectedIds.length > 0) {
+        const { data: updatedProducts } = await supabase
+          .from('products')
+          .select('id, stock')
+          .in('id', affectedIds);
+
+        const stockMap = new Map((updatedProducts || []).map((p) => [p.id as string, Number(p.stock) || 0]));
+
+        set((state) => ({
+          sales: state.sales.map((s) => s.id === saleId ? { ...s, status: 'CANCELLED' as SaleStatus } : s),
+          products: state.products.map((p) => {
+            const newStock = stockMap.get(p.id);
+            return newStock !== undefined ? { ...p, stock: newStock } : p;
+          })
+        }));
+      } else {
+        set((state) => ({
+          sales: state.sales.map((s) => s.id === saleId ? { ...s, status: 'CANCELLED' as SaleStatus } : s),
+        }));
+      }
 
       toast.dismiss(loadingToast);
       toast.success("Venta anulada y stock devuelto 📦");
