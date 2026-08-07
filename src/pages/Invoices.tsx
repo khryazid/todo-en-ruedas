@@ -353,6 +353,12 @@ export const Invoices = () => {
                                     )}
                                 </div>
                             )}
+                            {selectedPaymentMethodCurrency === 'COP' && (
+                                <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
+                                    <p className="text-xs font-bold text-yellow-600 uppercase mb-1">Equivalente en Pesos</p>
+                                    <p className="text-xl font-black text-yellow-700">$ {Math.round(parseFloat(paymentAmount || '0') * settings.tasaCOP).toLocaleString('es-CO')} COP</p>
+                                </div>
+                            )}
                             <div><label className="text-xs font-bold text-gray-500 uppercase block mb-1">Nota (Opcional)</label><input className="w-full border-2 border-gray-200 rounded-xl p-3 text-sm" placeholder="Ref. bancaria..." value={paymentNote} onChange={e => setPaymentNote(e.target.value)} /></div>
                             <button type="submit" className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 mt-2">CONFIRMAR PAGO</button>
                         </form>
@@ -404,7 +410,7 @@ export const Invoices = () => {
                                 {paymentHistoryForEdit.length === 0 ? <p className="text-sm text-gray-400 italic">Sin pagos.</p> : (
                                     <table className="w-full text-sm border rounded-xl overflow-hidden">
                                         <thead className="bg-gray-100 text-xs text-gray-500 font-bold uppercase"><tr><th className="p-2 text-left">Fecha</th><th className="p-2 text-left">Método</th><th className="p-2 text-right">Monto</th><th className="p-2 text-center"></th></tr></thead>
-                                        <tbody className="bg-white">{paymentHistoryForEdit.map((p, i) => (<tr key={p.id || `${p.method}-${i}`}><td className="p-2 text-gray-500">{new Date(p.date).toLocaleDateString()}</td><td className="p-2 font-bold">{p.method}<p className="text-[10px] text-gray-400 font-normal">{p.amountBS ? `Bs. ${p.amountBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${p.fxRateUsed ? ` · tasa ${p.fxRateUsed.toFixed(2)}` : ''}` : 'Pago en USD'}</p></td><td className="p-2 text-right font-bold text-green-600">{formatCurrency(p.amountUSD, 'USD')}</td><td className="p-2 text-center">{p.method === 'Histórico' ? <span className="text-[10px] uppercase font-bold text-gray-400">Ajuste</span> : <button onClick={() => handleDeletePayment(p.id)} className="text-red-300 hover:text-red-600"><Trash2 size={14} /></button>}</td></tr>))}</tbody>
+                                        <tbody className="bg-white">{paymentHistoryForEdit.map((p, i) => (<tr key={p.id || `${p.method}-${i}`}><td className="p-2 text-gray-500">{new Date(p.date).toLocaleDateString()}</td><td className="p-2 font-bold">{p.method}<p className="text-[10px] text-gray-400 font-normal">{p.amountBS ? `Bs. ${p.amountBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${p.fxRateUsed ? ` · tasa ${p.fxRateUsed.toFixed(2)}` : ''}` : p.amountCOP ? `$ ${p.amountCOP.toLocaleString('es-CO')} COP` : 'Pago en USD'}</p></td><td className="p-2 text-right font-bold text-green-600">{formatCurrency(p.amountUSD, 'USD')}</td><td className="p-2 text-center">{p.method === 'Histórico' ? <span className="text-[10px] uppercase font-bold text-gray-400">Ajuste</span> : <button onClick={() => handleDeletePayment(p.id)} className="text-red-300 hover:text-red-600"><Trash2 size={14} /></button>}</td></tr>))}</tbody>
                                     </table>
                                 )}
                                 <div className="mt-3 bg-gray-50 border border-gray-200 rounded-xl p-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">

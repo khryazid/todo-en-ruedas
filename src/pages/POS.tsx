@@ -566,7 +566,7 @@ export const POS = () => {
                                     <Star size={13} className="text-amber-500 flex-shrink-0" fill="currentColor" />
                                     <div className="min-w-0">
                                         <p className="text-[10px] font-bold text-gray-800 truncate leading-tight">{p.name}</p>
-                                        <p className="text-[10px] font-black text-amber-700">${priceUSD.toFixed(2)}</p>
+                                        <p className="text-[10px] font-black text-amber-700">${priceUSD.toFixed(2)} {settings.tasaCOP > 0 && <span className="font-medium text-[#FFB300] ml-1">({Math.round(priceUSD * settings.tasaCOP).toLocaleString('es-CO')} COP)</span>}</p>
                                     </div>
                                 </button>
                             ))}
@@ -732,7 +732,10 @@ export const POS = () => {
                             <div className="flex-1 min-w-0 pr-2">
                                 <p className="text-xs font-bold text-gray-800 truncate">{item.name}</p>
                                 <p className="text-[10px] text-gray-400 font-mono">{item.sku}</p>
-                                <p className="text-[11px] text-blue-600 font-black mt-0.5">{formatCurrency(item.priceFinalUSD, 'USD')}</p>
+                                <p className="text-[11px] text-blue-600 font-black mt-0.5">
+                                    {formatCurrency(item.priceFinalUSD, 'USD')}
+                                    {settings.tasaCOP > 0 && <span className="text-[#FFB300] ml-1">({Math.round(item.priceFinalUSD * settings.tasaCOP).toLocaleString('es-CO')} COP)</span>}
+                                </p>
                             </div>
                             <div className="flex flex-col items-end gap-1">
                                 <div className="flex items-center border rounded-xl overflow-hidden bg-gray-50">
@@ -761,6 +764,7 @@ export const POS = () => {
                         <div className="text-left">
                             <p className="text-[10px] text-gray-400 uppercase font-bold tracking-widest">Total a Pagar</p>
                             <p className="text-blue-600 font-bold text-sm">Bs. {totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                            {settings.tasaCOP > 0 && <p className="text-[#FFB300] font-bold text-sm mt-0.5">$ {Math.round(totalUSD * settings.tasaCOP).toLocaleString('es-CO')} COP</p>}
                         </div>
                         <p className="text-3xl font-black text-gray-900 leading-none">{formatCurrency(totalUSD, 'USD')}</p>
                     </div>

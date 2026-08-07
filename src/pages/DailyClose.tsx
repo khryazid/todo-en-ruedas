@@ -308,13 +308,17 @@ export const DailyClose = () => {
                                         <span className="text-[11px] text-gray-500">
                                             {info.currency === 'BS'
                                                 ? `${formatCurrency(info.amountUSD, 'USD')} × Bs. ${settings.tasaBCV.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                                : formatCurrency(info.amountUSD, 'USD')}
+                                                : info.currency === 'COP'
+                                                    ? `${formatCurrency(info.amountUSD, 'USD')} × $ ${settings.tasaCOP.toLocaleString('es-CO')} COP`
+                                                    : formatCurrency(info.amountUSD, 'USD')}
                                         </span>
                                     </div>
                                     <span className="font-mono font-bold text-gray-800">
                                         {info.currency === 'BS'
                                             ? `Bs. ${(info.amountUSD * settings.tasaBCV).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                                            : formatCurrency(info.amountUSD, 'USD')}
+                                            : info.currency === 'COP'
+                                                ? `$ ${Math.round(info.amountUSD * settings.tasaCOP).toLocaleString('es-CO')} COP`
+                                                : formatCurrency(info.amountUSD, 'USD')}
                                     </span>
                                 </div>
                             ))}

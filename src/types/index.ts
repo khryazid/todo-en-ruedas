@@ -107,6 +107,7 @@ export interface CashLedgerEntry {
   kind: CashLedgerKind;
   amountUSD: number;
   amountBS?: number;
+  amountCOP?: number;
   currency: ExpenseCurrency;
   paymentMethod: string;
   description: string;
@@ -123,6 +124,7 @@ export interface Expense {
   description: string;
   amountUSD: number;      // Siempre almacenado en USD (conversión si es BS)
   amountBS?: number;      // Monto original en bolívares (si currency=BS)
+  amountCOP?: number;     // Monto original en pesos (si currency=COP)
   currency: ExpenseCurrency; // Moneda de ingreso
   category: ExpenseCategory;
   paymentMethod: string;
@@ -141,6 +143,7 @@ export interface RecurringExpense {
   category: ExpenseCategory;
   amountUSD: number;
   amountBS?: number;
+  amountCOP?: number;
   currency: ExpenseCurrency;
   paymentMethod: string;
   dayOfMonth?: number;    // día del mes para recordatorio (1-31)
@@ -196,6 +199,7 @@ export interface Payment {
   date: string;
   amountUSD: number;
   amountBS?: number;
+  amountCOP?: number;
   fxRateUsed?: number;
   fxSource?: FxSource;
   method: string;

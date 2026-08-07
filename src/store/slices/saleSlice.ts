@@ -141,6 +141,9 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         const amountBS = methodCurrency === 'BS'
           ? Math.round((paidAmount * settings.tasaBCV) * 100) / 100
           : undefined;
+        const amountCOP = methodCurrency === 'COP'
+          ? Math.round((paidAmount * settings.tasaCOP))
+          : undefined;
 
         await get().recordCashMovement({
           date: saleData.sale_date,
@@ -148,6 +151,7 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
           kind: 'VENTA_COBRADA',
           amountUSD: paidAmount,
           amountBS,
+          amountCOP,
           currency: methodCurrency,
           paymentMethod,
           description: `Cobro inicial de venta #${calculatedLocalId || saleData.sale_id.slice(-6)}`,
@@ -350,6 +354,9 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
       const amountBS = methodCurrency === 'BS'
         ? Math.round((payment.amountUSD * get().settings.tasaBCV) * 100) / 100
         : undefined;
+      const amountCOP = methodCurrency === 'COP'
+        ? Math.round((payment.amountUSD * get().settings.tasaCOP))
+        : undefined;
 
       await get().recordCashMovement({
         date: payment.date,
@@ -357,6 +364,7 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         kind: 'ABONO_CLIENTE',
         amountUSD: payment.amountUSD,
         amountBS,
+        amountCOP,
         currency: methodCurrency,
         paymentMethod: payment.method,
         description: `Abono de cliente a venta #${sale.localId || sale.id.slice(-6)}`,

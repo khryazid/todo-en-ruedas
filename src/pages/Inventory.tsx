@@ -468,7 +468,7 @@ export const Inventory = () => {
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 text-xs uppercase font-bold text-gray-400 tracking-wider">
-              <tr><th className="px-6 py-4">Producto</th><th className="px-6 py-4 text-center">Stock</th><th className="px-6 py-4 text-right">Costo ($)</th><th className="px-6 py-4 text-right text-orange-500" title="Precio base TH antes de la conversión">P. TH ($)</th><th className="px-6 py-4 text-right">PVP ($)</th><th className="px-6 py-4 text-right">PVP (Bs)</th><th className="px-6 py-4 text-center">Acciones</th></tr>
+              <tr><th className="px-6 py-4">Producto</th><th className="px-6 py-4 text-center">Stock</th><th className="px-6 py-4 text-right">Costo ($)</th><th className="px-6 py-4 text-right text-orange-500" title="Precio base TH antes de la conversión">P. TH ($)</th><th className="px-6 py-4 text-right">PVP ($)</th><th className="px-6 py-4 text-right">PVP (Bs)</th>{settings.tasaCOP > 0 && <th className="px-6 py-4 text-right">PVP (COP)</th>}<th className="px-6 py-4 text-center">Acciones</th></tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredProducts.map((product) => {
@@ -517,6 +517,11 @@ export const Inventory = () => {
                     <td className="px-6 py-4 text-right font-bold text-gray-500 group-hover:text-red-600 transition-colors">
                       Bs. {prices.finalPriceVED.toLocaleString('es-VE', { minimumFractionDigits: 2 })}
                     </td>
+                    {settings.tasaCOP > 0 && (
+                      <td className="px-6 py-4 text-right font-bold text-[#FFB300]">
+                        $ {Math.round(prices.finalPriceUSD * settings.tasaCOP).toLocaleString('es-CO')} COP
+                      </td>
+                    )}
                     <td className="px-6 py-4 text-center">
                       <div className="flex justify-center gap-1">
                         <button

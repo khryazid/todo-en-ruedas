@@ -123,11 +123,15 @@ export function POSCheckoutModal({
                 <span className="text-3xl font-black text-gray-900">{formatCurrency(completedSale.paidAmountUSD, 'USD')}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-400">{completedMethodCurrency === 'BS' ? 'Ref. Bs' : 'Moneda'}</span>
+                <span className="text-gray-400">
+                  {completedMethodCurrency === 'BS' ? 'Ref. Bs' : completedMethodCurrency === 'COP' ? 'Ref. COP' : 'Moneda'}
+                </span>
                 <span className="font-bold text-blue-600">
                   {completedMethodCurrency === 'BS'
                     ? `Bs. ${((completedSale.paidAmountUSD || 0) * settings.tasaBCV).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
-                    : 'USD'}
+                    : completedMethodCurrency === 'COP'
+                      ? `$ ${Math.round((completedSale.paidAmountUSD || 0) * settings.tasaCOP).toLocaleString('es-CO')} COP`
+                      : 'USD'}
                 </span>
               </div>
               {(completedSale.totalUSD - completedSale.paidAmountUSD) > 0.01 && (
@@ -280,6 +284,11 @@ export function POSCheckoutModal({
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-400">Ref. Bs</span>
                   <span className="font-bold text-blue-600">Bs. {totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+                </div>
+              ) : selectedMethodCurrency === 'COP' ? (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-400">Ref. COP</span>
+                  <span className="font-bold text-[#FFB300]">$ {Math.round(totalUSD * settings.tasaCOP).toLocaleString('es-CO')} COP</span>
                 </div>
               ) : (
                 <div className="flex justify-between items-center text-sm">

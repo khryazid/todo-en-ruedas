@@ -217,6 +217,7 @@ export const Quotes = () => {
                                     <div className="text-right flex-shrink-0">
                                         <p className="font-black text-gray-800">{formatCurrency(q.totalUSD, 'USD')}</p>
                                         <p className="text-[10px] text-gray-400">Bs {(q.totalBs).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                                        {settings.tasaCOP > 0 && <p className="text-[10px] font-bold text-[#FFB300]">$ {Math.round(q.totalUSD * settings.tasaCOP).toLocaleString('es-CO')} COP</p>}
                                     </div>
 
                                     {/* Estado */}
@@ -407,9 +408,13 @@ export const Quotes = () => {
                                         <span className="font-black text-gray-800">{formatCurrency(item.priceFinalUSD * item.quantity, 'USD')}</span>
                                     </div>
                                 ))}
-                                <div className="bg-blue-50 px-4 py-3 flex justify-between">
-                                    <span className="font-bold text-blue-700">TOTAL</span>
-                                    <span className="font-black text-blue-900 text-lg">{formatCurrency(viewQuote.totalUSD, 'USD')}</span>
+                                <div className="bg-blue-50 px-4 py-3 flex flex-col items-end">
+                                    <div className="flex justify-between w-full">
+                                        <span className="font-bold text-blue-700">TOTAL</span>
+                                        <span className="font-black text-blue-900 text-lg">{formatCurrency(viewQuote.totalUSD, 'USD')}</span>
+                                    </div>
+                                    <span className="text-xs text-blue-600/70">Bs {viewQuote.totalBs.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+                                    {settings.tasaCOP > 0 && <span className="text-xs font-bold text-[#FFB300]">$ {Math.round(viewQuote.totalUSD * settings.tasaCOP).toLocaleString('es-CO')} COP</span>}
                                 </div>
                             </div>
 

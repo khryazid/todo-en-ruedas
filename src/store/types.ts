@@ -84,6 +84,7 @@ export interface StoreState {
     kind: CashLedgerKind;
     amountUSD: number;
     amountBS?: number;
+    amountCOP?: number;
     currency: 'USD' | 'BS' | 'COP';
     paymentMethod: string;
     description: string;
@@ -98,6 +99,7 @@ export interface StoreState {
     kind: CashLedgerKind;
     amountUSD: number;
     amountBS?: number;
+    amountCOP?: number;
     currency: 'USD' | 'BS' | 'COP';
     paymentMethod: string;
     description: string;

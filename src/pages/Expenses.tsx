@@ -157,11 +157,13 @@ export const Expenses = () => {
     }, [expenses, recurring.length]);
 
     const rate = settings.tasaBCV || 1;
+    const rateCOP = settings.tasaCOP || 1;
     const selectedExpenseMethod = useMemo(
         () => paymentMethods.find(pm => pm.name === form.paymentMethod),
         [paymentMethods, form.paymentMethod]
     );
     const isBSMethod = selectedExpenseMethod?.currency === 'BS';
+    const isCOPMethod = selectedExpenseMethod?.currency === 'COP';
 
     // ─── Datos filtrados ───────────────────────────────────────────────────────
     const periodExpenses = useMemo(() => filterByPeriod(expenses, period), [expenses, period]);
@@ -198,7 +200,7 @@ export const Expenses = () => {
             date: e.date,
             description: e.description,
             currency: e.currency || 'USD',
-            amount: e.currency === 'BS' ? String(e.amountBS || e.amountUSD * rate) : String(e.amountUSD),
+            amount: e.currency === 'BS' ? String(e.amountBS || e.amountUSD * rate) : e.currency === 'COP' ? String(e.amountCOP || e.amountUSD * rateCOP) : String(e.amountUSD),
             rateUsed: String(e.fxRateUsed || settings.tasaBCV || 1),
             category: DEFAULT_EXPENSE_CATEGORIES.includes(e.category as never) ? e.category : 'custom',
             customCategory: DEFAULT_EXPENSE_CATEGORIES.includes(e.category as never) ? '' : e.category,
@@ -216,11 +218,16 @@ export const Expenses = () => {
         if (rawAmount <= 0) return toast.error('El monto debe ser mayor a 0');
 
         const finalCategory = form.category === 'custom' ? form.customCategory.trim() || 'Otro' : form.category;
-        const amountUSD = form.currency === 'BS' ? rawAmount / fxRateUsed : rawAmount;
+        const amountUSD = form.currency === 'BS' ? rawAmount / fxRateUsed : form.currency === 'COP' ? rawAmount / rateCOP : rawAmount;
         const amountBS = form.currency === 'BS'
             ? rawAmount
             : isBSMethod
                 ? (rawAmount * fxRateUsed)
+                : undefined;
+        const amountCOP = form.currency === 'COP'
+            ? rawAmount
+            : isCOPMethod
+                ? (rawAmount * rateCOP)
                 : undefined;
         const fxSource = isBSMethod
             ? (Math.abs(fxRateUsed - (settings.tasaBCV || 0)) < 0.0001 ? 'BCV' : 'MANUAL')
@@ -231,6 +238,7 @@ export const Expenses = () => {
             description: form.description.trim(),
             amountUSD: Math.round(amountUSD * 100) / 100,
             amountBS: amountBS !== undefined ? Math.round(amountBS * 100) / 100 : undefined,
+            amountCOP: amountCOP !== undefined ? Math.round(amountCOP) : undefined,
             currency: form.currency,
             category: finalCategory,
             paymentMethod: form.paymentMethod,
@@ -477,7 +485,9 @@ export const Expenses = () => {
                                             <td className="px-4 py-3 text-right font-bold text-gray-800 whitespace-nowrap">
                                                 {e.currency === 'BS'
                                                     ? `Bs. ${(e.amountBS ?? e.amountUSD * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
-                                                    : formatCurrency(e.amountUSD, 'USD')}
+                                                    : e.currency === 'COP'
+                                                        ? `$ ${(e.amountCOP ?? e.amountUSD * rateCOP).toLocaleString('es-CO')} COP`
+                                                        : formatCurrency(e.amountUSD, 'USD')}
                                             </td>
                                             <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">{formatCurrency(e.amountUSD, 'USD')}</td>
                                             <td className="px-4 py-3 text-gray-500 text-xs">{e.paymentMethod}</td>
@@ -534,9 +544,11 @@ export const Expenses = () => {
                                             <p className="font-black text-lg text-gray-900">
                                                 {r.currency === 'BS'
                                                     ? `Bs. ${(r.amountBS || r.amountUSD * rate).toLocaleString('es-VE', { minimumFractionDigits: 2 })}`
-                                                    : formatCurrency(r.amountUSD, 'USD')}
+                                                    : r.currency === 'COP'
+                                                        ? `$ ${(r.amountCOP || r.amountUSD * rateCOP).toLocaleString('es-CO')} COP`
+                                                        : formatCurrency(r.amountUSD, 'USD')}
                                             </p>
-                                            {r.currency === 'BS' && <p className="text-xs text-gray-400">{formatCurrency(r.amountUSD, 'USD')}</p>}
+                                            {(r.currency === 'BS' || r.currency === 'COP') && <p className="text-xs text-gray-400">{formatCurrency(r.amountUSD, 'USD')}</p>}
                                         </div>
                                     </div>
                                     <div className="flex items-center justify-between text-xs text-gray-400 mb-4">
@@ -630,6 +642,11 @@ export const Expenses = () => {
                                     <p className="text-xs text-gray-400 mt-1 ml-1">
                                         Se pagarán aprox. Bs. {(parseFloat(form.amount) * (parseFloat(form.rateUsed || '0') || rate)).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         {' '}a tasa {(parseFloat(form.rateUsed || '0') || rate).toFixed(2)}
+                                    </p>
+                                )}
+                                {form.currency === 'USD' && isCOPMethod && form.amount && (
+                                    <p className="text-xs text-gray-400 mt-1 ml-1">
+                                        Se pagarán aprox. $ {Math.round(parseFloat(form.amount) * rateCOP).toLocaleString('es-CO')} COP
                                     </p>
                                 )}
                             </div>

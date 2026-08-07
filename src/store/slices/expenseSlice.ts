@@ -26,6 +26,7 @@ export const createExpenseSlice = (_set: SetState, get: GetState) => ({
             description: r.description as string,
             amountUSD: Number(r.amount_usd) || 0,
             amountBS: r.amount_bs ? Number(r.amount_bs) : undefined,
+            amountCOP: r.amount_cop ? Number(r.amount_cop) : undefined,
             currency: (r.currency as string || 'USD') as import('../../types').ExpenseCurrency,
             category: (r.category as string) || 'Otro',
             paymentMethod: (r.payment_method as string) || 'Efectivo',
@@ -48,6 +49,7 @@ export const createExpenseSlice = (_set: SetState, get: GetState) => ({
                 description: expense.description,
                 amount_usd: expense.amountUSD,
                 amount_bs: expense.amountBS || null,
+                amount_cop: expense.amountCOP || null,
                 currency: expense.currency || 'USD',
                 category: expense.category,
                 payment_method: expense.paymentMethod,
@@ -69,6 +71,7 @@ export const createExpenseSlice = (_set: SetState, get: GetState) => ({
             description: expense.description,
             amountUSD: expense.amountUSD,
             amountBS: expense.amountBS,
+            amountCOP: expense.amountCOP,
             currency: expense.currency || 'USD',
             category: expense.category,
             paymentMethod: expense.paymentMethod,
@@ -88,6 +91,7 @@ export const createExpenseSlice = (_set: SetState, get: GetState) => ({
             kind: 'GASTO_OPERATIVO',
             amountUSD: newExpense.amountUSD,
             amountBS: newExpense.amountBS,
+            amountCOP: newExpense.amountCOP,
             currency: newExpense.currency || 'USD',
             paymentMethod: newExpense.paymentMethod,
             description: `Gasto: ${newExpense.description}`,
@@ -103,6 +107,7 @@ export const createExpenseSlice = (_set: SetState, get: GetState) => ({
         if (updates.description !== undefined) payload.description = updates.description;
         if (updates.amountUSD !== undefined) payload.amount_usd = updates.amountUSD;
         if (updates.amountBS !== undefined) payload.amount_bs = updates.amountBS;
+        if (updates.amountCOP !== undefined) payload.amount_cop = updates.amountCOP;
         if (updates.currency !== undefined) payload.currency = updates.currency;
         if (updates.category !== undefined) payload.category = updates.category;
         if (updates.paymentMethod !== undefined) payload.payment_method = updates.paymentMethod;

@@ -136,6 +136,9 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
         const amountBS = methodCurrency === 'BS'
           ? (initialPayment?.amountBS ?? Math.round((savedInvoice.paidAmountUSD * fxRateUsed) * 100) / 100)
           : undefined;
+        const amountCOP = methodCurrency === 'COP'
+          ? (initialPayment?.amountCOP ?? Math.round((savedInvoice.paidAmountUSD * get().settings.tasaCOP)))
+          : undefined;
 
         await get().recordCashMovement({
           date: savedInvoice.dateIssue,
@@ -143,6 +146,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
           kind: 'ABONO_PROVEEDOR',
           amountUSD: savedInvoice.paidAmountUSD,
           amountBS,
+          amountCOP,
           currency: methodCurrency,
           paymentMethod,
           description: `Abono inicial a proveedor (${supplierName}) · Factura #${savedInvoice.number}`,
@@ -271,6 +275,9 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
       const amountBS = methodCurrency === 'BS'
         ? (payment.amountBS ?? Math.round((payment.amountUSD * fxRateUsed) * 100) / 100)
         : undefined;
+      const amountCOP = methodCurrency === 'COP'
+        ? (payment.amountCOP ?? Math.round((payment.amountUSD * get().settings.tasaCOP)))
+        : undefined;
 
       await get().recordCashMovement({
         date: payment.date,
@@ -278,6 +285,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
         kind: 'ABONO_PROVEEDOR',
         amountUSD: payment.amountUSD,
         amountBS,
+        amountCOP,
         currency: methodCurrency,
         paymentMethod: payment.method,
         description: `Abono a proveedor (${invoice.supplier}) · Factura #${invoice.number}`,

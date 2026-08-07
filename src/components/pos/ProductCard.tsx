@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Plus } from 'lucide-react';
 import type { Product } from '../../types';
 import { formatCurrency } from '../../utils/pricing';
+import { useStore } from '../../store';
 
 interface ProductCardProps {
   product: Product;
@@ -11,6 +12,7 @@ interface ProductCardProps {
 
 export const ProductCard = memo(({ product, priceUSD, onAdd }: ProductCardProps) => {
   const isOutOfStock = product.stock === 0;
+  const tasaCOP = useStore((state) => state.settings.tasaCOP);
 
   return (
     <div
@@ -25,7 +27,11 @@ export const ProductCard = memo(({ product, priceUSD, onAdd }: ProductCardProps)
         <h3 className="text-[13px] md:text-sm font-bold text-gray-700 leading-snug line-clamp-3 min-h-[2.8rem] mb-2 group-hover:text-red-600 transition-colors" title={product.name}>{product.name}</h3>
       </div>
       <div className="mt-auto pt-3 border-t border-dashed border-gray-100 flex justify-between items-end">
-        <div className="flex flex-col"><span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Precio</span><span className="text-lg md:text-lg font-black text-gray-900 leading-none">{formatCurrency(priceUSD, 'USD')}</span></div>
+        <div className="flex flex-col">
+          <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Precio</span>
+          <span className="text-lg md:text-lg font-black text-gray-900 leading-none">{formatCurrency(priceUSD, 'USD')}</span>
+          {tasaCOP > 0 && <span className="text-[10px] font-bold text-[#FFB300] mt-0.5">$ {Math.round(priceUSD * tasaCOP).toLocaleString('es-CO')} COP</span>}
+        </div>
         {!isOutOfStock && <div className="bg-red-50 text-red-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-sm group-hover:bg-red-600 group-hover:text-white transition-all duration-300"><Plus size={20} strokeWidth={3} /></div>}
       </div>
     </div>

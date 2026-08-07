@@ -477,6 +477,7 @@ export const Sales = () => {
                                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Total Venta</p>
                                     <p className="text-3xl font-black text-gray-900 leading-none">{formatCurrency(selectedSale.totalUSD, 'USD')}</p>
                                     <p className="text-sm font-medium text-gray-500 mt-1">Ref. Bs {selectedSale.totalVED.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</p>
+                                    {settings.tasaCOP > 0 && <p className="text-sm font-bold text-[#FFB300] mt-0.5">Ref. COP {Math.round(selectedSale.totalUSD * settings.tasaCOP).toLocaleString('es-CO')}</p>}
                                 </div>
                             </div>
 
