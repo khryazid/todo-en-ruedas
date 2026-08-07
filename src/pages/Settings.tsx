@@ -29,7 +29,8 @@ export const Settings = () => {
     addPaymentMethod,
     updatePaymentMethodCommission,
     deletePaymentMethod,
-    recordCashMovement
+    recordCashMovement,
+    refreshRates
   } = useStore();
 
   const [formData, setFormData] = useState(settings);
@@ -40,6 +41,7 @@ export const Settings = () => {
   const [controlMethod, setControlMethod] = useState('');
   const [countedBalance, setCountedBalance] = useState('');
   const countedBalanceInputRef = useRef<HTMLInputElement | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Sincronizar datos cuando cambian en el store
   useEffect(() => {
@@ -77,7 +79,7 @@ export const Settings = () => {
   const allTimeExpectedByMethod = useMemo(() => {
     const map: Record<string, {
       method: string;
-      currency: 'USD' | 'BS';
+      currency: 'USD' | 'BS' | 'COP';
       grossIn: number;
       commissionableIn: number;
       cashOut: number;
@@ -347,12 +349,28 @@ export const Settings = () => {
 
         {/* 2. TASAS DE CAMBIO */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 pb-4 border-b border-gray-50">
-            <RefreshCw className="text-green-600" /> Tasas de Cambio
-          </h3>
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              <RefreshCw className="text-green-600" /> Tasas de Cambio
+            </h3>
+            <button
+              type="button"
+              disabled={isRefreshing}
+              onClick={async () => {
+                setIsRefreshing(true);
+                await refreshRates();
+                setIsRefreshing(false);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 disabled:opacity-50 transition shadow-sm"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />
+              {isRefreshing ? 'Actualizando...' : 'Actualizar BCV y COP'}
+            </button>
+          </div>
           <div className="space-y-6">
+            {/* BCV */}
             <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Tasa BCV (Oficial)</label>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Tasa BCV (Oficial) — Auto</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">Bs.</span>
                 <input
@@ -364,9 +382,10 @@ export const Settings = () => {
                 />
               </div>
             </div>
+            {/* Monitor (Manual) */}
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="block text-sm font-bold text-gray-700">Tasa Monitor</label>
+                <label className="block text-sm font-bold text-gray-700">Tasa Monitor <span className="text-xs font-normal text-gray-400">(Manual)</span></label>
                 <button
                   onClick={() => setFormData({ ...formData, showMonitorRate: !formData.showMonitorRate })}
                   className="text-xs flex items-center gap-1 text-blue-600 font-bold hover:bg-blue-50 px-2 py-1 rounded transition"
@@ -384,6 +403,23 @@ export const Settings = () => {
                   onChange={e => setFormData({ ...formData, tasaTH: fromEditableNumberValue(e.target.value) })}
                   disabled={!formData.showMonitorRate}
                 />
+              </div>
+            </div>
+            {/* COP */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Tasa COP <span className="text-xs font-normal text-gray-400">(Peso Colombiano / USD — Auto)</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="w-full pl-10 pr-16 py-3 border-2 border-yellow-100 rounded-xl focus:border-yellow-500 outline-none text-xl font-black text-gray-800 transition"
+                  value={toEditableNumberValue(formData.tasaCOP)}
+                  onChange={e => setFormData({ ...formData, tasaCOP: fromEditableNumberValue(e.target.value) })}
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">COP</span>
               </div>
             </div>
           </div>
@@ -548,7 +584,7 @@ export const Settings = () => {
           </h3>
           <div className="space-y-2 mb-6">
             {paymentMethods.map(method => (
-              <div key={method.id} className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2 border rounded-lg text-sm ${method.currency === 'BS' ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-green-50 border-green-200 text-green-800'}`}>
+              <div key={method.id} className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2 border rounded-lg text-sm ${method.currency === 'COP' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : method.currency === 'BS' ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-green-50 border-green-200 text-green-800'}`}>
                 <div className="flex items-center gap-2 min-w-[180px]">
                   <span className="font-bold">{method.name}</span>
                   <span className="text-[10px] opacity-70">({method.currency})</span>
@@ -596,6 +632,7 @@ export const Settings = () => {
             >
               <option value="USD">USD ($)</option>
               <option value="BS">BS (Bs)</option>
+              <option value="COP">COP ($)</option>
             </select>
             <input
               type="number"

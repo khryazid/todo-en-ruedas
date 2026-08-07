@@ -1,19 +1,23 @@
 /**
  * @file slices/settingsSlice.ts
  * @description Configuración global, métodos de pago y cierre de caja.
+ *
+ * ✅ COP: Soporte para tasa de pesos colombianos.
+ * ✅ AUTO-RATES: Acción refreshRates() para obtener BCV y COP desde APIs.
  */
 
 import { supabase } from '../../supabase/client';
 import toast from 'react-hot-toast';
 import type { AppSettings, PaymentMethod } from '../../types';
 import type { SetState, GetState } from '../types';
+import { fetchAllRates } from '../../utils/fetchRates';
 
 export const createSettingsSlice = (set: SetState, get: GetState) => ({
 
   settings: {
     companyName: 'Cargando...',
     rif: '', rifType: 'J', address: '',
-    tasaBCV: 0, tasaTH: 0, showMonitorRate: true,
+    tasaBCV: 0, tasaTH: 0, tasaCOP: 0, showMonitorRate: true,
     lastUpdated: new Date().toISOString(),
     lastCloseDate: undefined,
     defaultMargin: 30, defaultVAT: 16, printerCurrency: 'BS',
@@ -58,6 +62,7 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
             sellerCommissionPct: settingsData.seller_commission_pct ?? 5,
             marginMayorista: settingsData.margin_mayorista ?? 0,
             marginEspecial: settingsData.margin_especial ?? 0,
+            tasaCOP: settingsData.tasa_cop ?? 0,
           }
         }));
       }
@@ -95,6 +100,7 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
         seller_commission_pct: newSettings.sellerCommissionPct ?? 5,
         margin_mayorista: newSettings.marginMayorista ?? 0,
         margin_especial: newSettings.marginEspecial ?? 0,
+        tasa_cop: newSettings.tasaCOP ?? 0,
       };
 
       // Intentar UPDATE primero (cuando ya existe una fila)
@@ -136,7 +142,55 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
     }
   },
 
-  addPaymentMethod: async (name: string, currency: 'USD' | 'BS', commissionPct = 0) => {
+  /**
+   * Obtiene tasas BCV y COP desde APIs públicas y las guarda.
+   * La tasa Monitor (TH) NO se toca — es manual.
+   */
+  refreshRates: async () => {
+    try {
+      const rates = await fetchAllRates();
+      const updates: Partial<AppSettings> = {};
+      const dbUpdates: Record<string, unknown> = {};
+
+      if (rates.bcv !== null) {
+        updates.tasaBCV = rates.bcv;
+        dbUpdates.tasa_bcv = rates.bcv;
+      }
+      if (rates.cop !== null) {
+        updates.tasaCOP = rates.cop;
+        dbUpdates.tasa_cop = rates.cop;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        toast.error('No se pudieron obtener las tasas. Intenta de nuevo.');
+        return;
+      }
+
+      // Actualizar estado local inmediatamente
+      set((state) => ({
+        settings: { ...state.settings, ...updates }
+      }));
+
+      // Persistir en Supabase
+      const settingsId = get().settingsId;
+      if (settingsId) {
+        await supabase.from('settings').update(dbUpdates).eq('id', settingsId);
+      } else {
+        await supabase.from('settings').update(dbUpdates)
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+      }
+
+      const parts: string[] = [];
+      if (rates.bcv !== null) parts.push(`BCV: Bs. ${rates.bcv}`);
+      if (rates.cop !== null) parts.push(`COP: $${rates.cop.toLocaleString('es-CO')}`);
+      toast.success(`Tasas actualizadas ✅ ${parts.join(' | ')}`);
+    } catch (error) {
+      console.error('refreshRates:', error);
+      toast.error('Error al actualizar tasas');
+    }
+  },
+
+  addPaymentMethod: async (name: string, currency: 'USD' | 'BS' | 'COP', commissionPct = 0) => {
     try {
       const safeCommission = Number.isFinite(commissionPct) ? Math.max(0, commissionPct) : 0;
       const { data, error } = await supabase

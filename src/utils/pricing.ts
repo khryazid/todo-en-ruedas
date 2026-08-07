@@ -3,13 +3,17 @@
  * @description Utilidades para cálculo de precios y formateo de moneda.
  * ✅ PRICE LISTS: calculatePrices acepta priceList opcional para aplicar
  *    el margen de la lista asignada al cliente (Mayorista / Especial).
+ * ✅ COP: Soporte para pesos colombianos.
  */
 
 import type { Product, AppSettings, PriceList } from '../types';
 
-export const formatCurrency = (amount: number, currency: 'USD' | 'BS') => {
+export const formatCurrency = (amount: number, currency: 'USD' | 'BS' | 'COP') => {
   if (currency === 'USD') {
     return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  if (currency === 'COP') {
+    return `$${amount.toLocaleString('es-CO', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} COP`;
   }
   return `Bs. ${amount.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
@@ -73,10 +77,16 @@ export const calculatePrices = (
   // Redondear USD a 2 decimales
   finalPriceUSD = Math.round(finalPriceUSD * 100) / 100;
 
-  // 3. Bs = USD × tasa BCV
+  // 5. Bs = USD × tasa BCV
   const tasaBCV = settings.tasaBCV || 0;
   const finalPriceVED = tasaBCV > 0
     ? Math.round((finalPriceUSD * tasaBCV) * 100) / 100
+    : 0;
+
+  // 6. COP = USD × tasa COP
+  const tasaCOP = settings.tasaCOP || 0;
+  const finalPriceCOP = tasaCOP > 0
+    ? Math.round(finalPriceUSD * tasaCOP)
     : 0;
 
   return {
@@ -84,7 +94,8 @@ export const calculatePrices = (
     basePrice,
     finalPriceUSD,
     finalPriceVED,
+    finalPriceCOP,
     margin,
     vat
   };
-};
+};

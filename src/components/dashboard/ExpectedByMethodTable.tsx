@@ -3,7 +3,7 @@ import { formatCurrency } from '../../utils/pricing';
 
 type ExpectedMethodRow = {
   method: string;
-  currency: 'USD' | 'BS';
+  currency: 'USD' | 'BS' | 'COP';
   grossIn: number;
   commissionPct: number;
   commissionCost: number;
@@ -18,7 +18,7 @@ type MethodMovement = {
   direction: 'IN' | 'OUT';
   amountUSD: number;
   amountBS?: number;
-  currency: 'USD' | 'BS';
+  currency: 'USD' | 'BS' | 'COP';
   kind: string;
   description: string;
 };

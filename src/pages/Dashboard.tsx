@@ -405,7 +405,7 @@ export const Dashboard = () => {
   const buildExpectedByMethod = useCallback((movements: typeof cashLedger) => {
     const map: Record<string, {
       method: string;
-      currency: 'USD' | 'BS';
+      currency: 'USD' | 'BS' | 'COP';
       grossIn: number;
       commissionableIn: number;
       cashOut: number;
@@ -529,7 +529,7 @@ export const Dashboard = () => {
       direction: 'IN' | 'OUT';
       amountUSD: number;
       amountBS?: number;
-      currency: 'USD' | 'BS';
+      currency: 'USD' | 'BS' | 'COP';
       kind: string;
       description: string;
     },
@@ -644,6 +644,7 @@ export const Dashboard = () => {
           <div className="flex items-center gap-2 mt-1">
             <span className="text-xs font-bold text-gray-400 uppercase">Tasa BCV:</span><span className="font-mono font-bold text-gray-800">Bs. {settings.tasaBCV}</span>
             {settings.showMonitorRate && <><span className="text-gray-300">|</span><span className="text-xs font-bold text-gray-400 uppercase">Monitor:</span><span className="font-mono font-bold text-orange-500">Bs. {settings.tasaTH}</span></>}
+            {settings.tasaCOP > 0 && <><span className="text-gray-300">|</span><span className="text-xs font-bold text-gray-400 uppercase">COP:</span><span className="font-mono font-bold text-yellow-600">${settings.tasaCOP.toLocaleString('es-CO')}</span></>}
           </div>
         </div>
         <div className="flex flex-col md:flex-row gap-2 w-full xl:w-auto">

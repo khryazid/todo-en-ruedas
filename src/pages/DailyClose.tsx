@@ -82,7 +82,7 @@ export const DailyClose = () => {
     const netProfitUSD = totalUSD - totalExpensesUSD;
 
     const breakdown = (() => {
-        const map: Record<string, { amountUSD: number; currency: 'USD' | 'BS' }> = {};
+        const map: Record<string, { amountUSD: number; currency: 'USD' | 'BS' | 'COP' }> = {};
         paymentMethods.forEach(pm => {
             map[pm.name] = { amountUSD: 0, currency: pm.currency };
         });

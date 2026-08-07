@@ -205,6 +205,7 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
             sellerCommissionPct: settingsData.seller_commission_pct ?? 5,
             marginMayorista: settingsData.margin_mayorista ?? 0,
             marginEspecial: settingsData.margin_especial ?? 0,
+            tasaCOP: settingsData.tasa_cop ?? 0,
           }
         }));
       }

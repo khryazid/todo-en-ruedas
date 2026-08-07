@@ -46,7 +46,8 @@ export interface StoreState {
   fetchSettingsData: () => Promise<void>;
   updateSettings: (settings: AppSettings) => Promise<void>;
   performDailyClose: (turnData?: { totalUSD: number; totalBs: number; txCount: number }) => Promise<CashClose | null>;
-  addPaymentMethod: (name: string, currency: 'USD' | 'BS', commissionPct?: number) => Promise<void>;
+  addPaymentMethod: (name: string, currency: 'USD' | 'BS' | 'COP', commissionPct?: number) => Promise<void>;
+  refreshRates: () => Promise<void>;
   updatePaymentMethodCommission: (id: string, commissionPct: number) => Promise<void>;
   deletePaymentMethod: (id: string) => Promise<void>;
 
@@ -83,7 +84,7 @@ export interface StoreState {
     kind: CashLedgerKind;
     amountUSD: number;
     amountBS?: number;
-    currency: 'USD' | 'BS';
+    currency: 'USD' | 'BS' | 'COP';
     paymentMethod: string;
     description: string;
     referenceType?: string;
@@ -97,7 +98,7 @@ export interface StoreState {
     kind: CashLedgerKind;
     amountUSD: number;
     amountBS?: number;
-    currency: 'USD' | 'BS';
+    currency: 'USD' | 'BS' | 'COP';
     paymentMethod: string;
     description: string;
     userId?: string;
