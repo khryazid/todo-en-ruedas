@@ -57,6 +57,7 @@ CREATE TABLE public.settings (
     address                TEXT,
     tasa_bcv               NUMERIC(10,4) DEFAULT 0,
     tasa_monitor           NUMERIC(10,4) DEFAULT 0,
+    tasa_cop               NUMERIC(10,4) DEFAULT 0,
     show_monitor_rate      BOOLEAN DEFAULT false,
     last_close_date        TIMESTAMPTZ,
     shift_start            TEXT DEFAULT '08:00',
