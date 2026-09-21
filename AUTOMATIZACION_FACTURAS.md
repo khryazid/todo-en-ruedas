@@ -1,4 +1,5 @@
 # 🤖 Automatización: Extracción de Facturas con IA (OCR + LLM)
+
 > **Estado:** ✅ ¡Ya implementado! Esta funcionalidad está activa en el modal de "Cargar Compra" dentro de `src/pages/Inventory.tsx`.
 > **Objetivo:** Permitir al usuario subir una foto o PDF de una factura de proveedor. El sistema debe "leer" la imagen, extraer los datos (proveedor, fecha, número, ítems, costos, totales) y pre-llenar el formulario de "Nueva Factura" para que el usuario solo revise y acepte.
 
@@ -20,6 +21,7 @@
 Para empezar a probar y validar la idea sin gastar dinero, estas son las mejores opciones _Free Tier_ (Generosas para volumen bajo) o de software libre:
 
 ### Opción A (La Mejor y Más Fácil): Gemini API (Google AI Studio) - Plan Gratuito
+
 * **¿Por qué elegirla?** El plan gratuito de la API de Google Gemini (modelo `gemini-1.5-flash` o `pro`) es **extremadamente generoso**. Permite hasta 15 consultas por minuto y 1.500 al día **completamente gratis**.
 * **Capacidad Vision:** Gemini es nativamente multimodal, entiende imágenes (fotos de facturas o PDFs) y extrae JSON estructurado con altísima precisión.
 * **Implementación:** Supabase Edge Function llamando a la API de Gemini (solo necesitas sacar un API Key gratis de Google AI Studio).
@@ -27,12 +29,14 @@ Para empezar a probar y validar la idea sin gastar dinero, estas son las mejores
 * **Veredicto:** 🏆 **La ganadora absoluta para empezar gratis hoy mismo.**
 
 ### Opción B: Groq API + Modelo Llama 3.2 Vision (Grog Cloud)
+
 * **¿Por qué elegirla?** Groq no es un modelo, es un procesador ultra-rápido (LPU). Tienen un plan gratuito para desarrolladores que permite usar modelos Open Source como `Llama-3.2-11B-Vision` (de Meta).
 * **Velocidad:** Es increíblemente rápido. Extraería la factura en 1 segundo.
 * **Limitaciones:** El modelo de visión Open Source puede requerir un "Prompt" mucho más preciso que Gemini o GPT-4o para no equivocarse con los formatos de factura complejos.
 * **Costo:** Gratis para _rate limits_ bajos.
 
 ### Opción C (Puro Código Libre): Tesseract.js (OCR en el Navegador) + Regex
+
 * **¿Por qué elegirla?** Todo corre en la computadora (o celular) del usuario. 100% gratis siempre, sin APIs externas.
 * **Flujo:** Subes la foto, `Tesseract.js` (una librería Javascript) lee "en crudo" todo el texto de la imagen, y tú con código (Expresiones Regulares - Regex) intentas adivinar qué es qué.
 * **El Problema:** Tesseract no entiende el contexto. Si lee "Total: 100", no sabe si es 100 naranjas o $100. Construir las reglas manuales es muy difícil porque cada proveedor tiene su formato distinto.
@@ -42,13 +46,15 @@ Para empezar a probar y validar la idea sin gastar dinero, estas son las mejores
 
 ## 🛠️ 3. Opciones de Pago (Para cuando escales)
 
-*(Si un día procesas miles de facturas y el plan gratuito de Gemini no te alcanza)*
+_(Si un día procesas miles de facturas y el plan gratuito de Gemini no te alcanza)_
 
 ### Opción D: Supabase Edge Functions + OpenAI Vision (GPT-4o)
+
 * **Costo:** Cerca de $0.01 - $0.03 por factura procesada.
 * **Ventaja:** OpenAI (GPT-4o) o Anthropic (Claude 3.5 Sonnet) suelen ser un 1-2% más precisos en facturas manuscritas feas o borrosas que los modelos gratuitos.
 
 ### Opción E: DocumentAI de Google Cloud (Enterprise)
+
 * **Costo:** Se paga por bloque de 1000 documentos.
 * **Ventaja:** Es el estándar corporativo para leer facturas formales. Devuelve coordenadas visuales. Complejo de integrar.
 
