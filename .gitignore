@@ -1,35 +1,87 @@
-# Dependencias
+# ==========================================
+# Dependencias y Gestores de Paquetes
+# ==========================================
 node_modules/
+.pnpm-store/
 
-# Build
+# ==========================================
+# Compilación, Build y Cachés
+# ==========================================
 dist/
+dist-ssr/
+dev-dist/
+.vite/
+*.tsbuildinfo
+.eslintcache
 
-# Variables de entorno (CRÍTICO: nunca subir credenciales)
+# ==========================================
+# Variables de Entorno y Secretos
+# (CRÍTICO: nunca subir credenciales reales)
+# ==========================================
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
+*.local
 
-# IDE
-.vscode/
-.idea/
+# ==========================================
+# Supabase CLI y Base de Datos Local
+# ==========================================
+supabase/.temp/
+supabase/.branches/
+.env.keys
 
-# OS
-.DS_Store
-Thumbs.db
+# ==========================================
+# Logs y Archivos de Depuración
+# ==========================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Artefactos generados por agentes/resoluciones
-artefactos/
-
-# Archivos de depuración (build, lint, errors)
 build_errors.txt
-build_output.txt
-build_output_clean.txt
+build_output*.txt
 errors.txt
-lint_final.txt
-lint_output.txt
-lint_output_2.txt
-lint_text.txt
+lint_*.txt
 lints.json
 lints.txt
 ts_errors.txt
-*.resolved
+
+# ==========================================
+# IDEs y Editores
+# ==========================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.sw?
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ==========================================
+# Archivos del Sistema Operativo
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# ==========================================
+# Herramientas de IA, Agentes y Artefactos
+# ==========================================
+.claude/settings.local.json
+.claude/chats/
+.claude/history/
+.gemini/
+.cursor/
+.antigravity/
+artefactos/
+scratch/
+*.resolved*
+*.metadata.json
