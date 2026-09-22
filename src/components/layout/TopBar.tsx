@@ -88,7 +88,8 @@ export const TopBar = memo(() => {
     const moreRef = useRef<HTMLDivElement>(null);
     const userRef = useRef<HTMLDivElement>(null);
 
-    const { settings, logout } = useStore();
+    const settings = useStore((s) => s.settings);
+    const logout = useStore((s) => s.logout);
     const currentUserData = useStore(s => s.currentUserData);
     const products = useStore(s => s.products);
     const { canAny, role } = usePermissions();

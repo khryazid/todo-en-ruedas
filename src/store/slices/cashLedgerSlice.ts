@@ -46,6 +46,7 @@ export const createCashLedgerSlice = (set: SetState) => ({
     kind: 'VENTA_COBRADA' | 'ABONO_CLIENTE' | 'ABONO_PROVEEDOR' | 'GASTO_OPERATIVO' | 'AJUSTE';
     amountUSD: number;
     amountBS?: number;
+    amountCOP?: number;
     currency: 'USD' | 'BS' | 'COP';
     paymentMethod: string;
     description: string;
@@ -93,6 +94,7 @@ export const createCashLedgerSlice = (set: SetState) => ({
       kind: 'VENTA_COBRADA' | 'ABONO_CLIENTE' | 'ABONO_PROVEEDOR' | 'GASTO_OPERATIVO' | 'AJUSTE';
       amountUSD: number;
       amountBS?: number;
+      amountCOP?: number;
       currency: 'USD' | 'BS' | 'COP';
       paymentMethod: string;
       description: string;

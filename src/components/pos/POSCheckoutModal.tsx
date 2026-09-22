@@ -57,15 +57,14 @@ export function POSCheckoutModal({
   onSendWhatsApp,
   onPrint,
 }: POSCheckoutModalProps) {
-  const [clientQuery, setClientQuery] = useState('');
+  // ✅ AUDIT FIX #8: Inicialización lazy — evita useEffect con setState síncrono.
+  // El componente recibe un `key` desde el padre (isOpen + selectedClient?.id)
+  // que fuerza remount limpio cuando cambia el cliente o se abre/cierra el modal.
+  const [clientQuery, setClientQuery] = useState(
+    () => (selectedClient ? `${selectedClient.name} - ${selectedClient.rif}` : '')
+  );
   const [showClientOptions, setShowClientOptions] = useState(false);
   const clientAutocompleteRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!isOpen || completedSale) return;
-    setClientQuery(selectedClient ? `${selectedClient.name} - ${selectedClient.rif}` : '');
-    setShowClientOptions(false);
-  }, [isOpen, completedSale, selectedClient]);
 
   useEffect(() => {
     if (!showClientOptions) return;

@@ -30,7 +30,14 @@ const STATUS_CONFIG: Record<QuoteStatus, { label: string; color: string; icon: R
 const STATUS_ORDER: QuoteStatus[] = ['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'];
 
 export const Quotes = () => {
-    const { quotes, products, clients, settings, addQuote, updateQuote, deleteQuote, loadQuoteIntoCart } = useStore();
+    const quotes = useStore((s) => s.quotes);
+    const products = useStore((s) => s.products);
+    const clients = useStore((s) => s.clients);
+    const settings = useStore((s) => s.settings);
+    const addQuote = useStore((s) => s.addQuote);
+    const updateQuote = useStore((s) => s.updateQuote);
+    const deleteQuote = useStore((s) => s.deleteQuote);
+    const loadQuoteIntoCart = useStore((s) => s.loadQuoteIntoCart);
     const navigate = useNavigate();
 
     const [isFormOpen, setIsFormOpen] = useState(false);

@@ -16,7 +16,14 @@ import { DollarSign, Printer, Lock, Clock, AlertTriangle, History, User, FileTex
 import type { CashClose } from '../types';
 
 export const DailyClose = () => {
-    const { sales, paymentMethods, settings, performDailyClose, expenses, fetchExpenses } = useStore();
+    const sales = useStore((s) => s.sales);
+    const paymentMethods = useStore((s) => s.paymentMethods);
+    const settings = useStore((s) => s.settings);
+    const performDailyClose = useStore((s) => s.performDailyClose);
+    const expenses = useStore((s) => s.expenses);
+    const fetchExpenses = useStore((s) => s.fetchExpenses);
+    const cashLedger = useStore((s) => s.cashLedger);
+    const fetchCashLedger = useStore((s) => s.fetchCashLedger);
     const [reportType, setReportType] = useState<'X' | 'Z'>('X');
     const [closeHistory, setCloseHistory] = useState<CashClose[]>([]);
 
@@ -45,7 +52,10 @@ export const DailyClose = () => {
         fetchHistory();
     }, [settings.lastCloseDate]);
 
-    useEffect(() => { fetchExpenses(); }, [fetchExpenses]); // Re-fetch cuando se hace un nuevo cierre
+    useEffect(() => {
+        fetchExpenses();
+        fetchCashLedger();
+    }, [fetchExpenses, fetchCashLedger]); // Re-fetch cuando se hace un nuevo cierre
 
     // --- LÓGICA DE CORTE DE TURNO ---
     const lastClose = useMemo(() =>
@@ -61,15 +71,19 @@ export const DailyClose = () => {
         return openDate;
     }, [lastClose, settings.shiftStart]);
 
-    const currentShiftSales = sales.filter(sale => {
-        if (sale.status === 'CANCELLED') return false;
-        if (!lastClose) return true;
-        return new Date(sale.date) > lastClose;
-    });
+    const currentShiftSales = useMemo(() => {
+        return sales.filter(sale => {
+            if (sale.status === 'CANCELLED') return false;
+            if (!lastClose) return true;
+            return new Date(sale.date) > lastClose;
+        });
+    }, [sales, lastClose]);
 
     // --- CÁLCULOS DEL TURNO ACTUAL ---
-    const totalUSD = currentShiftSales.reduce((acc, s) => acc + s.totalUSD, 0);
-    const totalBs = currentShiftSales.reduce((acc, s) => acc + s.totalVED, 0);
+    // ✅ AUDIT FIX #9: Usar paidAmountUSD (dinero físicamente recibido) en lugar de
+    // totalUSD (que incluye ventas a crédito aún no cobradas y genera descuadre en el arqueo).
+    const totalUSD = currentShiftSales.reduce((acc, s) => acc + s.paidAmountUSD, 0);
+    const totalBs = currentShiftSales.reduce((acc, s) => acc + (s.paidAmountUSD * settings.tasaBCV), 0);
     const totalBsByRate = totalUSD * settings.tasaBCV;
 
     // Gastos del turno actual
@@ -81,23 +95,44 @@ export const DailyClose = () => {
     const totalExpensesUSD = shiftExpenses.reduce((acc, e) => acc + e.amountUSD, 0);
     const netProfitUSD = totalUSD - totalExpensesUSD;
 
-    const breakdown = (() => {
+    // ✅ AUDIT FIX #12: Integrar cash_ledger para el arqueo exacto por método de pago (entradas y salidas)
+    const shiftCashMovements = useMemo(() => {
+        if (!lastClose) return cashLedger;
+        return cashLedger.filter(m => new Date(m.createdAt || m.date) > lastClose);
+    }, [cashLedger, lastClose]);
+
+    const breakdown = useMemo(() => {
         const map: Record<string, { amountUSD: number; currency: 'USD' | 'BS' | 'COP' }> = {};
         paymentMethods.forEach(pm => {
             map[pm.name] = { amountUSD: 0, currency: pm.currency };
         });
-        currentShiftSales.forEach(sale => {
-            const paid = sale.paidAmountUSD;
-            if (paid > 0) {
-                const method = sale.paymentMethod;
+
+        if (shiftCashMovements.length > 0) {
+            shiftCashMovements.forEach(m => {
+                const method = m.paymentMethod || 'Efectivo';
                 if (!map[method]) {
-                    map[method] = { amountUSD: 0, currency: 'USD' };
+                    map[method] = { amountUSD: 0, currency: m.currency || 'USD' };
                 }
-                map[method].amountUSD += paid;
-            }
-        });
+                if (m.direction === 'IN') {
+                    map[method].amountUSD += m.amountUSD;
+                } else if (m.direction === 'OUT') {
+                    map[method].amountUSD -= m.amountUSD;
+                }
+            });
+        } else {
+            currentShiftSales.forEach(sale => {
+                const paid = sale.paidAmountUSD;
+                if (paid > 0) {
+                    const method = sale.paymentMethod;
+                    if (!map[method]) {
+                        map[method] = { amountUSD: 0, currency: 'USD' };
+                    }
+                    map[method].amountUSD += paid;
+                }
+            });
+        }
         return map;
-    })();
+    }, [paymentMethods, shiftCashMovements, currentShiftSales]);
 
     const handlePrint = async () => {
         if (reportType === 'X' && currentShiftSales.length === 0) {

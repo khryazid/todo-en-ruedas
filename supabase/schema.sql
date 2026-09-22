@@ -146,6 +146,7 @@ CREATE TABLE IF NOT EXISTS public.payments (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     sale_id    UUID NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
     amount_usd NUMERIC(10,2) NOT NULL,
+    amount_cop NUMERIC(10,2) DEFAULT 0,
     method     TEXT NOT NULL,
     note       TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
@@ -183,6 +184,20 @@ CREATE INDEX IF NOT EXISTS idx_quotes_status ON public.quotes(status);
 -- ============================================================
 -- Secuencia para numerar NCs automáticamente: NC-0001, NC-0002...
 CREATE SEQUENCE IF NOT EXISTS public.nc_number_seq START 1;
+
+CREATE OR REPLACE FUNCTION public.get_next_nc_number()
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_next_val BIGINT;
+BEGIN
+  v_next_val := nextval('public.nc_number_seq');
+  RETURN 'NC-' || lpad(v_next_val::TEXT, 4, '0');
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS public.returns (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -240,7 +255,7 @@ CREATE TABLE IF NOT EXISTS public.expenses (
     amount_usd     NUMERIC(10,2) NOT NULL,
     amount_bs      NUMERIC(10,2),
     amount_cop     NUMERIC(10,2),
-    currency       TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS')),
+    currency       TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS','COP')),
     category       TEXT NOT NULL,
     payment_method TEXT NOT NULL,
     fx_rate_used   NUMERIC(12,6),
@@ -266,7 +281,7 @@ CREATE TABLE IF NOT EXISTS public.recurring_expenses (
     amount_usd     NUMERIC(10,2) NOT NULL,
     amount_bs      NUMERIC(10,2),
     amount_cop     NUMERIC(10,2),
-    currency       TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS')),
+    currency       TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS','COP')),
     payment_method TEXT NOT NULL,
     day_of_month   INTEGER CHECK (day_of_month BETWEEN 1 AND 31),
     is_active      BOOLEAN DEFAULT true,
@@ -308,7 +323,7 @@ CREATE TABLE IF NOT EXISTS public.cash_ledger (
     amount_usd    NUMERIC(10,2) NOT NULL,
     amount_bs     NUMERIC(10,2),
     amount_cop    NUMERIC(10,2),
-    currency      TEXT NOT NULL DEFAULT 'USD' CHECK (currency IN ('USD','BS')),
+    currency      TEXT NOT NULL DEFAULT 'USD' CHECK (currency IN ('USD','BS','COP')),
     payment_method TEXT NOT NULL,
     description   TEXT NOT NULL,
     reference_type TEXT,
@@ -395,7 +410,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_supplier_number_normalized
 CREATE TABLE IF NOT EXISTS public.payment_methods (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name       TEXT NOT NULL,
-    currency   TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS')),
+    currency   TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS','COP')),
     commission_pct NUMERIC(5,2) DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now()
 );

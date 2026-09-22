@@ -9,10 +9,6 @@ import type { SetState, GetState } from '../types';
 import type { AppUser } from '../../types';
 import { logAudit } from '../../utils/audit';
 
-const isValidRole = (role: unknown): role is AppUser['role'] => {
-    return role === 'ADMIN' || role === 'MANAGER' || role === 'SELLER' || role === 'VIEWER';
-};
-
 const getFallbackNameFromEmail = (email?: string | null): string => {
     if (!email) return 'Usuario';
     return email.split('@')[0] || 'Usuario';
@@ -112,8 +108,12 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             }
 
             if (!data) {
-                const metadataRole = user.user_metadata?.role;
-                const fallbackRole: AppUser['role'] = isValidRole(metadataRole) ? metadataRole : 'VIEWER';
+                // ⚠️ SECURITY: Never read role from user_metadata.
+                // A malicious user could send options.data.role='ADMIN' during signUp
+                // and gain admin access if we trusted the JWT metadata here.
+                // Always default to VIEWER; roles are assigned exclusively by an ADMIN
+                // through the user management UI or setupFirstAdmin flow.
+                const safeRole: AppUser['role'] = 'VIEWER';
                 const fallbackName = user.user_metadata?.full_name || getFallbackNameFromEmail(user.email);
 
                 const { error: upsertError } = await supabase
@@ -123,11 +123,12 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                             id: user.id,
                             email: user.email || '',
                             full_name: fallbackName,
-                            role: fallbackRole,
+                            role: safeRole,
                             is_active: true,
                         },
                         { onConflict: 'id' }
                     );
+
 
                 if (upsertError) {
                     console.warn('⚠️ No se encontró el usuario en la tabla y no se pudo autocrear:', upsertError.message);
@@ -138,7 +139,7 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                             id: user.id,
                             email: user.email || '',
                             fullName: fallbackName,
-                            role: fallbackRole,
+                            role: safeRole,
                             isActive: true,
                             createdAt: new Date().toISOString(),
                             updatedAt: new Date().toISOString(),
@@ -160,7 +161,7 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                             id: user.id,
                             email: user.email || '',
                             fullName: fallbackName,
-                            role: fallbackRole,
+                            role: safeRole,
                             isActive: true,
                             createdAt: new Date().toISOString(),
                             updatedAt: new Date().toISOString(),
@@ -169,6 +170,7 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                     });
                     return;
                 }
+
 
                 set({
                     currentUserData: {

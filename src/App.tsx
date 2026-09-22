@@ -67,7 +67,9 @@ const AccessDenied = () => (
 );
 
 function App() {
-  const { checkSession, user, isLoading } = useStore();
+  const checkSession = useStore((s) => s.checkSession);
+  const user = useStore((s) => s.user);
+  const isLoading = useStore((s) => s.isLoading);
   const { needsSetup, isChecking } = useSetupCheck();
   useRealtimeSync();
 

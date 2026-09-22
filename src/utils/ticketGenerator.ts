@@ -107,7 +107,7 @@ export const printInvoice = (sale: Sale, directClient?: Client) => {
             <div class="title">${settings.companyName}</div>
             <div class="subtitle">${settings.rifType}-${settings.rif}</div>
             <div class="subtitle">${settings.address}</div>
-            <div className="divider"></div>
+            <div class="divider"></div>
             <div>Ticket: #${sale.localId || sale.id.slice(-6)}</div>
             <div>Fecha: ${date}</div>
             ${client ? `<div class="divider"></div><div style="text-align:left">CLIENTE: ${client.name}<br>RIF: ${client.rif}</div>` : ''}

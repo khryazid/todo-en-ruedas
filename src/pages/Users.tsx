@@ -12,7 +12,14 @@ import toast from 'react-hot-toast';
 import type { AppUser, UserRole } from '../types';
 
 export const Users = () => {
-    const { users, currentUserData, fetchUsers, createUser, updateUser, deactivateUser, activateUser, changeUserPassword } = useStore();
+    const users = useStore((s) => s.users);
+    const currentUserData = useStore((s) => s.currentUserData);
+    const fetchUsers = useStore((s) => s.fetchUsers);
+    const createUser = useStore((s) => s.createUser);
+    const updateUser = useStore((s) => s.updateUser);
+    const deactivateUser = useStore((s) => s.deactivateUser);
+    const activateUser = useStore((s) => s.activateUser);
+    const changeUserPassword = useStore((s) => s.changeUserPassword);
     const { canManageUsers, isManager, isAdmin } = usePermissions();
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);

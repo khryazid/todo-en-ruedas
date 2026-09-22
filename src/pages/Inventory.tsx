@@ -21,7 +21,14 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 const normalizeText = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 
 export const Inventory = () => {
-  const { products, updateProduct, deleteProduct, addInvoice, addProduct, settings, suppliers, paymentMethods } = useStore();
+  const products = useStore((s) => s.products);
+  const updateProduct = useStore((s) => s.updateProduct);
+  const deleteProduct = useStore((s) => s.deleteProduct);
+  const addInvoice = useStore((s) => s.addInvoice);
+  const addProduct = useStore((s) => s.addProduct);
+  const settings = useStore((s) => s.settings);
+  const suppliers = useStore((s) => s.suppliers);
+  const paymentMethods = useStore((s) => s.paymentMethods);
   const navigate = useNavigate();
 
   // Ajuste Manual state

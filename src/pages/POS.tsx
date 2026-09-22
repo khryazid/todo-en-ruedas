@@ -31,7 +31,23 @@ import { generateId } from '../utils/id';
 // COMPONENTE PRINCIPAL: POS
 // =============================================
 export const POS = () => {
-    const { products, clients, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, recalculateCartPrices, completeSale, settings, paymentMethods, sales, addQuote, quotes, applyClientCredit, setRealtimeGuard, fetchProducts } = useStore();
+    const products = useStore((s) => s.products);
+    const clients = useStore((s) => s.clients);
+    const cart = useStore((s) => s.cart);
+    const addToCart = useStore((s) => s.addToCart);
+    const removeFromCart = useStore((s) => s.removeFromCart);
+    const updateCartQuantity = useStore((s) => s.updateCartQuantity);
+    const clearCart = useStore((s) => s.clearCart);
+    const recalculateCartPrices = useStore((s) => s.recalculateCartPrices);
+    const completeSale = useStore((s) => s.completeSale);
+    const settings = useStore((s) => s.settings);
+    const paymentMethods = useStore((s) => s.paymentMethods);
+    const sales = useStore((s) => s.sales);
+    const addQuote = useStore((s) => s.addQuote);
+    const quotes = useStore((s) => s.quotes);
+    const applyClientCredit = useStore((s) => s.applyClientCredit);
+    const setRealtimeGuard = useStore((s) => s.setRealtimeGuard);
+    const fetchProducts = useStore((s) => s.fetchProducts);
     const location = useLocation();
 
     const [searchTerm, setSearchTerm] = useState('');
@@ -219,13 +235,15 @@ export const POS = () => {
         document.addEventListener('mousedown', handleOutside);
         return () => document.removeEventListener('mousedown', handleOutside);
     }, []);
-
-    useEffect(() => {
-        if (mobileView === 'cart') return;
+    // ✅ AUDIT FIX #8: Reemplazar useEffect con setState síncrono por función wrapper.
+    // En lugar de observar mobileView y resetear con useEffect, centralizamos el
+    // reset en el momento en que se cambia la vista a 'products'.
+    const switchToProductsView = useCallback(() => {
+        setMobileView('products');
         setSheetOffsetY(0);
         setIsDraggingSheet(false);
         sheetDragStartYRef.current = null;
-    }, [mobileView]);
+    }, []);
 
     const handleSheetTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
         if (!window.matchMedia('(max-width: 768px)').matches) return;
@@ -376,7 +394,7 @@ export const POS = () => {
             }
             setCompletedSale(sale);
             setIsCheckoutModalOpen(false);
-            setMobileView('products');
+            switchToProductsView();
         } else {
             setIsCheckoutModalOpen(false);
         }
@@ -432,7 +450,7 @@ export const POS = () => {
     const handleNewSale = () => {
         setCompletedSale(null);
         clearClient();
-        setMobileView('products');
+        switchToProductsView();
     };
 
     const handleSelectClientById = (clientId: string) => {
@@ -534,7 +552,7 @@ export const POS = () => {
                     {/* NAVEGACIÓN MÓVIL PRODUCTOS/CARRITO */}
                     <div className="md:hidden grid grid-cols-2 gap-2 pt-1">
                         <button
-                            onClick={() => setMobileView('products')}
+                            onClick={switchToProductsView}
                             className={`px-3 py-2 rounded-xl text-xs font-black transition ${mobileView === 'products' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'}`}
                         >
                             Productos
@@ -621,7 +639,7 @@ export const POS = () => {
 
             {mobileView === 'cart' && (
                 <button
-                    onClick={() => setMobileView('products')}
+                    onClick={switchToProductsView}
                     className="md:hidden fixed inset-0 bg-black/35 z-30"
                     aria-label="Cerrar carrito"
                 />
@@ -644,7 +662,7 @@ export const POS = () => {
                 <div className="md:hidden px-3 py-2 border-b border-gray-100 flex items-center justify-between bg-white">
                     <p className="font-black text-sm text-gray-800">Carrito Activo</p>
                     <button
-                        onClick={() => setMobileView('products')}
+                        onClick={switchToProductsView}
                         className="px-3 py-1.5 text-xs font-bold rounded-lg bg-gray-100 text-gray-600"
                     >
                         Volver
@@ -777,6 +795,7 @@ export const POS = () => {
             </div>{/* end main flex */}
 
             <POSCheckoutModal
+                key={`checkout-${String(isCheckoutModalOpen)}-${selectedClient?.id ?? 'none'}`}
                 isOpen={isCheckoutModalOpen}
                 completedSale={completedSale}
                 clients={clients}
@@ -830,7 +849,7 @@ export const POS = () => {
                     </button>
                     <button
                         onClick={() => {
-                            setMobileView('products');
+                            switchToProductsView();
                             setIsCheckoutModalOpen(true);
                         }}
                         disabled={cart.length === 0}

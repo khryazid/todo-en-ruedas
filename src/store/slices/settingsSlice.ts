@@ -41,15 +41,22 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
       const { data: paymentMethodsData } = await supabase.from('payment_methods').select('*');
 
       if (settingsData) {
+        // Sanitize RIF safely: column is TEXT NULL in DB, so it may be null/undefined.
+        const rawRif = settingsData.rif ?? '';
+        const rifParts = rawRif.includes('-') ? rawRif.split('-') : ['J', rawRif];
+        const rifType = rifParts[0] || 'J';
+        const rifNumber = rifParts.slice(1).join('-') || rawRif;
+
         set((state) => ({
           settingsId: settingsData.id,
           settings: {
             ...state.settings,
             companyName: settingsData.company_name || 'Glyph Core',
             salePrinterProfile: 'default',
-            rif: settingsData.rif.split('-')[1] || settingsData.rif,
-            rifType: settingsData.rif.split('-')[0] || 'J',
+            rif: rifNumber,
+            rifType: rifType as 'J' | 'V' | 'E' | 'G' | 'P' | 'C',
             address: settingsData.address,
+
             tasaBCV: settingsData.tasa_bcv,
             tasaTH: settingsData.tasa_monitor,
             showMonitorRate: settingsData.show_monitor_rate,

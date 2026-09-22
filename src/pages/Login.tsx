@@ -8,7 +8,9 @@ export const Login = () => {
     const [isRecovering, setIsRecovering] = useState(false);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const { login, sendPasswordResetEmail, isLoading } = useStore();
+    const login = useStore((s) => s.login);
+    const sendPasswordResetEmail = useStore((s) => s.sendPasswordResetEmail);
+    const isLoading = useStore((s) => s.isLoading);
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {

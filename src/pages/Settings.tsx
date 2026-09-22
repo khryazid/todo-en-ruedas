@@ -20,20 +20,23 @@ import { formatCurrency } from '../utils/pricing';
 
 export const Settings = () => {
   const location = useLocation();
-  const {
-    settings,
-    updateSettings,
-    paymentMethods,
-    cashLedger,
-    currentUserData,
-    addPaymentMethod,
-    updatePaymentMethodCommission,
-    deletePaymentMethod,
-    recordCashMovement,
-    refreshRates
-  } = useStore();
+  const settings = useStore((s) => s.settings);
+  const updateSettings = useStore((s) => s.updateSettings);
+  const paymentMethods = useStore((s) => s.paymentMethods);
+  const cashLedger = useStore((s) => s.cashLedger);
+  const currentUserData = useStore((s) => s.currentUserData);
+  const addPaymentMethod = useStore((s) => s.addPaymentMethod);
+  const updatePaymentMethodCommission = useStore((s) => s.updatePaymentMethodCommission);
+  const deletePaymentMethod = useStore((s) => s.deletePaymentMethod);
+  const recordCashMovement = useStore((s) => s.recordCashMovement);
+  const refreshRates = useStore((s) => s.refreshRates);
 
   const [formData, setFormData] = useState(settings);
+
+  // ✅ AUDIT FIX #13: Solo ADMIN puede editar datos fiscales, márgenes y empresa.
+  // MANAGER solo puede editar tasas de cambio según ARCHITECTURE.md y QA_CHECKLIST.md.
+  const isAdmin = currentUserData?.role === 'ADMIN';
+
   const [newMethodName, setNewMethodName] = useState('');
   const [newMethodCurrency, setNewMethodCurrency] = useState<PaymentCurrency>('USD');
   const [newMethodCommission, setNewMethodCommission] = useState('0');
@@ -167,6 +170,11 @@ export const Settings = () => {
   }, [cashLedger]);
 
   const handleSave = async () => {
+    // ✅ AUDIT FIX #13: Guardia defensiva — MANAGER no puede modificar configuración global.
+    if (!isAdmin) {
+      toast.error('No tienes permisos para modificar la configuración corporativa.');
+      return;
+    }
     await updateSettings({ ...formData, lastUpdated: new Date().toISOString() });
   };
 
@@ -292,24 +300,31 @@ export const Settings = () => {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
           <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 pb-4 border-b border-gray-50">
             <Building2 className="text-blue-600" /> Datos Fiscales (Encabezado de Ticket)
+            {!isAdmin && (
+              <span className="ml-auto text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                Solo lectura (requiere ADMIN)
+              </span>
+            )}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-1">
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Nombre Empresa</label>
               <input
                 type="text"
-                className="w-full border border-gray-200 rounded-lg p-2 font-bold focus:ring-2 focus:ring-blue-100 outline-none transition"
+                className="w-full border border-gray-200 rounded-lg p-2 font-bold focus:ring-2 focus:ring-blue-100 outline-none transition disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                 value={formData.companyName}
                 onChange={e => setFormData({ ...formData, companyName: e.target.value })}
+                disabled={!isAdmin}
               />
             </div>
             <div className="flex gap-2">
               <div className="w-24">
                 <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Tipo</label>
                 <select
-                  className="w-full border border-gray-200 rounded-lg p-2 font-bold bg-white outline-none focus:ring-2 focus:ring-blue-100"
+                  className="w-full border border-gray-200 rounded-lg p-2 font-bold bg-white outline-none focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                   value={formData.rifType}
                   onChange={e => setFormData({ ...formData, rifType: e.target.value as RifType })}
+                  disabled={!isAdmin}
                 >
                   {['J', 'V', 'E', 'G', 'P', 'C'].map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
@@ -318,18 +333,20 @@ export const Settings = () => {
                 <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">RIF / CI</label>
                 <input
                   type="text"
-                  className="w-full border border-gray-200 rounded-lg p-2 font-bold focus:ring-2 focus:ring-blue-100 outline-none transition"
+                  className="w-full border border-gray-200 rounded-lg p-2 font-bold focus:ring-2 focus:ring-blue-100 outline-none transition disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                   value={formData.rif}
                   onChange={e => setFormData({ ...formData, rif: e.target.value })}
+                  disabled={!isAdmin}
                 />
               </div>
             </div>
             <div className="md:col-span-1">
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Moneda Impresión</label>
               <select
-                className="w-full border border-gray-200 rounded-lg p-2 font-bold bg-gray-50 text-gray-700 outline-none focus:ring-2 focus:ring-blue-100"
+                className="w-full border border-gray-200 rounded-lg p-2 font-bold bg-gray-50 text-gray-700 outline-none focus:ring-2 focus:ring-blue-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                 value={formData.printerCurrency}
                 onChange={e => setFormData({ ...formData, printerCurrency: e.target.value as CurrencyView })}
+                disabled={!isAdmin}
               >
                 <option value="BS">BOLÍVARES (Bs.)</option>
                 <option value="USD">DÓLARES ($)</option>
@@ -339,9 +356,10 @@ export const Settings = () => {
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Dirección Fiscal</label>
               <input
                 type="text"
-                className="w-full border border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-100 outline-none transition"
+                className="w-full border border-gray-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-100 outline-none transition disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                 value={formData.address}
                 onChange={e => setFormData({ ...formData, address: e.target.value })}
+                disabled={!isAdmin}
               />
             </div>
           </div>
@@ -429,6 +447,11 @@ export const Settings = () => {
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2 pb-4 border-b border-gray-50">
             <Percent className="text-orange-500" /> Márgenes e Impuestos
+            {!isAdmin && (
+              <span className="ml-auto text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                Solo lectura (requiere ADMIN)
+              </span>
+            )}
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -436,9 +459,10 @@ export const Settings = () => {
               <div className="relative">
                 <input
                   type="number"
-                  className="w-full border-2 border-orange-50 rounded-xl p-3 text-lg font-bold text-gray-800 outline-none focus:border-orange-300 transition"
+                  className="w-full border-2 border-orange-50 rounded-xl p-3 text-lg font-bold text-gray-800 outline-none focus:border-orange-300 transition disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                   value={toEditableNumberValue(formData.defaultMargin)}
                   onChange={e => setFormData({ ...formData, defaultMargin: fromEditableNumberValue(e.target.value) })}
+                  disabled={!isAdmin}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
               </div>
@@ -449,9 +473,10 @@ export const Settings = () => {
               <div className="relative">
                 <input
                   type="number"
-                  className="w-full border-2 border-orange-50 rounded-xl p-3 text-lg font-bold text-gray-800 outline-none focus:border-orange-300 transition"
+                  className="w-full border-2 border-orange-50 rounded-xl p-3 text-lg font-bold text-gray-800 outline-none focus:border-orange-300 transition disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                   value={toEditableNumberValue(formData.defaultVAT)}
                   onChange={e => setFormData({ ...formData, defaultVAT: fromEditableNumberValue(e.target.value) })}
+                  disabled={!isAdmin}
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
               </div>
@@ -469,10 +494,11 @@ export const Settings = () => {
                   <input
                     type="number"
                     min={0}
-                    className="w-full border-2 border-blue-50 rounded-xl p-3 text-lg font-bold text-blue-700 outline-none focus:border-blue-300 transition"
+                    className="w-full border-2 border-blue-50 rounded-xl p-3 text-lg font-bold text-blue-700 outline-none focus:border-blue-300 transition disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                     value={toEditableNumberValue(formData.marginMayorista ?? 0)}
                     placeholder="0"
                     onChange={e => setFormData({ ...formData, marginMayorista: fromEditableNumberValue(e.target.value) })}
+                    disabled={!isAdmin}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-300 font-bold">%</span>
                 </div>
@@ -484,10 +510,11 @@ export const Settings = () => {
                   <input
                     type="number"
                     min={0}
-                    className="w-full border-2 border-purple-50 rounded-xl p-3 text-lg font-bold text-purple-700 outline-none focus:border-purple-300 transition"
+                    className="w-full border-2 border-purple-50 rounded-xl p-3 text-lg font-bold text-purple-700 outline-none focus:border-purple-300 transition disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed"
                     value={toEditableNumberValue(formData.marginEspecial ?? 0)}
                     placeholder="0"
                     onChange={e => setFormData({ ...formData, marginEspecial: fromEditableNumberValue(e.target.value) })}
+                    disabled={!isAdmin}
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-300 font-bold">%</span>
                 </div>

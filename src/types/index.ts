@@ -94,7 +94,7 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
 
 export type ExpenseCategory = typeof DEFAULT_EXPENSE_CATEGORIES[number] | string;
 
-export type ExpenseCurrency = 'USD' | 'BS';
+export type ExpenseCurrency = 'USD' | 'BS' | 'COP';
 export type FxSource = 'BCV' | 'TH' | 'MANUAL';
 
 export type CashDirection = 'IN' | 'OUT';

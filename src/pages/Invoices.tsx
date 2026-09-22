@@ -13,7 +13,15 @@ import { useLocation } from 'react-router-dom';
 import type { Invoice, Payment, IncomingItem } from '../types';
 
 export const Invoices = () => {
-    const { invoices, products, registerPayment, updateInvoice, adjustProductStock, paymentMethods, settings, deleteInvoice, setRealtimeGuard } = useStore();
+    const invoices = useStore((s) => s.invoices);
+    const products = useStore((s) => s.products);
+    const registerPayment = useStore((s) => s.registerPayment);
+    const updateInvoice = useStore((s) => s.updateInvoice);
+    const adjustProductStock = useStore((s) => s.adjustProductStock);
+    const paymentMethods = useStore((s) => s.paymentMethods);
+    const settings = useStore((s) => s.settings);
+    const deleteInvoice = useStore((s) => s.deleteInvoice);
+    const setRealtimeGuard = useStore((s) => s.setRealtimeGuard);
     const location = useLocation();
 
     const normalizeInvoiceForEdit = (invoice: Invoice): Invoice => {
@@ -113,7 +121,7 @@ export const Invoices = () => {
     };
 
     const handleDeleteInvoice = (id: string) => {
-        if (window.confirm('🚨 ¿Seguro que deseas ELIMINAR esta factura?\nEsto NO alterará el stock actual del inventario.')) {
+        if (window.confirm('🚨 ¿Seguro que deseas ELIMINAR esta factura?\nEsta acción descontará del inventario las existencias ingresadas por esta compra y ajustará caja si correspondía.')) {
             deleteInvoice(id);
         }
     };

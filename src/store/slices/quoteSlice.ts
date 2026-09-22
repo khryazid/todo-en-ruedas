@@ -170,13 +170,44 @@ export const createQuoteSlice = (set: SetState, get: GetState): QuoteSlice => ({
                 note: `Convertido desde Cotización ${quote.number}`,
             });
 
-            // 4. Descontar stock
+            // 3b. Registrar ingreso en libro mayor (cash_ledger)
+            await get().recordCashMovement({
+                date: new Date().toISOString(),
+                direction: 'IN',
+                kind: 'VENTA_COBRADA',
+                amountUSD: totalUSD,
+                currency: 'USD',
+                paymentMethod,
+                description: `Cobro de Cotización ${quote.number} convertida a venta`,
+                referenceType: 'sale-payment',
+                referenceId: saleData.id,
+                userId: currentUserData?.id,
+                sellerName: currentUserData?.fullName,
+            });
+
+            // 4. Descontar stock de forma atómica (FOR UPDATE en la RPC evita race conditions)
             for (const item of quote.items) {
                 const product = products.find(p => p.id === item.productId);
-                if (product) {
-                    const newStock = Math.max(0, Number(product.stock) - Number(item.quantity));
-                    await supabase.from('products').update({ stock: newStock }).eq('id', item.productId);
+                if (!product) continue;
+
+                const { error: stockError } = await supabase.rpc('adjust_product_stock', {
+                    p_product_id: item.productId,
+                    p_delta: -Number(item.quantity),
+                });
+                if (stockError) {
+                    // Lanzar para que el catch externo revierta el toast y notifique al usuario
+                    throw new Error(`Error al descontar stock de "${item.name}": ${stockError.message}`);
                 }
+
+                await get().addStockMovement({
+                    productId: product.id,
+                    productName: product.name,
+                    sku: product.sku,
+                    type: 'SALE',
+                    qtyBefore: Number(product.stock),
+                    qtyChange: -Number(item.quantity),
+                    referenceId: saleData.id,
+                });
             }
 
             // 5. Marcar quote como ACCEPTED

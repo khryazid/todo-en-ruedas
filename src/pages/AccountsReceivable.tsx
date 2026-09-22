@@ -4,20 +4,56 @@
  * Mantiene el historial de deudas pagadas para auditoría.
  *
  * ✅ SPRINT 3.3 FIX: Usa s.isCredit en vez de heurística de payments.length > 1
+ * ✅ AUDIT FIX #9: Consulta dedicada sin límite de 100 ventas para no perder deudas antiguas.
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import { exportToCSV } from '../utils/exportCSV';
 import {
     Search, TrendingUp, Wallet, X, CheckCircle, History, AlertCircle, MessageCircle, Download
 } from 'lucide-react';
-import type { Payment } from '../types';
+import type { Payment, Sale } from '../types';
 import { sendToWhatsApp } from '../utils/ticketGenerator';
+import { supabase } from '../supabase/client';
+import { mapSaleFromDB } from '../utils/mappers';
 
 export const AccountsReceivable = () => {
-    const { sales, clients, paymentMethods, registerSalePayment } = useStore();
+    // Usamos `sales` del store como señal de refresco reactivo (Realtime),
+    // pero la lista COMPLETA de ventas a crédito la obtenemos por consulta dedicada.
+    const storeSales = useStore((s) => s.sales);
+    const clients = useStore((s) => s.clients);
+    const paymentMethods = useStore((s) => s.paymentMethods);
+    const registerSalePayment = useStore((s) => s.registerSalePayment);
+
+    // ✅ AUDIT FIX #9: Estado local para ventas a crédito sin límite de 100
+    const [allCreditSales, setAllCreditSales] = useState<Sale[]>([]);
+    const [isLoadingCredit, setIsLoadingCredit] = useState(false);
+
+    const fetchCreditSales = useCallback(async () => {
+        setIsLoadingCredit(true);
+        try {
+            const { data, error } = await supabase
+                .from('sales')
+                .select('*, sale_items(*), payments(*)')
+                .or('status.in.(PENDING,PARTIAL),is_credit.eq.true')
+                .neq('status', 'CANCELLED')
+                .order('date', { ascending: false });
+
+            if (error) throw error;
+            setAllCreditSales((data ?? []).map(mapSaleFromDB));
+        } catch (err) {
+            console.warn('fetchCreditSales:', err);
+        } finally {
+            setIsLoadingCredit(false);
+        }
+    }, []);
+
+    // Re-fetch cuando el store detecta cambios en sales (vía Realtime)
+    useEffect(() => {
+        void fetchCreditSales();
+    }, [fetchCreditSales, storeSales.length]);
 
     // Estados UI
     const [searchTerm, setSearchTerm] = useState('');
@@ -30,21 +66,7 @@ export const AccountsReceivable = () => {
     const [paymentMethod, setPaymentMethod] = useState(paymentMethods[0]?.name || 'Efectivo');
     const [paymentNote, setPaymentNote] = useState('');
 
-    // ✅ FIX 3.3: Ahora usamos el flag isCredit directamente
-    // Ya no necesitamos la heurística frágil de payments.length > 1
-    const allCreditSales = sales.filter(s => {
-        if (s.status === 'CANCELLED') return false;
-
-        // Si tiene el flag isCredit, usarlo directamente
-        if (s.isCredit) return true;
-
-        // Fallback para ventas antiguas sin el flag (compatibilidad hacia atrás)
-        if (s.status === 'PENDING' || s.status === 'PARTIAL') return true;
-
-        return false;
-    });
-
-    const filteredSales = allCreditSales.filter(s => {
+    const filteredSales = useMemo(() => allCreditSales.filter(s => {
         const client = clients.find(c => c.id === s.clientId);
         const name = client?.name.toLowerCase() || 'anónimo';
         const matchesSearch = name.includes(searchTerm.toLowerCase()) || s.id.includes(searchTerm);
@@ -54,12 +76,17 @@ export const AccountsReceivable = () => {
         } else {
             return matchesSearch && s.status === 'COMPLETED';
         }
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+        [allCreditSales, clients, searchTerm, activeTab]
+    );
 
-    // Calcular total por cobrar (Solo de las pendientes)
-    const totalReceivable = sales
-        .filter(s => s.status === 'PENDING' || s.status === 'PARTIAL')
-        .reduce((acc, s) => acc + (s.totalUSD - s.paidAmountUSD), 0);
+    // Calcular total por cobrar (Solo de las pendientes) desde la lista dedicada
+    const totalReceivable = useMemo(() =>
+        allCreditSales
+            .filter(s => s.status === 'PENDING' || s.status === 'PARTIAL')
+            .reduce((acc, s) => acc + (s.totalUSD - s.paidAmountUSD), 0),
+        [allCreditSales]
+    );
 
     // Handlers
     const openPaymentModal = (saleId: string) => {
@@ -72,7 +99,7 @@ export const AccountsReceivable = () => {
         e.preventDefault();
         if (!selectedSaleId) return;
 
-        const sale = sales.find(s => s.id === selectedSaleId);
+        const sale = allCreditSales.find(s => s.id === selectedSaleId);
         if (!sale) return;
 
         const debt = sale.totalUSD - sale.paidAmountUSD;
@@ -126,7 +153,10 @@ export const AccountsReceivable = () => {
             {/* HEADER */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
-                    <h2 className="text-2xl font-black text-gray-800 tracking-tight">Cuentas por Cobrar</h2>
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-2xl font-black text-gray-800 tracking-tight">Cuentas por Cobrar</h2>
+                        {isLoadingCredit && <span className="text-xs font-bold text-orange-500 animate-pulse">Sincronizando...</span>}
+                    </div>
                     <p className="text-gray-500 font-medium">Gestión de créditos y fiados</p>
                 </div>
                 <div className="flex gap-3 items-center">
@@ -276,7 +306,7 @@ export const AccountsReceivable = () => {
                             <p className="text-xs text-orange-400 uppercase font-bold mb-1">Monto Pendiente</p>
                             <p className="text-3xl font-black text-orange-600">
                                 {(() => {
-                                    const s = sales.find(x => x.id === selectedSaleId);
+                                    const s = allCreditSales.find(x => x.id === selectedSaleId);
                                     return s ? formatCurrency(s.totalUSD - s.paidAmountUSD, 'USD') : '$0.00';
                                 })()}
                             </p>

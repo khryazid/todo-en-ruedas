@@ -45,7 +45,11 @@ const emptyForm: SupplierForm = {
 };
 
 export const Suppliers = () => {
-    const { suppliers, invoices, addSupplier, updateSupplier, deleteSupplier } = useStore();
+    const suppliers = useStore((s) => s.suppliers);
+    const invoices = useStore((s) => s.invoices);
+    const addSupplier = useStore((s) => s.addSupplier);
+    const updateSupplier = useStore((s) => s.updateSupplier);
+    const deleteSupplier = useStore((s) => s.deleteSupplier);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<string>('Todos');

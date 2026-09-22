@@ -24,7 +24,7 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         .from('sales')
         .select('*, sale_items(*), payments(*)')
         .order('date', { ascending: false })
-        .limit(100);
+        .limit(500);
 
       if (error) throw error;
 
@@ -308,6 +308,24 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         }));
       }
 
+      // ✅ AUDIT FIX #14: Registrar reverso en cash_ledger si la venta tenía montos cobrados
+      const sale = get().sales.find((s) => s.id === saleId);
+      if (sale && sale.paidAmountUSD > 0) {
+        await get().recordCashMovement({
+          date: new Date().toISOString(),
+          direction: 'OUT',
+          kind: 'AJUSTE',
+          amountUSD: sale.paidAmountUSD,
+          currency: 'USD',
+          paymentMethod: sale.paymentMethod || 'Efectivo',
+          description: `Reverso por anulación de venta #${sale.localId || sale.id.slice(-6)}`,
+          referenceType: 'sale-annul',
+          referenceId: `${sale.id}:annul`,
+          userId: get().currentUserData?.id,
+          sellerName: get().currentUserData?.fullName,
+        });
+      }
+
       toast.dismiss(loadingToast);
       toast.success("Venta anulada y stock devuelto 📦");
 
@@ -320,12 +338,50 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
   deleteSale: async (saleId: string) => {
     const loadingToast = toast.loading("Eliminando venta...");
     try {
+      // ✅ AUDIT FIX #14: Si la venta no estaba cancelada, revertir stock y ajustar caja antes de borrar
+      const sale = get().sales.find((s) => s.id === saleId);
+      if (sale && sale.status !== 'CANCELLED') {
+        const { data: saleItems } = await supabase
+          .from('sale_items')
+          .select('product_id, quantity')
+          .eq('sale_id', saleId);
+
+        if (saleItems && saleItems.length > 0) {
+          for (const item of saleItems) {
+            if (item.product_id) {
+              await supabase.rpc('adjust_product_stock', {
+                p_product_id: item.product_id,
+                p_delta: Number(item.quantity),
+              });
+            }
+          }
+        }
+
+        if (sale.paidAmountUSD > 0) {
+          await get().recordCashMovement({
+            date: new Date().toISOString(),
+            direction: 'OUT',
+            kind: 'AJUSTE',
+            amountUSD: sale.paidAmountUSD,
+            currency: 'USD',
+            paymentMethod: sale.paymentMethod || 'Efectivo',
+            description: `Reverso por eliminación de venta #${sale.localId || sale.id.slice(-6)}`,
+            referenceType: 'sale-delete',
+            referenceId: `${sale.id}:delete`,
+            userId: get().currentUserData?.id,
+            sellerName: get().currentUserData?.fullName,
+          });
+        }
+
+        await get().fetchProducts();
+      }
+
       const { error } = await supabase.from('sales').delete().eq('id', saleId);
       if (error) throw error;
 
       set((state) => ({ sales: state.sales.filter((s) => s.id !== saleId) }));
       toast.dismiss(loadingToast);
-      toast.success("Venta eliminada del historial 🗑️");
+      toast.success("Venta eliminada y stock/caja sincronizados 🗑️");
     } catch (error: unknown) {
       toast.dismiss(loadingToast);
       toast.error("Error al eliminar: " + (error as Error).message);

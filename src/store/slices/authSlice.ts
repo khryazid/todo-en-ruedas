@@ -169,7 +169,7 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
         supabase.from('settings').select('*').order('created_at', { ascending: true }).limit(1).maybeSingle(),
         supabase.from('products').select('*'),
         supabase.from('clients').select('*'),
-        supabase.from('sales').select(`*, sale_items(*), payments(*)`).order('date', { ascending: false }).limit(100),
+        supabase.from('sales').select(`*, sale_items(*), payments(*)`).order('date', { ascending: false }).limit(500),
         supabase.from('suppliers').select('*'),
         supabase.from('invoices').select('*'),
         supabase.from('payment_methods').select('*'),
@@ -184,15 +184,24 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
       const paymentMethodsData = paymentMethodsResult.data;
 
       if (settingsData) {
+        // Sanitize RIF safely: column is TEXT NULL in DB, so it may be null/undefined.
+        // Format expected: "<type>-<number>" e.g. "J-12345678-9"
+        // Falls back gracefully if RIF is missing or has unexpected format.
+        const rawRif = settingsData.rif ?? '';
+        const rifParts = rawRif.includes('-') ? rawRif.split('-') : ['J', rawRif];
+        const rifType = rifParts[0] || 'J';
+        const rifNumber = rifParts.slice(1).join('-') || rawRif;
+
         set((state) => ({
           settingsId: settingsData.id,
           settings: {
             ...state.settings,
             companyName: settingsData.company_name || 'Glyph Core',
             salePrinterProfile: 'default',
-            rif: settingsData.rif.split('-')[1] || settingsData.rif,
-            rifType: settingsData.rif.split('-')[0] || 'J',
+            rif: rifNumber,
+            rifType: rifType as 'J' | 'V' | 'E' | 'G' | 'P' | 'C',
             address: settingsData.address,
+
             tasaBCV: settingsData.tasa_bcv,
             tasaTH: settingsData.tasa_monitor,
             showMonitorRate: settingsData.show_monitor_rate,
@@ -242,7 +251,7 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
       set({ isLoading: false });
     }
 
-    // Cargar cotizaciones y gastos (no críticos — fallar silenciosamente)
+    // Cargar cotizaciones, gastos, libro mayor, devoluciones y movimientos de stock (no críticos — fallar silenciosamente)
     try {
       await get().fetchQuotes();
     } catch (e) { console.warn('fetchQuotes:', e); }
@@ -252,5 +261,11 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     try {
       await get().fetchCashLedger();
     } catch (e) { console.warn('fetchCashLedger:', e); }
+    try {
+      await get().fetchReturns();
+    } catch (e) { console.warn('fetchReturns:', e); }
+    try {
+      await get().fetchStockMovements();
+    } catch (e) { console.warn('fetchStockMovements:', e); }
   },
 });

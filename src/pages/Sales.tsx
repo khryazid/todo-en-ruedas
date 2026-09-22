@@ -17,9 +17,16 @@ import {
 import type { Sale, ReturnOption } from '../types';
 
 export const Sales = () => {
-    const { sales, clients, annulSale, deleteSale, addReturn, products, settings, fetchSales } = useStore();
+    const sales = useStore((s) => s.sales);
+    const clients = useStore((s) => s.clients);
+    const annulSale = useStore((s) => s.annulSale);
+    const deleteSale = useStore((s) => s.deleteSale);
+    const addReturn = useStore((s) => s.addReturn);
+    const products = useStore((s) => s.products);
+    const settings = useStore((s) => s.settings);
+    const fetchSales = useStore((s) => s.fetchSales);
+    const currentUserData = useStore((s) => s.currentUserData);
     const { isAdmin, isManager, role } = usePermissions();
-    const currentUserData = useStore(s => s.currentUserData);
     const isSeller = role === 'SELLER';
 
     // Estados de Filtros y Selección
@@ -128,7 +135,7 @@ export const Sales = () => {
 
     // --- NUEVA FUNCIÓN DE BORRADO ---
     const handleDelete = (id: string) => {
-        if (window.confirm('🚨 ¿Seguro que deseas BORRAR DEFINITIVAMENTE esta venta? \nEsta acción es irreversible y NO restaurará el stock de inventario.')) {
+        if (window.confirm('🚨 ¿Seguro que deseas BORRAR DEFINITIVAMENTE esta venta? \nEsta acción revertirá el stock devuelto y ajustará caja si correspondía.')) {
             deleteSale(id);
         }
     };

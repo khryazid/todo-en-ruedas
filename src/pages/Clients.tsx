@@ -21,7 +21,12 @@ import type { Client, Sale, PriceList } from '../types';
 
 export const Clients = () => {
     // AÑADIDO annulSale para poder anular desde el detalle del cliente
-    const { clients, sales, addClient, updateClient, deleteClient, annulSale } = useStore();
+    const clients = useStore((s) => s.clients);
+    const sales = useStore((s) => s.sales);
+    const addClient = useStore((s) => s.addClient);
+    const updateClient = useStore((s) => s.updateClient);
+    const deleteClient = useStore((s) => s.deleteClient);
+    const annulSale = useStore((s) => s.annulSale);
 
     // Estados UI
     const [isModalOpen, setIsModalOpen] = useState(false);

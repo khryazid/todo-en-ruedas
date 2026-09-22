@@ -13,7 +13,9 @@ export const GlobalSearch = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
-    const { products, clients, sales } = useStore();
+    const products = useStore((s) => s.products);
+    const clients = useStore((s) => s.clients);
+    const sales = useStore((s) => s.sales);
     const navigate = useNavigate();
 
     // Ctrl+K para abrir/cerrar

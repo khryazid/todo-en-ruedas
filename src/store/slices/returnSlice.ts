@@ -17,15 +17,21 @@ export interface ReturnSlice {
     addReturn: (ret: Omit<SaleReturn, 'id' | 'date'>, option?: ReturnOption) => Promise<boolean>;
 }
 
-/** Generate NC number: SELECT nextval('nc_number_seq') → "NC-0001" */
+/** Generate NC number via RPC: public.get_next_nc_number() → "NC-0001"
+ *  Uses a PostgreSQL SEQUENCE for collision-free numbering under concurrency.
+ *  Falls back to a timestamp-based slug if the RPC is unavailable (e.g. local dev without migration applied).
+ */
 async function nextNcNumber(): Promise<string> {
-    try {
-        const { data, error } = await supabase.rpc('nextval', { sequence_name: 'nc_number_seq' });
-        if (!error && data) return `NC-${String(data).padStart(4, '0')}`;
-    } catch { /* fallback */ }
-    // Fallback: count existing returns and use as offset
-    const { count } = await supabase.from('returns').select('*', { count: 'exact', head: true });
-    return `NC-${String((count ?? 0) + 1).padStart(4, '0')}`;
+    const { data, error } = await supabase.rpc('get_next_nc_number');
+    if (!error && typeof data === 'string' && data.startsWith('NC-')) {
+        return data;
+    }
+    if (error) {
+        console.error('[returnSlice] get_next_nc_number RPC failed:', error.message);
+    }
+    // Fallback: timestamp slug — non-sequential but avoids duplicates in dev
+    const ts = Date.now().toString().slice(-6);
+    return `NC-T${ts}`;
 }
 
 export const createReturnSlice = (set: SetState, get: GetState): ReturnSlice => ({
@@ -79,13 +85,19 @@ export const createReturnSlice = (set: SetState, get: GetState): ReturnSlice => 
 
             if (error || !data) throw new Error(error?.message);
 
-            // 3. Restore stock for returned items + log RETURN movement
+            // 3. Restore stock for returned items using atomic RPC (avoids race conditions)
             for (const item of ret.items) {
                 if (item.productId) {
                     const product = products.find(p => p.id === item.productId);
                     if (product) {
-                        const newStock = product.stock + item.quantity;
-                        await supabase.from('products').update({ stock: newStock }).eq('id', item.productId);
+                        const { error: stockError } = await supabase.rpc('adjust_product_stock', {
+                            p_product_id: item.productId,
+                            p_delta: Number(item.quantity), // positive delta = stock restored
+                        });
+                        if (stockError) {
+                            console.error('[returnSlice] adjust_product_stock failed:', stockError.message);
+                            // Continue with remaining items — do not abort the whole return
+                        }
                         await get().addStockMovement({
                             productId: product.id,
                             productName: product.name,
@@ -98,6 +110,23 @@ export const createReturnSlice = (set: SetState, get: GetState): ReturnSlice => 
                         });
                     }
                 }
+            }
+
+            // 3b. If REEMBOLSO, register cash outflow in ledger
+            if (option === 'REEMBOLSO' && ret.refundAmountUSD > 0) {
+                await get().recordCashMovement({
+                    date: new Date().toISOString(),
+                    direction: 'OUT',
+                    kind: 'AJUSTE',
+                    amountUSD: ret.refundAmountUSD,
+                    currency: 'USD',
+                    paymentMethod: 'Efectivo USD',
+                    description: `Reembolso devolución ${ncNumber}${ret.reason ? ` — ${ret.reason}` : ''}`,
+                    referenceType: 'return',
+                    referenceId: data.id as string,
+                    userId: get().currentUserData?.id,
+                    sellerName: get().currentUserData?.fullName,
+                });
             }
 
             // 4. If FULL return, mark sale as CANCELLED

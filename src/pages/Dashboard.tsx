@@ -26,7 +26,16 @@ import { supabase } from '../supabase/client';
 import type { RecurringExpense } from '../types';
 
 export const Dashboard = () => {
-  const { sales, products, invoices, clients, expenses, cashLedger, paymentMethods, settings, currentUserData, deleteCashMovement } = useStore();
+  const sales = useStore((s) => s.sales);
+  const products = useStore((s) => s.products);
+  const invoices = useStore((s) => s.invoices);
+  const clients = useStore((s) => s.clients);
+  const expenses = useStore((s) => s.expenses);
+  const cashLedger = useStore((s) => s.cashLedger);
+  const paymentMethods = useStore((s) => s.paymentMethods);
+  const settings = useStore((s) => s.settings);
+  const currentUserData = useStore((s) => s.currentUserData);
+  const deleteCashMovement = useStore((s) => s.deleteCashMovement);
   const { isDark } = useDarkMode();
   const navigate = useNavigate();
 

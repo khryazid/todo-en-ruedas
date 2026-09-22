@@ -7,7 +7,10 @@ import toast from 'react-hot-toast';
 export const ResetPassword = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-    const { updateRecoveredPassword, logout, isLoading, user } = useStore();
+    const updateRecoveredPassword = useStore((s) => s.updateRecoveredPassword);
+    const logout = useStore((s) => s.logout);
+    const isLoading = useStore((s) => s.isLoading);
+    const user = useStore((s) => s.user);
     const navigate = useNavigate();
 
     // Verificamos si realmente hay una sesión de recuperación activa

@@ -204,6 +204,10 @@ export const useRealtimeSync = () => {
 
     const channel = supabase.channel(`global-sync-${user.id}`);
 
+    // Capturar refs locales para que el cleanup no acceda a valores mutados
+    const localPendingHighTables = pendingHighTablesRef.current;
+    const localPendingNormalTables = pendingNormalTablesRef.current;
+
     REALTIME_TABLES.forEach((table) => {
       channel.on(
         'postgres_changes',
@@ -216,7 +220,7 @@ export const useRealtimeSync = () => {
 
     channel.subscribe();
 
-    if (!pausedRef.current && (pendingHighTablesRef.current.size > 0 || pendingNormalTablesRef.current.size > 0)) {
+    if (!pausedRef.current && (localPendingHighTables.size > 0 || localPendingNormalTables.size > 0)) {
       if (highPriorityTimerRef.current) clearTimeout(highPriorityTimerRef.current);
       highPriorityTimerRef.current = setTimeout(() => {
         void runSync();
@@ -232,8 +236,8 @@ export const useRealtimeSync = () => {
         clearTimeout(normalPriorityTimerRef.current);
         normalPriorityTimerRef.current = null;
       }
-      pendingHighTablesRef.current.clear();
-      pendingNormalTablesRef.current.clear();
+      localPendingHighTables.clear();
+      localPendingNormalTables.clear();
       triggerSyncRef.current = null;
       void supabase.removeChannel(channel).catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);

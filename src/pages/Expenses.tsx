@@ -7,7 +7,7 @@
  *   - Autor: muestra quién registró el gasto
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useStore } from '../store/useStore';
 import { formatCurrency } from '../utils/pricing';
 import {
@@ -43,7 +43,13 @@ const filterByPeriod = (expenses: Expense[], period: Period): Expense[] => {
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 export const Expenses = () => {
-    const { expenses, addExpense, updateExpense, deleteExpense, settings, currentUserData, paymentMethods } = useStore();
+    const expenses = useStore((s) => s.expenses);
+    const addExpense = useStore((s) => s.addExpense);
+    const updateExpense = useStore((s) => s.updateExpense);
+    const deleteExpense = useStore((s) => s.deleteExpense);
+    const settings = useStore((s) => s.settings);
+    const currentUserData = useStore((s) => s.currentUserData);
+    const paymentMethods = useStore((s) => s.paymentMethods);
     const defaultPaymentMethod = paymentMethods[0]?.name || 'Efectivo USD';
 
     // Filtros
@@ -146,15 +152,21 @@ export const Expenses = () => {
         };
     }, [defaultPaymentMethod]);
 
+    // ✅ AUDIT FIX #8: Recuperación de plantillas recurrentes sin setState síncrono.
+    // Se usa un ref de guard para ejecutar la recuperación solo una vez al montar,
+    // y queueMicrotask para diferir el setState fuera del ciclo de render actual.
+    const recurringRecoveredRef = useRef(false);
     useEffect(() => {
-        if (recurring.length > 0) return;
-
+        if (recurringRecoveredRef.current || recurring.length > 0) return;
         const recovered = deriveRecurringTemplatesFromExpenses(expenses);
         if (recovered.length === 0) return;
-
-        setRecurring(recovered);
-        saveRecurringTemplates(recovered);
+        recurringRecoveredRef.current = true;
+        queueMicrotask(() => {
+            setRecurring(recovered);
+            saveRecurringTemplates(recovered);
+        });
     }, [expenses, recurring.length]);
+
 
     const rate = settings.tasaBCV || 1;
     const rateCOP = settings.tasaCOP || 1;

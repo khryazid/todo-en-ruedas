@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Plus } from 'lucide-react';
 import type { Product } from '../../types';
 import { formatCurrency } from '../../utils/pricing';
-import { useStore } from '../../store';
+import { useStore } from '../../store/useStore';
 
 interface ProductCardProps {
   product: Product;

@@ -237,12 +237,44 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
   deleteInvoice: async (id: string) => {
     const loadingToast = toast.loading("Eliminando factura...");
     try {
+      // ✅ AUDIT FIX #14: Revertir existencias ingresadas y salidas de caja de la compra
+      const invoice = get().invoices.find((i) => i.id === id);
+
+      if (invoice) {
+        // Revertir stock agregado por los productos de la factura
+        if (invoice.items && invoice.items.length > 0) {
+          for (const item of invoice.items) {
+            const product = get().products.find((p) => p.sku === item.sku);
+            if (product) {
+              await get().adjustProductStock(product.id, -Number(item.quantity));
+            }
+          }
+        }
+
+        // Si la factura tenía abonos a proveedor pagados, registrar reverso en caja
+        if (invoice.paidAmountUSD > 0) {
+          await get().recordCashMovement({
+            date: new Date().toISOString(),
+            direction: 'IN',
+            kind: 'AJUSTE',
+            amountUSD: invoice.paidAmountUSD,
+            currency: 'USD',
+            paymentMethod: 'Efectivo USD',
+            description: `Reverso por eliminación de factura de compra #${invoice.number}`,
+            referenceType: 'invoice-delete',
+            referenceId: `${invoice.id}:delete`,
+            userId: get().currentUserData?.id,
+            sellerName: get().currentUserData?.fullName,
+          });
+        }
+      }
+
       const { error } = await supabase.from('invoices').delete().eq('id', id);
       if (error) throw error;
 
       set((state) => ({ invoices: state.invoices.filter((i) => i.id !== id) }));
       toast.dismiss(loadingToast);
-      toast.success("Factura eliminada 🗑️");
+      toast.success("Factura eliminada y stock/caja ajustados 🗑️");
     } catch (error: unknown) {
       toast.dismiss(loadingToast);
       toast.error("Error al eliminar: " + (error as Error).message);

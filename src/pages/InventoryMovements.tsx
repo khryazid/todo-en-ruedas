@@ -61,7 +61,9 @@ function exportCSV(rows: ReturnType<typeof useStore['getState']>['stockMovements
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const InventoryMovements = () => {
-    const { stockMovements, fetchStockMovements, products } = useStore();
+    const stockMovements = useStore((s) => s.stockMovements);
+    const fetchStockMovements = useStore((s) => s.fetchStockMovements);
+    const products = useStore((s) => s.products);
     const [searchParams] = useSearchParams();
 
     const [searchTerm, setSearchTerm] = useState('');

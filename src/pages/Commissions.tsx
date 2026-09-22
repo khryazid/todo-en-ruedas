@@ -10,7 +10,8 @@ import { formatCurrency } from '../utils/pricing';
 import { Award, TrendingUp, DollarSign } from 'lucide-react';
 
 export const Commissions = () => {
-    const { sales, settings } = useStore();
+    const sales = useStore((s) => s.sales);
+    const settings = useStore((s) => s.settings);
     const [filterType, setFilterType] = useState<'today' | 'week' | 'month'>('month');
 
     const commissionPct = settings.sellerCommissionPct ?? 5;
@@ -28,8 +29,10 @@ export const Commissions = () => {
         return { start: now, end: now };
     }, [filterType]);
 
+    // ✅ AUDIT FIX #9: Solo computar comisiones sobre ventas COMPLETED (efectivamente cobradas).
+    // Excluir PENDING y PARTIAL para no acumular comisiones sobre deuda no cobrada.
     const filteredSales = sales.filter(s => {
-        if (s.status === 'CANCELLED') return false;
+        if (s.status !== 'COMPLETED') return false;
         const d = new Date(s.date).toISOString().split('T')[0];
         const startStr = dateRange.start.toISOString().split('T')[0];
         const endStr = dateRange.end.toISOString().split('T')[0];
@@ -42,8 +45,8 @@ export const Commissions = () => {
             const name = s.sellerName || 'Admin';
             if (!map[name]) map[name] = { name, count: 0, totalUSD: 0, commission: 0 };
             map[name].count++;
-            map[name].totalUSD += s.totalUSD;
-            map[name].commission += s.totalUSD * (commissionPct / 100);
+            map[name].totalUSD += s.paidAmountUSD;
+            map[name].commission += s.paidAmountUSD * (commissionPct / 100);
         });
         return Object.values(map).sort((a, b) => b.totalUSD - a.totalUSD);
     }, [filteredSales, commissionPct]);
