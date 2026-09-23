@@ -181,10 +181,12 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
       // Persistir en Supabase
       const settingsId = get().settingsId;
       if (settingsId) {
-        await supabase.from('settings').update(dbUpdates).eq('id', settingsId);
+        const { error: dbError } = await supabase.from('settings').update(dbUpdates).eq('id', settingsId);
+        if (dbError) console.error('refreshRates Supabase update error:', dbError);
       } else {
-        await supabase.from('settings').update(dbUpdates)
+        const { error: dbError } = await supabase.from('settings').update(dbUpdates)
           .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (dbError) console.error('refreshRates Supabase update error:', dbError);
       }
 
       const parts: string[] = [];

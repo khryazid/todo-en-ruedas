@@ -1,28 +1,36 @@
 /**
  * @file utils/fetchRates.ts
- * @description Obtiene tasas de cambio desde APIs públicas gratuitas.
+ * @description Obtiene tasas de cambio desde APIs públicas gratuitas con redundancia.
  *
- * - BCV (Bs/USD): https://rates.dolarvzla.com/bcv/current.json
- * - COP (COP/USD): https://co.dolarapi.com/v1/trm
+ * BCV (Bs/USD):
+ * 1. https://ve.dolarapi.com/v1/dolares/oficial
+ * 2. https://rates.dolarvzla.com/bcv/current.json
  *
- * Ambas APIs son gratuitas, sin API key y con CORS abierto.
- * La tasa Monitor (dólar paralelo) NO se obtiene automáticamente;
- * el usuario la ingresa manualmente.
+ * COP (COP/USD):
+ * 1. https://co.dolarapi.com/v1/trm
+ * 2. https://open.er-api.com/v6/latest/USD
+ * 3. https://api.exchangerate-api.com/v4/latest/USD
  */
 
 import { roundTo } from './pricing';
 
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 6000;
 
 interface BCVResponse {
-  current: { date: string; usd: number; eur: number };
+  current?: { date: string; usd: number; eur: number };
+}
+
+interface DolarApiVeResponse {
+  promedio?: number;
+  precio?: number;
 }
 
 interface COPResponse {
-  unidad: string;
-  nombre: string;
-  valor: number;
-  fechaActualizacion: string;
+  valor?: number;
+}
+
+interface OpenExchangeResponse {
+  rates?: Record<string, number>;
 }
 
 /**
@@ -40,37 +48,87 @@ const fetchWithTimeout = async (url: string, ms = TIMEOUT_MS): Promise<Response>
 };
 
 /**
- * Obtiene la tasa BCV oficial (Bs por 1 USD).
- * @returns La tasa o null si falla.
+ * Obtiene la tasa BCV oficial (Bs por 1 USD) con redundancia entre proveedores.
  */
 export const fetchBCVRate = async (): Promise<number | null> => {
+  // Proveedor 1: DolarApi Venezuela
+  try {
+    const res = await fetchWithTimeout('https://ve.dolarapi.com/v1/dolares/oficial');
+    if (res.ok) {
+      const data: DolarApiVeResponse = await res.json();
+      const rate = data?.promedio ?? data?.precio;
+      if (typeof rate === 'number' && rate > 0) {
+        return roundTo(rate, 4);
+      }
+    }
+  } catch (err) {
+    console.warn('ve.dolarapi.com no disponible, probando fallback:', err);
+  }
+
+  // Proveedor 2: DolarVzla Rates
   try {
     const res = await fetchWithTimeout('https://rates.dolarvzla.com/bcv/current.json');
-    if (!res.ok) return null;
-    const data: BCVResponse = await res.json();
-    const rate = data?.current?.usd;
-    return typeof rate === 'number' && rate > 0 ? roundTo(rate, 4) : null;
+    if (res.ok) {
+      const data: BCVResponse = await res.json();
+      const rate = data?.current?.usd;
+      if (typeof rate === 'number' && rate > 0) {
+        return roundTo(rate, 4);
+      }
+    }
   } catch (err) {
-    console.warn('fetchBCVRate falló:', err);
-    return null;
+    console.warn('rates.dolarvzla.com falló:', err);
   }
+
+  return null;
 };
 
 /**
- * Obtiene la Tasa Representativa del Mercado (TRM) de Colombia (COP por 1 USD).
- * @returns La tasa o null si falla.
+ * Obtiene la tasa oficial de Colombia COP por 1 USD con redundancia.
  */
 export const fetchCOPRate = async (): Promise<number | null> => {
+  // Proveedor 1: DolarApi Colombia TRM
   try {
     const res = await fetchWithTimeout('https://co.dolarapi.com/v1/trm');
-    if (!res.ok) return null;
-    const data: COPResponse = await res.json();
-    const rate = data?.valor;
-    return typeof rate === 'number' && rate > 0 ? roundTo(rate, 2) : null;
+    if (res.ok) {
+      const data: COPResponse = await res.json();
+      const rate = data?.valor;
+      if (typeof rate === 'number' && rate > 0) {
+        return roundTo(rate, 2);
+      }
+    }
   } catch (err) {
-    console.warn('fetchCOPRate falló:', err);
-    return null;
+    console.warn('co.dolarapi.com no disponible, probando fallback:', err);
   }
+
+  // Proveedor 2: Open Exchange Rates
+  try {
+    const res = await fetchWithTimeout('https://open.er-api.com/v6/latest/USD');
+    if (res.ok) {
+      const data: OpenExchangeResponse = await res.json();
+      const rate = data?.rates?.COP;
+      if (typeof rate === 'number' && rate > 0) {
+        return roundTo(rate, 2);
+      }
+    }
+  } catch (err) {
+    console.warn('open.er-api.com falló:', err);
+  }
+
+  // Proveedor 3: ExchangeRate API
+  try {
+    const res = await fetchWithTimeout('https://api.exchangerate-api.com/v4/latest/USD');
+    if (res.ok) {
+      const data: OpenExchangeResponse = await res.json();
+      const rate = data?.rates?.COP;
+      if (typeof rate === 'number' && rate > 0) {
+        return roundTo(rate, 2);
+      }
+    }
+  } catch (err) {
+    console.warn('api.exchangerate-api.com falló:', err);
+  }
+
+  return null;
 };
 
 export interface FetchedRates {

@@ -23,7 +23,7 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), display-capture=()"
     Cross-Origin-Opener-Policy = "same-origin"
     Cross-Origin-Resource-Policy = "same-origin"
-    Content-Security-Policy = "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:; manifest-src 'self'"
+    Content-Security-Policy = "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://ve.dolarapi.com https://co.dolarapi.com https://rates.dolarvzla.com https://open.er-api.com https://api.exchangerate-api.com; worker-src 'self' blob:; manifest-src 'self'"
 
 # ─── Protección Contra Exposición de Sourcemaps ──────────────────────────────
 [[headers]]
