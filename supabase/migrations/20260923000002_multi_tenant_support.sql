@@ -1281,4 +1281,14 @@ CREATE POLICY "audit_logs_org_insert" ON public.audit_logs
     FOR INSERT TO authenticated
     WITH CHECK (organization_id IS NULL OR public.user_has_org_access(organization_id));
 
+-- 7. Backfill organization_members para usuarios existentes y asegurar ADMIN al fundador
+INSERT INTO public.organization_members (organization_id, user_id, role, is_active)
+SELECT '00000000-0000-0000-0000-000000000001'::uuid, au.id, 'OWNER', true
+FROM auth.users au
+ON CONFLICT (organization_id, user_id) DO NOTHING;
+
+UPDATE public.users
+SET role = 'ADMIN'
+WHERE id IN (SELECT id FROM auth.users ORDER BY created_at ASC LIMIT 1);
+
 COMMIT;

@@ -1168,6 +1168,8 @@ SET search_path = public
 AS $$
 DECLARE
     v_full_name text;
+    v_role text;
+    v_org_role text;
 BEGIN
     v_full_name := coalesce(
         nullif(trim(NEW.raw_user_meta_data ->> 'full_name'), ''),
@@ -1175,12 +1177,23 @@ BEGIN
         'Usuario'
     );
 
+    -- Si no existe ningún usuario registrado previamente, el primer usuario
+    -- es el fundador y recibe privilegios ADMIN de sistema y OWNER de la empresa.
+    -- Los usuarios subsecuentes SIEMPRE inician como VIEWER (H1 Hardening).
+    IF (SELECT count(*) FROM public.users) = 0 THEN
+        v_role := 'ADMIN';
+        v_org_role := 'OWNER';
+    ELSE
+        v_role := 'VIEWER';
+        v_org_role := 'VIEWER';
+    END IF;
+
     INSERT INTO public.users (id, email, full_name, role, is_active, updated_at)
     VALUES (
         NEW.id,
         coalesce(NEW.email, ''),
         v_full_name,
-        'VIEWER',   -- SIEMPRE VIEWER. Nunca leer role de raw_user_meta_data.
+        v_role,
         true,
         now()
     )
@@ -1190,6 +1203,11 @@ BEGIN
         full_name  = EXCLUDED.full_name,
         -- NO actualizar 'role' en el ON CONFLICT: preservar el rol asignado por ADMIN.
         updated_at = now();
+
+    -- Enrolar al usuario en la organización por defecto
+    INSERT INTO public.organization_members (organization_id, user_id, role, is_active)
+    VALUES ('00000000-0000-0000-0000-000000000001'::uuid, NEW.id, v_org_role, true)
+    ON CONFLICT (organization_id, user_id) DO NOTHING;
 
     RETURN NEW;
 END;
@@ -1231,6 +1249,17 @@ SELECT
 FROM auth.users au
 LEFT JOIN public.users pu ON pu.id = au.id
 WHERE pu.id IS NULL;
+
+-- Backfill: sincronizar usuarios de auth en organization_members para la empresa por defecto
+INSERT INTO public.organization_members (organization_id, user_id, role, is_active)
+SELECT '00000000-0000-0000-0000-000000000001'::uuid, au.id, 'OWNER', true
+FROM auth.users au
+ON CONFLICT (organization_id, user_id) DO NOTHING;
+
+-- Asegurar que el usuario fundador (primer usuario registrado) sea ADMIN del sistema
+UPDATE public.users
+SET role = 'ADMIN'
+WHERE id IN (SELECT id FROM auth.users ORDER BY created_at ASC LIMIT 1);
 
 
 -- ============================================================
@@ -1553,6 +1582,7 @@ DECLARE
     v_sku text;
     v_pname text;
     r_stock RECORD;
+    v_org_id uuid;
 BEGIN
     -- Validaciones de entrada
     IF p_option NOT IN ('CREDIT', 'REEMBOLSO') THEN
