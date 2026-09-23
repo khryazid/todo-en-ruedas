@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '../../supabase/client';
+import type { User } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
 import type { SetState, GetState } from '../types';
 import type { AppUser } from '../../types';
@@ -235,7 +236,8 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                 return { success: false, reason: 'USER_EXISTS' };
             }
 
-            // 2. Crear usuario en Supabase Auth
+            // 2. Crear usuario en Supabase Auth o iniciar sesión si ya fue creado
+            let activeUser: User | null = null;
 
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: setupData.email,
@@ -249,33 +251,51 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
             });
 
             if (authError) {
-                toast.error(`Error en configuracion inicial: ${mapSetupErrorMessage(authError)}`);
-                return { success: false, reason: getSetupErrorReason(authError) };
+                if (authError.message?.toLowerCase().includes('already registered')) {
+                    const { data: retryLogin, error: retryError } = await supabase.auth.signInWithPassword({
+                        email: setupData.email,
+                        password: setupData.password
+                    });
+                    if (retryError) {
+                        toast.error(`Error en configuración inicial: ${mapSetupErrorMessage(retryError)}`);
+                        return { success: false, reason: getSetupErrorReason(retryError) };
+                    }
+                    activeUser = retryLogin.user;
+                } else {
+                    toast.error(`Error en configuracion inicial: ${mapSetupErrorMessage(authError)}`);
+                    return { success: false, reason: getSetupErrorReason(authError) };
+                }
+            } else {
+                activeUser = authData.user;
             }
-            if (!authData.user) throw new Error('No se pudo crear el usuario');
 
+            // 3. Login inmediato para establecer sesión activa si aún no se tiene
+            const { data: sessionSnapshot } = await supabase.auth.getSession();
+            if (!sessionSnapshot?.session) {
+                const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+                    email: setupData.email,
+                    password: setupData.password
+                });
 
+                if (loginError) {
+                    if (loginError.message?.toLowerCase().includes('email not confirmed')) {
+                        toast.error('Por favor confirma el correo electrónico que Supabase te envió para completar el acceso, o intenta iniciar sesión.', { duration: 6000 });
+                        return { success: false };
+                    }
+                    throw loginError;
+                }
+                activeUser = loginData.user;
+            } else {
+                activeUser = sessionSnapshot.session.user;
+            }
 
-            // 3. Login inmediato para establecer sesión activa
-            // CRÍTICO: Esto debe hacerse ANTES de insertar en la tabla
-            // para que la política RLS pueda verificar auth.uid()
-
-            const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-                email: setupData.email,
-                password: setupData.password
-            });
-
-            if (loginError) throw loginError;
-            if (!loginData.user) throw new Error('No se pudo obtener usuario después del login');
-
-
+            if (!activeUser) throw new Error('No se pudo obtener usuario después del login');
 
             // 4. Insertar en tabla users (con sesión activa)
-
             const { error: userError } = await supabase
                 .from('users')
                 .upsert({
-                    id: loginData.user.id,
+                    id: activeUser.id,
                     email: setupData.email,
                     full_name: setupData.fullName,
                     role: 'ADMIN',
@@ -287,11 +307,11 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                 throw userError;
             }
 
-            // 5. ✅ FIX CRÍTICO: Insertar en tabla settings (era el paso faltante)
-            // Sin este registro, useSetupCheck detecta 0 rows y vuelve a forzar /setup
+            // 5. ✅ FIX CRÍTICO: Insertar en tabla settings
             const { error: settingsError } = await supabase
                 .from('settings')
-                .insert({
+                .upsert({
+                    organization_id: '00000000-0000-0000-0000-000000000001',
                     company_name: setupData.companyName,
                     rif: `${setupData.rifType}-${setupData.rif}`,
                     address: setupData.address,
@@ -304,17 +324,35 @@ export const createUserSlice = (set: SetState, get: GetState) => ({
                 });
 
             if (settingsError) {
-                // Settings falló: advertir pero no bloquear (el admin puede configurar más tarde)
                 console.error('⚠️ Error al guardar settings iniciales:', settingsError);
                 toast.error('Usuario creado, pero hubo un problema guardando la configuración inicial. Configúrala en Ajustes.');
             }
 
-            // 6. Actualizar estado con el usuario logueado
+            // Actualizar organización inicial con nombre y RIF ingresados
+            await supabase
+                .from('organizations')
+                .update({
+                    name: setupData.companyName,
+                    rif: `${setupData.rifType}-${setupData.rif}`,
+                    address: setupData.address
+                })
+                .eq('id', '00000000-0000-0000-0000-000000000001');
 
+            // Asegurar rol OWNER en la organización por defecto
+            await supabase
+                .from('organization_members')
+                .upsert({
+                    organization_id: '00000000-0000-0000-0000-000000000001',
+                    user_id: activeUser.id,
+                    role: 'OWNER',
+                    is_active: true
+                }, { onConflict: 'organization_id,user_id' });
+
+            // 6. Actualizar estado con el usuario logueado
             set({
-                user: loginData.user,
+                user: activeUser,
                 currentUserData: {
-                    id: loginData.user.id,
+                    id: activeUser.id,
                     email: setupData.email,
                     fullName: setupData.fullName,
                     role: 'ADMIN',
