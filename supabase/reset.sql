@@ -250,6 +250,8 @@ CREATE TABLE IF NOT EXISTS public.products (
 
 CREATE INDEX IF NOT EXISTS idx_products_sku ON public.products(sku);
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_products_org_sku ON public.products(organization_id, sku);
+CREATE INDEX IF NOT EXISTS idx_products_org ON public.products(organization_id);
 
 
 -- ============================================================
@@ -271,6 +273,8 @@ CREATE TABLE IF NOT EXISTS public.clients (
 );
 
 CREATE INDEX IF NOT EXISTS idx_clients_rif ON public.clients(rif);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_clients_org_rif ON public.clients(organization_id, rif);
+CREATE INDEX IF NOT EXISTS idx_clients_org ON public.clients(organization_id);
 
 
 -- ============================================================
@@ -278,6 +282,7 @@ CREATE INDEX IF NOT EXISTS idx_clients_rif ON public.clients(rif);
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.sales (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
     local_id        SERIAL,
     date            TIMESTAMPTZ DEFAULT now(),
     client_id       UUID REFERENCES public.clients(id) ON DELETE SET NULL,
@@ -299,7 +304,8 @@ CREATE INDEX IF NOT EXISTS idx_sales_date ON public.sales(date);
 CREATE INDEX IF NOT EXISTS idx_sales_status ON public.sales(status);
 CREATE INDEX IF NOT EXISTS idx_sales_user_id ON public.sales(user_id);
 CREATE INDEX IF NOT EXISTS idx_sales_status_date_desc ON public.sales(status, date DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_local_id ON public.sales(local_id) WHERE local_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_sales_org ON public.sales(organization_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_org_local_id ON public.sales(organization_id, local_id) WHERE local_id IS NOT NULL;
 
 
 -- ============================================================
@@ -307,6 +313,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_local_id ON public.sales(local_id) WH
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.sale_items (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id       UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
     sale_id               UUID NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
     product_id            UUID REFERENCES public.products(id) ON DELETE SET NULL,
     sku                   TEXT,
@@ -321,23 +328,26 @@ CREATE TABLE IF NOT EXISTS public.sale_items (
 
 CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON public.sale_items(sale_id);
 CREATE INDEX IF NOT EXISTS idx_sale_items_product_id ON public.sale_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_sale_items_org ON public.sale_items(organization_id);
 
 
 -- ============================================================
 -- 6. ABONOS / PAGOS (payments)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.payments (
-    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sale_id    UUID NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
-    amount_usd NUMERIC(10,2) NOT NULL,
-    amount_cop NUMERIC(10,2) DEFAULT 0,
-    method     TEXT NOT NULL,
-    note       TEXT,
-    created_at TIMESTAMPTZ DEFAULT now()
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+    sale_id         UUID NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
+    amount_usd      NUMERIC(10,2) NOT NULL,
+    amount_cop      NUMERIC(10,2) DEFAULT 0,
+    method          TEXT NOT NULL,
+    note            TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_payments_sale_id ON public.payments(sale_id);
 CREATE INDEX IF NOT EXISTS idx_payments_method_created ON public.payments(method, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payments_org ON public.payments(organization_id);
 
 
 -- ============================================================
@@ -346,25 +356,28 @@ CREATE INDEX IF NOT EXISTS idx_payments_method_created ON public.payments(method
 CREATE SEQUENCE IF NOT EXISTS public.quote_number_seq START 1;
 
 CREATE TABLE IF NOT EXISTS public.quotes (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    number      TEXT UNIQUE NOT NULL DEFAULT ('COT-' || lpad(nextval('public.quote_number_seq')::text, 4, '0')),
-    date        TIMESTAMPTZ DEFAULT now(),
-    valid_until TIMESTAMPTZ,
-    client_id   UUID REFERENCES public.clients(id) ON DELETE SET NULL,
-    client_name TEXT,
-    items       JSONB NOT NULL DEFAULT '[]',
-    total_usd   NUMERIC(10,2) NOT NULL,
-    total_bs    NUMERIC(10,2) NOT NULL,
-    notes       TEXT,
-    status      TEXT DEFAULT 'DRAFT'
-                    CHECK (status IN ('DRAFT','SENT','ACCEPTED','REJECTED','EXPIRED')),
-    user_id     UUID,
-    seller_name TEXT,
-    created_at  TIMESTAMPTZ DEFAULT now()
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+    number          TEXT NOT NULL DEFAULT ('COT-' || lpad(nextval('public.quote_number_seq')::text, 4, '0')),
+    date            TIMESTAMPTZ DEFAULT now(),
+    valid_until     TIMESTAMPTZ,
+    client_id       UUID REFERENCES public.clients(id) ON DELETE SET NULL,
+    client_name     TEXT,
+    items           JSONB NOT NULL DEFAULT '[]',
+    total_usd       NUMERIC(10,2) NOT NULL,
+    total_bs        NUMERIC(10,2) NOT NULL,
+    notes           TEXT,
+    status          TEXT DEFAULT 'DRAFT'
+                        CHECK (status IN ('DRAFT','SENT','ACCEPTED','REJECTED','EXPIRED')),
+    user_id         UUID,
+    seller_name     TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_quotes_status ON public.quotes(status);
 CREATE INDEX IF NOT EXISTS idx_quotes_client_id ON public.quotes(client_id);
+CREATE INDEX IF NOT EXISTS idx_quotes_org ON public.quotes(organization_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_quotes_org_number ON public.quotes(organization_id, number);
 
 
 -- ============================================================
@@ -389,6 +402,7 @@ $$;
 
 CREATE TABLE IF NOT EXISTS public.returns (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id   UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
     sale_id           UUID NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
     date              TIMESTAMPTZ DEFAULT now(),
     client_id         UUID REFERENCES public.clients(id) ON DELETE SET NULL,
@@ -407,27 +421,29 @@ CREATE INDEX IF NOT EXISTS idx_returns_sale_id ON public.returns(sale_id);
 CREATE INDEX IF NOT EXISTS idx_returns_client_id ON public.returns(client_id);
 CREATE INDEX IF NOT EXISTS idx_returns_user_id ON public.returns(user_id);
 CREATE INDEX IF NOT EXISTS idx_returns_date ON public.returns(date);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_returns_nc_number ON public.returns(nc_number) WHERE nc_number IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_returns_org ON public.returns(organization_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_returns_org_nc_number ON public.returns(organization_id, nc_number) WHERE nc_number IS NOT NULL;
 
 
 -- ============================================================
 -- 9. MOVIMIENTOS DE INVENTARIO (stock_movements)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.stock_movements (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    product_id   UUID REFERENCES public.products(id) ON DELETE SET NULL,
-    sku          TEXT NOT NULL,
-    product_name TEXT NOT NULL,
-    type         TEXT NOT NULL
-                     CHECK (type IN ('SALE','RETURN','PURCHASE','ADJUSTMENT','SHRINKAGE','MANUAL')),
-    qty_before   NUMERIC NOT NULL,
-    qty_change   NUMERIC NOT NULL,
-    qty_after    NUMERIC NOT NULL,
-    reference_id TEXT,
-    reason       TEXT,
-    created_by   UUID,
-    seller_name  TEXT,
-    created_at   TIMESTAMPTZ DEFAULT now()
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+    product_id      UUID REFERENCES public.products(id) ON DELETE SET NULL,
+    sku             TEXT NOT NULL,
+    product_name    TEXT NOT NULL,
+    type            TEXT NOT NULL
+                         CHECK (type IN ('SALE','RETURN','PURCHASE','ADJUSTMENT','SHRINKAGE','MANUAL')),
+    qty_before      NUMERIC NOT NULL,
+    qty_change      NUMERIC NOT NULL,
+    qty_after       NUMERIC NOT NULL,
+    reference_id    TEXT,
+    reason          TEXT,
+    created_by      UUID,
+    seller_name     TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON public.stock_movements(product_id);
@@ -435,55 +451,60 @@ CREATE INDEX IF NOT EXISTS idx_stock_movements_type ON public.stock_movements(ty
 CREATE INDEX IF NOT EXISTS idx_stock_movements_created_at ON public.stock_movements(created_at);
 CREATE INDEX IF NOT EXISTS idx_stock_movements_created_by ON public.stock_movements(created_by);
 CREATE INDEX IF NOT EXISTS idx_stock_movements_product_created ON public.stock_movements(product_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_org ON public.stock_movements(organization_id);
 
 
 -- ============================================================
 -- 10. GASTOS / PLANTILLAS RECURRENTES (expenses)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.expenses (
-    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    date           TEXT NOT NULL,
-    description    TEXT NOT NULL,
-    amount_usd     NUMERIC(10,2) NOT NULL,
-    amount_bs      NUMERIC(10,2),
-    amount_cop     NUMERIC(10,2),
-    currency       TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS','COP')),
-    category       TEXT NOT NULL,
-    payment_method TEXT NOT NULL,
-    fx_rate_used   NUMERIC(12,6),
-    fx_source      TEXT CHECK (fx_source IN ('BCV','TH','MANUAL')),
-    user_id        UUID,
-    seller_name    TEXT,
-    is_recurring   BOOLEAN DEFAULT false,
-    recurring_id   TEXT,
-    created_at     TIMESTAMPTZ DEFAULT now()
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+    date            TEXT NOT NULL,
+    description     TEXT NOT NULL,
+    amount_usd      NUMERIC(10,2) NOT NULL,
+    amount_bs       NUMERIC(10,2),
+    amount_cop      NUMERIC(10,2),
+    currency        TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS','COP')),
+    category        TEXT NOT NULL,
+    payment_method  TEXT NOT NULL,
+    fx_rate_used    NUMERIC(12,6),
+    fx_source       TEXT CHECK (fx_source IN ('BCV','TH','MANUAL')),
+    user_id         UUID,
+    seller_name     TEXT,
+    is_recurring    BOOLEAN DEFAULT false,
+    recurring_id    TEXT,
+    created_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON public.expenses(date);
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON public.expenses(category);
+CREATE INDEX IF NOT EXISTS idx_expenses_org ON public.expenses(organization_id);
 
 
 -- ============================================================
 -- 10.5 PLANTILLAS DE GASTOS RECURRENTES (recurring_expenses)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.recurring_expenses (
-    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    description    TEXT NOT NULL,
-    category       TEXT NOT NULL,
-    amount_usd     NUMERIC(10,2) NOT NULL,
-    amount_bs      NUMERIC(10,2),
-    amount_cop     NUMERIC(10,2),
-    currency       TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS','COP')),
-    payment_method TEXT NOT NULL,
-    day_of_month   INTEGER CHECK (day_of_month BETWEEN 1 AND 31),
-    is_active      BOOLEAN DEFAULT true,
-    created_by     UUID,
-    created_at     TIMESTAMPTZ DEFAULT now(),
-    updated_at     TIMESTAMPTZ DEFAULT now()
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+    description     TEXT NOT NULL,
+    category        TEXT NOT NULL,
+    amount_usd      NUMERIC(10,2) NOT NULL,
+    amount_bs       NUMERIC(10,2),
+    amount_cop      NUMERIC(10,2),
+    currency        TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS','COP')),
+    payment_method  TEXT NOT NULL,
+    day_of_month    INTEGER CHECK (day_of_month BETWEEN 1 AND 31),
+    is_active       BOOLEAN DEFAULT true,
+    created_by      UUID,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_recurring_expenses_active ON public.recurring_expenses(is_active);
 CREATE INDEX IF NOT EXISTS idx_recurring_expenses_day_of_month ON public.recurring_expenses(day_of_month);
+CREATE INDEX IF NOT EXISTS idx_recurring_expenses_org ON public.recurring_expenses(organization_id);
 
 
 -- ============================================================
@@ -491,6 +512,7 @@ CREATE INDEX IF NOT EXISTS idx_recurring_expenses_day_of_month ON public.recurri
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.cash_closes (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
     sequence_number SERIAL,
     closed_at       TIMESTAMPTZ DEFAULT now(),
     closed_by       UUID,
@@ -507,29 +529,31 @@ CREATE TABLE IF NOT EXISTS public.cash_closes (
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE INDEX IF NOT EXISTS idx_cash_closes_org ON public.cash_closes(organization_id);
+
 
 -- ============================================================
--- 12. USUARIOS DE LA APP (users)
--- Espejo de auth.users con rol y estado de la aplicación
+-- 12. FLUJO DE CAJA / ASIENTOS (cash_ledger)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.cash_ledger (
-    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    date          TEXT NOT NULL,
-    direction     TEXT NOT NULL CHECK (direction IN ('IN','OUT')),
-    kind          TEXT NOT NULL
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+    date           TEXT NOT NULL,
+    direction      TEXT NOT NULL CHECK (direction IN ('IN','OUT')),
+    kind           TEXT NOT NULL
                      CHECK (kind IN ('VENTA_COBRADA','ABONO_CLIENTE','ABONO_PROVEEDOR','GASTO_OPERATIVO','AJUSTE')),
-    amount_usd    NUMERIC(10,2) NOT NULL,
-    amount_bs     NUMERIC(10,2),
-    amount_cop    NUMERIC(10,2),
-    currency      TEXT NOT NULL DEFAULT 'USD' CHECK (currency IN ('USD','BS','COP')),
+    amount_usd     NUMERIC(10,2) NOT NULL,
+    amount_bs      NUMERIC(10,2),
+    amount_cop     NUMERIC(10,2),
+    currency       TEXT NOT NULL DEFAULT 'USD' CHECK (currency IN ('USD','BS','COP')),
     payment_method TEXT NOT NULL,
-    description   TEXT NOT NULL,
+    description    TEXT NOT NULL,
     reference_type TEXT,
     reference_id   TEXT,
-    user_id       UUID,
-    seller_name   TEXT,
-    created_at    TIMESTAMPTZ DEFAULT now(),
-    updated_at    TIMESTAMPTZ DEFAULT now()
+    user_id        UUID,
+    seller_name    TEXT,
+    created_at     TIMESTAMPTZ DEFAULT now(),
+    updated_at     TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_cash_ledger_date ON public.cash_ledger(date);
@@ -538,6 +562,7 @@ CREATE INDEX IF NOT EXISTS idx_cash_ledger_kind ON public.cash_ledger(kind);
 CREATE INDEX IF NOT EXISTS idx_cash_ledger_reference ON public.cash_ledger(reference_type, reference_id);
 CREATE INDEX IF NOT EXISTS idx_cash_ledger_user_id ON public.cash_ledger(user_id);
 CREATE INDEX IF NOT EXISTS idx_cash_ledger_created_at_desc ON public.cash_ledger(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cash_ledger_org ON public.cash_ledger(organization_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_cash_ledger_reference
     ON public.cash_ledger(reference_type, reference_id)
     WHERE reference_type IS NOT NULL AND reference_id IS NOT NULL;
@@ -1214,6 +1239,7 @@ WHERE pu.id IS NULL;
 DROP FUNCTION IF EXISTS public.process_sale_atomic(uuid, text, numeric, text, numeric, numeric, boolean, uuid, text, jsonb);
 DROP FUNCTION IF EXISTS public.process_sale_atomic(uuid, text, numeric, text, numeric, numeric, boolean, uuid, text, jsonb, numeric);
 DROP FUNCTION IF EXISTS public.process_sale_atomic(uuid, text, numeric, text, numeric, numeric, boolean, uuid, text, jsonb, numeric, numeric, numeric);
+DROP FUNCTION IF EXISTS public.process_sale_atomic(uuid, text, numeric, text, numeric, numeric, boolean, uuid, text, jsonb, numeric, numeric, numeric, uuid);
 
 CREATE OR REPLACE FUNCTION public.process_sale_atomic(
     p_client_id uuid,
@@ -1228,7 +1254,8 @@ CREATE OR REPLACE FUNCTION public.process_sale_atomic(
     p_items jsonb,
     p_discount_pct numeric DEFAULT 0,
     p_tasa_bcv numeric DEFAULT NULL,
-    p_tasa_cop numeric DEFAULT NULL
+    p_tasa_cop numeric DEFAULT NULL,
+    p_organization_id uuid DEFAULT NULL
 )
 RETURNS TABLE (sale_id uuid, local_id integer, sale_date timestamptz)
 LANGUAGE plpgsql
@@ -1253,6 +1280,7 @@ DECLARE
     v_credit_limit   numeric;
     v_credit_balance numeric;
     v_new_debt       numeric;
+    v_org_id         uuid := coalesce(p_organization_id, '00000000-0000-0000-0000-000000000001'::uuid);
 BEGIN
     -- Validación de precondiciones
     IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN
@@ -1287,6 +1315,7 @@ BEGIN
 
     -- 1. Insertar Cabecera de Venta
     INSERT INTO public.sales (
+        organization_id,
         client_id,
         total_usd,
         total_ved,
@@ -1299,6 +1328,7 @@ BEGIN
         seller_name,
         date
     ) VALUES (
+        v_org_id,
         p_client_id,
         p_total_usd,
         coalesce(p_total_ved, 0),
@@ -1351,6 +1381,7 @@ BEGIN
 
         -- Registrar movimiento de Kardex (stock_movements) DENTRO de la transacción
         INSERT INTO public.stock_movements (
+            organization_id,
             product_id,
             sku,
             product_name,
@@ -1364,6 +1395,7 @@ BEGIN
             seller_name,
             created_at
         ) VALUES (
+            v_org_id,
             r_stock.product_id,
             v_sku,
             v_pname,
@@ -1383,6 +1415,7 @@ BEGIN
     FOR elem IN SELECT * FROM jsonb_array_elements(p_items)
     LOOP
         INSERT INTO public.sale_items (
+            organization_id,
             sale_id,
             product_id,
             sku,
@@ -1392,6 +1425,7 @@ BEGIN
             cost_unit_usd,
             discount_pct
         ) VALUES (
+            v_org_id,
             v_sale_id,
             (elem->>'product_id')::uuid,
             coalesce(elem->>'sku', ''),
@@ -1408,8 +1442,15 @@ BEGIN
         -- Resolver moneda del método de pago
         SELECT coalesce(currency, 'USD') INTO v_method_currency
         FROM public.payment_methods
-        WHERE name = p_payment_method
+        WHERE name = p_payment_method AND organization_id = v_org_id
         LIMIT 1;
+
+        IF v_method_currency IS NULL THEN
+            SELECT coalesce(currency, 'USD') INTO v_method_currency
+            FROM public.payment_methods
+            WHERE name = p_payment_method
+            LIMIT 1;
+        END IF;
 
         -- Resolver tasas efectivas para el cálculo del cobro real
         IF p_tasa_bcv IS NOT NULL AND p_tasa_bcv > 0 THEN
@@ -1417,13 +1458,13 @@ BEGIN
         ELSIF p_total_usd > 0 AND p_total_ved > 0 THEN
             v_effective_tasa_bcv := p_total_ved / p_total_usd;
         ELSE
-            SELECT coalesce(tasa_bcv, 1) INTO v_effective_tasa_bcv FROM public.settings LIMIT 1;
+            SELECT coalesce(tasa_bcv, 1) INTO v_effective_tasa_bcv FROM public.settings WHERE organization_id = v_org_id LIMIT 1;
         END IF;
 
         IF p_tasa_cop IS NOT NULL AND p_tasa_cop > 0 THEN
             v_effective_tasa_cop := p_tasa_cop;
         ELSE
-            SELECT coalesce(tasa_cop, 1) INTO v_effective_tasa_cop FROM public.settings LIMIT 1;
+            SELECT coalesce(tasa_cop, 1) INTO v_effective_tasa_cop FROM public.settings WHERE organization_id = v_org_id LIMIT 1;
         END IF;
 
         -- Cálculos contables exactos según moneda de cobro
@@ -1431,12 +1472,14 @@ BEGIN
         v_paid_cop := CASE WHEN v_method_currency = 'COP' THEN round(p_paid_amount_usd * coalesce(v_effective_tasa_cop, 1)) ELSE NULL END;
 
         INSERT INTO public.payments (
+            organization_id,
             sale_id,
             amount_usd,
             amount_cop,
             method,
             note
         ) VALUES (
+            v_org_id,
             v_sale_id,
             p_paid_amount_usd,
             coalesce(v_paid_cop, 0),
@@ -1446,6 +1489,7 @@ BEGIN
 
         -- Asiento atómico en cash_ledger
         INSERT INTO public.cash_ledger (
+            organization_id,
             date,
             direction,
             kind,
@@ -1461,6 +1505,7 @@ BEGIN
             seller_name,
             created_at
         ) VALUES (
+            v_org_id,
             v_sale_date::text,
             'IN',
             'VENTA_COBRADA',
@@ -1518,12 +1563,18 @@ BEGIN
     --    Paso A: Bloquear la venta asociada para evitar anulación/devolución simultánea
     PERFORM 1 FROM public.sales WHERE id = p_sale_id FOR UPDATE;
 
+    SELECT organization_id INTO v_org_id FROM public.sales WHERE id = p_sale_id;
+    IF v_org_id IS NULL THEN
+        v_org_id := '00000000-0000-0000-0000-000000000001'::uuid;
+    END IF;
+
     --    Paso B: Asignar número correlativo de Nota de Crédito en la misma transacción DML
     v_next_val := nextval('public.nc_number_seq');
     v_nc_number := 'NC-' || lpad(v_next_val::text, 4, '0');
 
     -- 2. Insertar Cabecera de Devolución
     INSERT INTO public.returns (
+        organization_id,
         sale_id,
         client_id,
         nc_number,
@@ -1536,6 +1587,7 @@ BEGIN
         seller_name,
         date
     ) VALUES (
+        v_org_id,
         p_sale_id,
         p_client_id,
         v_nc_number,
@@ -1573,6 +1625,7 @@ BEGIN
                     WHERE id = r_stock.product_id;
 
                     INSERT INTO public.stock_movements (
+                        organization_id,
                         product_id,
                         sku,
                         product_name,
@@ -1586,6 +1639,7 @@ BEGIN
                         seller_name,
                         created_at
                     ) VALUES (
+                        v_org_id,
                         r_stock.product_id,
                         v_sku,
                         v_pname,
@@ -1607,6 +1661,7 @@ BEGIN
     -- 4. Asiento en Caja si fue REEMBOLSO en efectivo
     IF p_option = 'REEMBOLSO' AND p_refund_amount_usd > 0 THEN
         INSERT INTO public.cash_ledger (
+            organization_id,
             date,
             direction,
             kind,
@@ -1620,6 +1675,7 @@ BEGIN
             seller_name,
             created_at
         ) VALUES (
+            v_org_id,
             v_return_date::text,
             'OUT',
             'AJUSTE',
@@ -1654,6 +1710,7 @@ END;
 $$;
 
 DROP FUNCTION IF EXISTS public.execute_safe_daily_close_z(uuid, text, numeric, numeric, numeric, text);
+DROP FUNCTION IF EXISTS public.execute_safe_daily_close_z(uuid, text, numeric, numeric, numeric, text, uuid);
 
 CREATE OR REPLACE FUNCTION public.execute_safe_daily_close_z(
     p_closed_by uuid,
@@ -1661,7 +1718,8 @@ CREATE OR REPLACE FUNCTION public.execute_safe_daily_close_z(
     p_declared_usd numeric,
     p_declared_bs numeric,
     p_declared_cop numeric,
-    p_notes text DEFAULT NULL
+    p_notes text DEFAULT NULL,
+    p_organization_id uuid DEFAULT NULL
 )
 RETURNS TABLE (
     close_id uuid,
@@ -1689,10 +1747,12 @@ DECLARE
     v_diff_usd numeric(12,2);
     v_shortage numeric(12,2) := 0;
     v_overage numeric(12,2) := 0;
+    v_org_id uuid := coalesce(p_organization_id, '00000000-0000-0000-0000-000000000001'::uuid);
 BEGIN
     -- 1. Bloqueo pesimista de settings para serializar cierres y evitar ventanas de tiempo desincronizadas
     SELECT last_close_date INTO v_last_close_date
     FROM public.settings
+    WHERE organization_id = v_org_id
     LIMIT 1
     FOR UPDATE;
 
@@ -1708,7 +1768,8 @@ BEGIN
         v_tx_count,
         v_system_total_usd
     FROM public.sales
-    WHERE date > v_last_close_date
+    WHERE organization_id = v_org_id
+      AND date > v_last_close_date
       AND date <= v_now
       AND status <> 'CANCELLED';
 
@@ -1729,7 +1790,8 @@ BEGIN
         v_system_total_bs,
         v_system_total_cop
     FROM public.cash_ledger
-    WHERE created_at > v_last_close_date
+    WHERE organization_id = v_org_id
+      AND created_at > v_last_close_date
       AND created_at <= v_now;
 
     -- 4. Computar faltantes o sobrantes contra arqueo declarado en USD
@@ -1742,6 +1804,7 @@ BEGIN
 
     -- 5. Registrar Cierre Oficial
     INSERT INTO public.cash_closes (
+        organization_id,
         closed_at,
         closed_by,
         seller_name,
@@ -1755,6 +1818,7 @@ BEGIN
         overage_usd,
         notes
     ) VALUES (
+        v_org_id,
         v_now,
         p_closed_by,
         p_seller_name,
@@ -1771,7 +1835,7 @@ BEGIN
     RETURNING id, cash_closes.sequence_number INTO v_new_close_id, v_seq;
 
     -- 6. Avanzar la marca temporal exactamente a v_now
-    UPDATE public.settings SET last_close_date = v_now;
+    UPDATE public.settings SET last_close_date = v_now WHERE organization_id = v_org_id;
 
     RETURN QUERY
     SELECT 

@@ -149,10 +149,9 @@ ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCE
 UPDATE public.sales SET organization_id = '00000000-0000-0000-0000-000000000001'::uuid WHERE organization_id IS NULL;
 ALTER TABLE public.sales ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000001'::uuid;
 ALTER TABLE public.sales ALTER COLUMN organization_id SET NOT NULL;
-ALTER TABLE public.sales DROP CONSTRAINT IF EXISTS sales_invoice_number_key;
-ALTER TABLE public.sales DROP CONSTRAINT IF EXISTS uq_sales_org_invoice;
-ALTER TABLE public.sales ADD CONSTRAINT uq_sales_org_invoice UNIQUE (organization_id, invoice_number);
 CREATE INDEX IF NOT EXISTS idx_sales_org ON public.sales(organization_id);
+DROP INDEX IF EXISTS public.uq_sales_local_id;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_org_local_id ON public.sales (organization_id, local_id) WHERE local_id IS NOT NULL;
 
 -- 4.5 sale_items
 ALTER TABLE public.sale_items ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE;
@@ -174,6 +173,9 @@ ALTER TABLE public.quotes ADD COLUMN IF NOT EXISTS organization_id UUID REFERENC
 UPDATE public.quotes SET organization_id = '00000000-0000-0000-0000-000000000001'::uuid WHERE organization_id IS NULL;
 ALTER TABLE public.quotes ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000001'::uuid;
 ALTER TABLE public.quotes ALTER COLUMN organization_id SET NOT NULL;
+ALTER TABLE public.quotes DROP CONSTRAINT IF EXISTS quotes_number_key;
+DROP INDEX IF EXISTS public.uq_quotes_number;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_quotes_org_number ON public.quotes (organization_id, number);
 CREATE INDEX IF NOT EXISTS idx_quotes_org ON public.quotes(organization_id);
 
 -- 4.8 returns
@@ -181,6 +183,8 @@ ALTER TABLE public.returns ADD COLUMN IF NOT EXISTS organization_id UUID REFEREN
 UPDATE public.returns SET organization_id = '00000000-0000-0000-0000-000000000001'::uuid WHERE organization_id IS NULL;
 ALTER TABLE public.returns ALTER COLUMN organization_id SET DEFAULT '00000000-0000-0000-0000-000000000001'::uuid;
 ALTER TABLE public.returns ALTER COLUMN organization_id SET NOT NULL;
+DROP INDEX IF EXISTS public.uq_returns_nc_number;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_returns_org_nc_number ON public.returns (organization_id, nc_number) WHERE nc_number IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_returns_org ON public.returns(organization_id);
 
 -- 4.9 stock_movements
@@ -315,6 +319,594 @@ BEGIN
         (v_org_id, 'Zelle', 'ZELLE', 'USD', true);
 
     RETURN v_org_id;
+END;
+$$;
+
+-- ====================================================================
+-- 5.5 RPCS TRANSACCIONALES CON SOPORTE MULTI-TENANT
+-- ============================================================
+DROP FUNCTION IF EXISTS public.process_sale_atomic(uuid, text, numeric, text, numeric, numeric, boolean, uuid, text, jsonb);
+DROP FUNCTION IF EXISTS public.process_sale_atomic(uuid, text, numeric, text, numeric, numeric, boolean, uuid, text, jsonb, numeric);
+DROP FUNCTION IF EXISTS public.process_sale_atomic(uuid, text, numeric, text, numeric, numeric, boolean, uuid, text, jsonb, numeric, numeric, numeric);
+DROP FUNCTION IF EXISTS public.process_sale_atomic(uuid, text, numeric, text, numeric, numeric, boolean, uuid, text, jsonb, numeric, numeric, numeric, uuid);
+
+CREATE OR REPLACE FUNCTION public.process_sale_atomic(
+    p_client_id uuid,
+    p_payment_method text,
+    p_paid_amount_usd numeric,
+    p_status text,
+    p_total_usd numeric,
+    p_total_ved numeric,
+    p_is_credit boolean,
+    p_user_id uuid,
+    p_seller_name text,
+    p_items jsonb,
+    p_discount_pct numeric DEFAULT 0,
+    p_tasa_bcv numeric DEFAULT NULL,
+    p_tasa_cop numeric DEFAULT NULL,
+    p_organization_id uuid DEFAULT NULL
+)
+RETURNS TABLE (sale_id uuid, local_id integer, sale_date timestamptz)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_sale_id uuid;
+    v_local_id integer;
+    v_sale_date timestamptz := now();
+    v_stock numeric;
+    v_sku text;
+    v_pname text;
+    r_stock RECORD;
+    elem jsonb;
+    v_method_currency text := 'USD';
+    v_effective_tasa_bcv numeric;
+    v_effective_tasa_cop numeric;
+    v_paid_bs numeric;
+    v_paid_cop numeric;
+    v_credit_limit   numeric;
+    v_credit_balance numeric;
+    v_new_debt       numeric;
+    v_org_id         uuid := coalesce(p_organization_id, '00000000-0000-0000-0000-000000000001'::uuid);
+BEGIN
+    IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN
+        RAISE EXCEPTION 'El carrito de venta no puede estar vacío';
+    END IF;
+
+    IF coalesce(p_is_credit, false) = true THEN
+        IF p_client_id IS NULL THEN
+            RAISE EXCEPTION 'VENTA_CREDITO_SIN_CLIENTE:Venta a crédito requiere un cliente registrado';
+        END IF;
+
+        SELECT
+            coalesce(credit_limit, 0),
+            coalesce(credit_balance, 0)
+        INTO v_credit_limit, v_credit_balance
+        FROM public.clients
+        WHERE id = p_client_id
+        FOR SHARE;
+
+        v_new_debt := GREATEST(coalesce(p_total_usd, 0) - coalesce(p_paid_amount_usd, 0), 0);
+        IF (v_credit_balance + v_new_debt) > v_credit_limit THEN
+            RAISE EXCEPTION 'CREDITO_INSUFICIENTE:%:limite=%,deuda_actual=%,nueva_deuda=%',
+                p_client_id,
+                v_credit_limit,
+                v_credit_balance,
+                v_new_debt;
+        END IF;
+    END IF;
+
+    -- 1. Insertar Cabecera de Venta
+    INSERT INTO public.sales (
+        organization_id,
+        client_id,
+        total_usd,
+        total_ved,
+        payment_method,
+        status,
+        paid_amount_usd,
+        is_credit,
+        discount_pct,
+        user_id,
+        seller_name,
+        date
+    ) VALUES (
+        v_org_id,
+        p_client_id,
+        p_total_usd,
+        coalesce(p_total_ved, 0),
+        p_payment_method,
+        p_status,
+        coalesce(p_paid_amount_usd, 0),
+        coalesce(p_is_credit, false),
+        coalesce(p_discount_pct, 0),
+        p_user_id,
+        p_seller_name,
+        v_sale_date
+    )
+    RETURNING id, sales.local_id, sales.date
+    INTO v_sale_id, v_local_id, v_sale_date;
+
+    -- 2. Procesamiento y Bloqueo de Stock
+    FOR r_stock IN (
+        SELECT 
+            (item->>'product_id')::uuid AS product_id,
+            sum((item->>'quantity')::numeric) AS total_quantity
+        FROM jsonb_array_elements(p_items) AS item
+        WHERE (item->>'product_id') IS NOT NULL
+        GROUP BY (item->>'product_id')::uuid
+        ORDER BY (item->>'product_id')::uuid ASC
+    ) LOOP
+        IF r_stock.total_quantity <= 0 THEN
+            RAISE EXCEPTION 'Cantidad inválida para producto %: % (Debe ser > 0)', r_stock.product_id, r_stock.total_quantity;
+        END IF;
+
+        SELECT stock, sku, name INTO v_stock, v_sku, v_pname
+        FROM public.products
+        WHERE id = r_stock.product_id
+        FOR UPDATE;
+
+        IF v_stock IS NULL THEN
+            RAISE EXCEPTION 'Producto no encontrado en catálogo: %', r_stock.product_id;
+        END IF;
+
+        IF v_stock < r_stock.total_quantity THEN
+            RAISE EXCEPTION 'STOCK_INSUFICIENTE:%:disponible=%,solicitado=%', r_stock.product_id, v_stock, r_stock.total_quantity;
+        END IF;
+
+        UPDATE public.products
+        SET stock = stock - r_stock.total_quantity
+        WHERE id = r_stock.product_id;
+
+        INSERT INTO public.stock_movements (
+            organization_id,
+            product_id,
+            sku,
+            product_name,
+            type,
+            qty_before,
+            qty_change,
+            qty_after,
+            reference_id,
+            reason,
+            created_by,
+            seller_name,
+            created_at
+        ) VALUES (
+            v_org_id,
+            r_stock.product_id,
+            v_sku,
+            v_pname,
+            'SALE',
+            v_stock,
+            -r_stock.total_quantity,
+            v_stock - r_stock.total_quantity,
+            v_sale_id::text,
+            'Venta registrada #' || coalesce(v_local_id::text, substring(v_sale_id::text from 1 for 8)),
+            p_user_id,
+            p_seller_name,
+            v_sale_date
+        );
+    END LOOP;
+
+    -- 3. Registrar ítems individuales de venta
+    FOR elem IN SELECT * FROM jsonb_array_elements(p_items)
+    LOOP
+        INSERT INTO public.sale_items (
+            organization_id,
+            sale_id,
+            product_id,
+            sku,
+            product_name_snapshot,
+            quantity,
+            unit_price_usd,
+            cost_unit_usd,
+            discount_pct
+        ) VALUES (
+            v_org_id,
+            v_sale_id,
+            (elem->>'product_id')::uuid,
+            coalesce(elem->>'sku', ''),
+            coalesce(elem->>'product_name', elem->>'name', 'Producto'),
+            (elem->>'quantity')::numeric,
+            (elem->>'unit_price_usd')::numeric,
+            coalesce((elem->>'cost_unit_usd')::numeric, 0),
+            coalesce((elem->>'discount_pct')::numeric, p_discount_pct, 0)
+        );
+    END LOOP;
+
+    -- 4. Registrar Pago y Asiento de Caja si hubo cobro
+    IF p_paid_amount_usd > 0 THEN
+        SELECT coalesce(currency, 'USD') INTO v_method_currency
+        FROM public.payment_methods
+        WHERE name = p_payment_method AND organization_id = v_org_id
+        LIMIT 1;
+
+        IF v_method_currency IS NULL THEN
+            SELECT coalesce(currency, 'USD') INTO v_method_currency
+            FROM public.payment_methods
+            WHERE name = p_payment_method
+            LIMIT 1;
+        END IF;
+
+        IF p_tasa_bcv IS NOT NULL AND p_tasa_bcv > 0 THEN
+            v_effective_tasa_bcv := p_tasa_bcv;
+        ELSIF p_total_usd > 0 AND p_total_ved > 0 THEN
+            v_effective_tasa_bcv := p_total_ved / p_total_usd;
+        ELSE
+            SELECT coalesce(tasa_bcv, 1) INTO v_effective_tasa_bcv FROM public.settings WHERE organization_id = v_org_id LIMIT 1;
+        END IF;
+
+        IF p_tasa_cop IS NOT NULL AND p_tasa_cop > 0 THEN
+            v_effective_tasa_cop := p_tasa_cop;
+        ELSE
+            SELECT coalesce(tasa_cop, 1) INTO v_effective_tasa_cop FROM public.settings WHERE organization_id = v_org_id LIMIT 1;
+        END IF;
+
+        v_paid_bs := CASE WHEN v_method_currency = 'BS' THEN round(p_paid_amount_usd * coalesce(v_effective_tasa_bcv, 1), 2) ELSE NULL END;
+        v_paid_cop := CASE WHEN v_method_currency = 'COP' THEN round(p_paid_amount_usd * coalesce(v_effective_tasa_cop, 1)) ELSE NULL END;
+
+        INSERT INTO public.payments (
+            organization_id,
+            sale_id,
+            amount_usd,
+            amount_cop,
+            method,
+            note
+        ) VALUES (
+            v_org_id,
+            v_sale_id,
+            p_paid_amount_usd,
+            coalesce(v_paid_cop, 0),
+            p_payment_method,
+            'Pago Inicial'
+        );
+
+        INSERT INTO public.cash_ledger (
+            organization_id,
+            date,
+            direction,
+            kind,
+            amount_usd,
+            amount_bs,
+            amount_cop,
+            currency,
+            payment_method,
+            description,
+            reference_type,
+            reference_id,
+            user_id,
+            seller_name,
+            created_at
+        ) VALUES (
+            v_org_id,
+            v_sale_date::text,
+            'IN',
+            'VENTA_COBRADA',
+            p_paid_amount_usd,
+            v_paid_bs,
+            v_paid_cop,
+            coalesce(v_method_currency, 'USD'),
+            p_payment_method,
+            'Cobro inicial de venta #' || coalesce(v_local_id::text, substring(v_sale_id::text from 1 for 8)),
+            'sale-payment',
+            v_sale_id::text || ':initial',
+            p_user_id,
+            p_seller_name,
+            v_sale_date
+        )
+        ON CONFLICT (reference_type, reference_id) DO NOTHING;
+    END IF;
+
+    RETURN QUERY SELECT v_sale_id, v_local_id, v_sale_date;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.process_return_atomic(
+    p_sale_id uuid,
+    p_client_id uuid,
+    p_option text,             -- 'CREDIT' o 'REEMBOLSO'
+    p_reason text,
+    p_refund_amount_usd numeric,
+    p_type text,               -- 'FULL' o 'PARTIAL'
+    p_items jsonb,
+    p_user_id uuid,
+    p_seller_name text
+)
+RETURNS TABLE (return_id uuid, nc_number text, return_date timestamptz)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_return_id uuid;
+    v_nc_number text;
+    v_return_date timestamptz := now();
+    v_next_val bigint;
+    v_stock numeric;
+    v_sku text;
+    v_pname text;
+    r_stock RECORD;
+    v_org_id uuid;
+BEGIN
+    IF p_option NOT IN ('CREDIT', 'REEMBOLSO') THEN
+        RAISE EXCEPTION 'Opción de devolución inválida: %', p_option;
+    END IF;
+
+    PERFORM 1 FROM public.sales WHERE id = p_sale_id FOR UPDATE;
+
+    SELECT organization_id INTO v_org_id FROM public.sales WHERE id = p_sale_id;
+    IF v_org_id IS NULL THEN
+        v_org_id := '00000000-0000-0000-0000-000000000001'::uuid;
+    END IF;
+
+    v_next_val := nextval('public.nc_number_seq');
+    v_nc_number := 'NC-' || lpad(v_next_val::text, 4, '0');
+
+    INSERT INTO public.returns (
+        organization_id,
+        sale_id,
+        client_id,
+        nc_number,
+        option,
+        reason,
+        refund_amount_usd,
+        type,
+        items,
+        user_id,
+        seller_name,
+        date
+    ) VALUES (
+        v_org_id,
+        p_sale_id,
+        p_client_id,
+        v_nc_number,
+        p_option,
+        p_reason,
+        coalesce(p_refund_amount_usd, 0),
+        p_type,
+        p_items,
+        p_user_id,
+        p_seller_name,
+        v_return_date
+    )
+    RETURNING id INTO v_return_id;
+
+    IF p_items IS NOT NULL AND jsonb_array_length(p_items) > 0 THEN
+        FOR r_stock IN (
+            SELECT 
+                coalesce(elem->>'productId', elem->>'product_id')::uuid AS product_id,
+                sum(coalesce(elem->>'quantity', elem->>'qty')::numeric) AS total_quantity
+            FROM jsonb_array_elements(p_items) AS elem
+            WHERE coalesce(elem->>'productId', elem->>'product_id') IS NOT NULL
+            GROUP BY coalesce(elem->>'productId', elem->>'product_id')::uuid
+            ORDER BY coalesce(elem->>'productId', elem->>'product_id')::uuid ASC
+        ) LOOP
+            IF r_stock.total_quantity > 0 THEN
+                SELECT stock, sku, name INTO v_stock, v_sku, v_pname
+                FROM public.products
+                WHERE id = r_stock.product_id
+                FOR UPDATE;
+
+                IF v_stock IS NOT NULL THEN
+                    UPDATE public.products
+                    SET stock = stock + r_stock.total_quantity
+                    WHERE id = r_stock.product_id;
+
+                    INSERT INTO public.stock_movements (
+                        organization_id,
+                        product_id,
+                        sku,
+                        product_name,
+                        type,
+                        qty_before,
+                        qty_change,
+                        qty_after,
+                        reference_id,
+                        reason,
+                        created_by,
+                        seller_name,
+                        created_at
+                    ) VALUES (
+                        v_org_id,
+                        r_stock.product_id,
+                        v_sku,
+                        v_pname,
+                        'RETURN',
+                        v_stock,
+                        r_stock.total_quantity,
+                        v_stock + r_stock.total_quantity,
+                        v_return_id::text,
+                        coalesce(p_reason, 'Devolución asociada a ' || v_nc_number),
+                        p_user_id,
+                        p_seller_name,
+                        v_return_date
+                    );
+                END IF;
+            END IF;
+        END LOOP;
+    END IF;
+
+    IF p_option = 'REEMBOLSO' AND p_refund_amount_usd > 0 THEN
+        INSERT INTO public.cash_ledger (
+            organization_id,
+            date,
+            direction,
+            kind,
+            amount_usd,
+            currency,
+            payment_method,
+            description,
+            reference_type,
+            reference_id,
+            user_id,
+            seller_name,
+            created_at
+        ) VALUES (
+            v_org_id,
+            v_return_date::text,
+            'OUT',
+            'AJUSTE',
+            p_refund_amount_usd,
+            'USD',
+            'Efectivo USD',
+            'Reembolso devolución ' || v_nc_number || coalesce(' — ' || p_reason, ''),
+            'return',
+            v_return_id::text,
+            p_user_id,
+            p_seller_name,
+            v_return_date
+        );
+    END IF;
+
+    IF p_option = 'CREDIT' AND p_client_id IS NOT NULL AND p_refund_amount_usd > 0 THEN
+        UPDATE public.clients
+        SET credit_balance = coalesce(credit_balance, 0) + p_refund_amount_usd
+        WHERE id = p_client_id;
+    END IF;
+
+    IF p_type = 'FULL' THEN
+        UPDATE public.sales
+        SET status = 'CANCELLED'
+        WHERE id = p_sale_id;
+    END IF;
+
+    RETURN QUERY SELECT v_return_id, v_nc_number, v_return_date;
+END;
+$$;
+
+DROP FUNCTION IF EXISTS public.execute_safe_daily_close_z(uuid, text, numeric, numeric, numeric, text);
+DROP FUNCTION IF EXISTS public.execute_safe_daily_close_z(uuid, text, numeric, numeric, numeric, text, uuid);
+
+CREATE OR REPLACE FUNCTION public.execute_safe_daily_close_z(
+    p_closed_by uuid,
+    p_seller_name text,
+    p_declared_usd numeric,
+    p_declared_bs numeric,
+    p_declared_cop numeric,
+    p_notes text DEFAULT NULL,
+    p_organization_id uuid DEFAULT NULL
+)
+RETURNS TABLE (
+    close_id uuid,
+    sequence_number integer,
+    closed_at timestamptz,
+    tx_count integer,
+    system_total_usd numeric,
+    system_total_bs numeric,
+    shortage_usd numeric,
+    overage_usd numeric
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_last_close_date timestamptz;
+    v_now timestamptz := clock_timestamp();
+    v_tx_count integer := 0;
+    v_system_total_usd numeric(12,2) := 0;
+    v_system_total_bs numeric(12,2) := 0;
+    v_system_total_cop numeric(14,2) := 0;
+    v_seq integer;
+    v_new_close_id uuid;
+    v_diff_usd numeric(12,2);
+    v_shortage numeric(12,2) := 0;
+    v_overage numeric(12,2) := 0;
+    v_org_id uuid := coalesce(p_organization_id, '00000000-0000-0000-0000-000000000001'::uuid);
+BEGIN
+    SELECT last_close_date INTO v_last_close_date
+    FROM public.settings
+    WHERE organization_id = v_org_id
+    LIMIT 1
+    FOR UPDATE;
+
+    IF v_last_close_date IS NULL THEN
+        v_last_close_date := '1970-01-01 00:00:00+00'::timestamptz;
+    END IF;
+
+    SELECT 
+        COUNT(*),
+        COALESCE(SUM(paid_amount_usd), 0)
+    INTO 
+        v_tx_count,
+        v_system_total_usd
+    FROM public.sales
+    WHERE organization_id = v_org_id
+      AND date > v_last_close_date
+      AND date <= v_now
+      AND status <> 'CANCELLED';
+
+    SELECT
+        COALESCE(SUM(CASE 
+            WHEN currency = 'BS' THEN 
+                CASE WHEN direction = 'IN' THEN coalesce(amount_bs, 0) ELSE -coalesce(amount_bs, 0) END 
+            ELSE 0 
+        END), 0),
+        COALESCE(SUM(CASE 
+            WHEN currency = 'COP' THEN 
+                CASE WHEN direction = 'IN' THEN coalesce(amount_cop, 0) ELSE -coalesce(amount_cop, 0) END 
+            ELSE 0 
+        END), 0)
+    INTO
+        v_system_total_bs,
+        v_system_total_cop
+    FROM public.cash_ledger
+    WHERE organization_id = v_org_id
+      AND created_at > v_last_close_date
+      AND created_at <= v_now;
+
+    v_diff_usd := coalesce(p_declared_usd, 0) - v_system_total_usd;
+    IF v_diff_usd < -0.01 THEN
+        v_shortage := ABS(v_diff_usd);
+    ELSIF v_diff_usd > 0.01 THEN
+        v_overage := v_diff_usd;
+    END IF;
+
+    INSERT INTO public.cash_closes (
+        organization_id,
+        closed_at,
+        closed_by,
+        seller_name,
+        total_usd,
+        total_bs,
+        tx_count,
+        declared_usd,
+        declared_bs,
+        declared_cop,
+        shortage_usd,
+        overage_usd,
+        notes
+    ) VALUES (
+        v_org_id,
+        v_now,
+        p_closed_by,
+        p_seller_name,
+        v_system_total_usd,
+        v_system_total_bs,
+        v_tx_count,
+        p_declared_usd,
+        p_declared_bs,
+        p_declared_cop,
+        v_shortage,
+        v_overage,
+        p_notes
+    )
+    RETURNING id, cash_closes.sequence_number INTO v_new_close_id, v_seq;
+
+    UPDATE public.settings SET last_close_date = v_now WHERE organization_id = v_org_id;
+
+    RETURN QUERY
+    SELECT 
+        v_new_close_id,
+        v_seq,
+        v_now,
+        v_tx_count,
+        v_system_total_usd,
+        v_system_total_bs,
+        v_shortage,
+        v_overage;
 END;
 $$;
 
