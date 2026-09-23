@@ -4,6 +4,7 @@
  */
 
 import type { Quote, AppSettings } from '../types';
+import { escapeHtml } from './sanitize';
 
 const printMobileFriendly = (content: string) => {
     let printArea = document.getElementById('print-area');
@@ -47,7 +48,7 @@ export const printMobileQuote = (quote: Quote, settings: AppSettings) => {
         const subtotal = item.priceFinalUSD * item.quantity;
         itemsHTML += `
             <div style="margin-bottom: 4px;">
-                <div style="font-weight:bold;">${item.name}</div>
+                <div style="font-weight:bold;">${escapeHtml(item.name)}</div>
                 <div class="item">
                     <span>${item.quantity} x $${item.priceFinalUSD.toFixed(2)}</span>
                     <span>$${subtotal.toFixed(2)}</span>
@@ -58,15 +59,15 @@ export const printMobileQuote = (quote: Quote, settings: AppSettings) => {
 
     const content = `
         <div class="header">
-            <div class="title">${settings.companyName}</div>
-            <div class="subtitle">${settings.rifType}-${settings.rif}</div>
-            <div class="subtitle">${settings.address || ''}</div>
+            <div class="title">${escapeHtml(settings.companyName)}</div>
+            <div class="subtitle">${escapeHtml(settings.rifType)}-${escapeHtml(settings.rif)}</div>
+            <div class="subtitle">${escapeHtml(settings.address || '')}</div>
             <div class="divider"></div>
             <div class="title">COTIZACIÓN</div>
-            <div><strong>Nº:</strong> ${quote.number}</div>
+            <div><strong>Nº:</strong> ${escapeHtml(quote.number)}</div>
             <div>Fecha: ${new Date(quote.date).toLocaleDateString('es-VE')}</div>
             <div>Válida hasta: ${new Date(quote.validUntil).toLocaleDateString('es-VE')}</div>
-            ${quote.clientName ? `<div class="divider"></div><div style="text-align:left"><strong>Cliente:</strong> ${quote.clientName}</div>` : ''}
+            ${quote.clientName ? `<div class="divider"></div><div style="text-align:left"><strong>Cliente:</strong> ${escapeHtml(quote.clientName)}</div>` : ''}
         </div>
 
         <div class="divider"></div>
@@ -82,11 +83,11 @@ export const printMobileQuote = (quote: Quote, settings: AppSettings) => {
             <span>Bs ${quote.totalBs.toFixed(2)}</span>
         </div>
 
-        ${quote.notes ? `<div class="divider"></div><div style="font-size:10px;"><strong>Condiciones:</strong><br>${quote.notes}</div>` : ''}
+        ${quote.notes ? `<div class="divider"></div><div style="font-size:10px;"><strong>Condiciones:</strong><br>${escapeHtml(quote.notes)}</div>` : ''}
 
         <div class="footer">
             <p>Esta cotización no constituye una factura.</p>
-            <p>Generado por ${settings.companyName}</p>
+            <p>Generado por ${escapeHtml(settings.companyName)}</p>
         </div>
     `;
 

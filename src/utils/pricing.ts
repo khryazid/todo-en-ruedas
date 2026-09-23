@@ -6,7 +6,21 @@
  * ✅ COP: Soporte para pesos colombianos.
  */
 
+import Decimal from 'decimal.js';
 import type { Product, AppSettings, PriceList } from '../types';
+
+/**
+ * Redondea un número a una cantidad fija de decimales usando precisión arbitraria Decimal.
+ * Elimina imprecisiones acumulativas de punto flotante IEEE 754 (Finding 6).
+ */
+export const roundTo = (num: number, decimals: number = 2): number => {
+  if (!Number.isFinite(num)) return 0;
+  try {
+    return new Decimal(num).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
+  } catch {
+    return 0;
+  }
+};
 
 export const formatCurrency = (amount: number, currency: 'USD' | 'BS' | 'COP') => {
   if (currency === 'USD') {
@@ -19,7 +33,8 @@ export const formatCurrency = (amount: number, currency: 'USD' | 'BS' | 'COP') =
 };
 
 /**
- * Calcula los precios finales de un producto aplicando márgenes, IVA y tasa de cambio.
+ * Calcula los precios finales de un producto aplicando márgenes, IVA y tasa de cambio
+ * utilizando aritmética decimal exacta con decimal.js.
  *
  * @param product   - El producto a calcular
  * @param settings  - Configuración global (tasas, márgenes por defecto)
@@ -31,7 +46,8 @@ export const calculatePrices = (
   settings: AppSettings,
   priceList?: PriceList
 ) => {
-  const costUSD = product.cost + (product.freight || 0);
+  const rawCost = new Decimal(product.cost || 0).plus(product.freight || 0);
+  const costUSD = rawCost.toDecimalPlaces(4, Decimal.ROUND_HALF_UP);
 
   // El margen siempre es el custom o el default
   const margin: number = product.customMargin !== undefined && product.customMargin !== null
@@ -54,43 +70,47 @@ export const calculatePrices = (
 
   const vat = product.customVAT ?? settings.defaultVAT;
 
-  // 1. Precio antes de IVA = Costo + Margen
-  const priceBeforeVat = costUSD * (1 + margin / 100);
+  // 1. Precio antes de IVA = Costo * (1 + margin / 100)
+  const priceBeforeVat = costUSD.times(new Decimal(1).plus(new Decimal(margin).dividedBy(100)))
+    .toDecimalPlaces(4, Decimal.ROUND_HALF_UP);
 
   // 2. Aplicar descuento de lista de precio
-  const discountedPrice = priceBeforeVat * (1 - discountPct / 100);
+  const discountedPrice = priceBeforeVat.times(new Decimal(1).minus(new Decimal(discountPct).dividedBy(100)))
+    .toDecimalPlaces(4, Decimal.ROUND_HALF_UP);
 
   // 3. Precio base final = Precio con descuento + IVA
-  const basePrice = Math.round((discountedPrice * (1 + vat / 100)) * 100) / 100;
+  const basePriceDecimal = discountedPrice.times(new Decimal(1).plus(new Decimal(vat).dividedBy(100)))
+    .toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+  const basePrice = basePriceDecimal.toNumber();
 
-  // 4. LÓGICA TH (CAMUFLAJE BCV)
+  // 4. LÓGICA TH (CAMUFLAJE BCV) — Decisión legal/de negocio preservada
+  // Preserva el importe exacto en Bolívares sin truncar prematuramente el USD intermediario
+  const tasaBCV = settings.tasaBCV || 0;
+  const tasaTH = settings.tasaTH || 0;
+  const tasaCOP = settings.tasaCOP || 0;
+
   let finalPriceUSD = basePrice;
-  if (product.costType === 'TH') {
-    const tasaTH = settings.tasaTH || 0;
-    const tasaBCV = settings.tasaBCV || 0;
+  let finalPriceVED = 0;
 
-    if (tasaTH > 0 && tasaBCV > 0) {
-      finalPriceUSD = (basePrice * tasaTH) / tasaBCV;
-    }
+  if (product.costType === 'TH' && tasaTH > 0 && tasaBCV > 0) {
+    const bolivaresExact = basePriceDecimal.times(tasaTH).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    finalPriceVED = bolivaresExact.toNumber();
+    // USD camuflado para cobro exacto a tasa BCV
+    finalPriceUSD = bolivaresExact.dividedBy(tasaBCV).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
+  } else {
+    finalPriceUSD = basePrice;
+    finalPriceVED = tasaBCV > 0
+      ? new Decimal(finalPriceUSD).times(tasaBCV).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber()
+      : 0;
   }
 
-  // Redondear USD a 2 decimales
-  finalPriceUSD = Math.round(finalPriceUSD * 100) / 100;
-
-  // 5. Bs = USD × tasa BCV
-  const tasaBCV = settings.tasaBCV || 0;
-  const finalPriceVED = tasaBCV > 0
-    ? Math.round((finalPriceUSD * tasaBCV) * 100) / 100
-    : 0;
-
-  // 6. COP = USD × tasa COP
-  const tasaCOP = settings.tasaCOP || 0;
+  // 5. COP = USD real × tasa COP (entero)
   const finalPriceCOP = tasaCOP > 0
-    ? Math.round(finalPriceUSD * tasaCOP)
+    ? basePriceDecimal.times(tasaCOP).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber()
     : 0;
 
   return {
-    baseCost: costUSD,
+    baseCost: costUSD.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber(),
     basePrice,
     finalPriceUSD,
     finalPriceVED,

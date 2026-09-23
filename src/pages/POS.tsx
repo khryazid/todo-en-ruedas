@@ -13,7 +13,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useStore } from '../store/useStore';
-import { formatCurrency, calculatePrices } from '../utils/pricing';
+import { formatCurrency, calculatePrices, roundTo } from '../utils/pricing';
 import { printInvoice, sendToWhatsApp } from '../utils/ticketGenerator';
 import {
     User, Search, FileText,
@@ -25,6 +25,7 @@ import { QuickClientModal } from '../components/QuickClientModal';
 import { useDebounce } from '../hooks/useDebounce';
 import { ProductCard } from '../components/pos/ProductCard';
 import { POSCheckoutModal } from '../components/pos/POSCheckoutModal';
+import { usePOSCheckout } from '../hooks/usePOSCheckout';
 import { generateId } from '../utils/id';
 
 // =============================================
@@ -77,10 +78,10 @@ export const POS = () => {
     const searchContainerRef = useRef<HTMLDivElement>(null);
     const sheetDragStartYRef = useRef<number | null>(null);
 
-    // ✅ RECALCULAR PRECIOS DEL CARRITO SI CAMBIA EL CLIENTE
+    // ✅ RECALCULAR PRECIOS DEL CARRITO SI CAMBIA EL CLIENTE O LA TASA BCV
     useEffect(() => {
         recalculateCartPrices(selectedClient?.priceList as PriceList | undefined);
-    }, [selectedClient, recalculateCartPrices]);
+    }, [selectedClient, settings.tasaBCV, recalculateCartPrices]);
 
     // ✅ FIX 6.5: Debounce de búsqueda (200ms)
     const debouncedSearch = useDebounce(searchTerm, 200);
@@ -285,10 +286,10 @@ export const POS = () => {
     }, [addToCart, cart, selectedClient?.priceList]);
 
     // Totales con descuento (#3)
-    const subtotalUSD = Math.round(cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0) * 100) / 100;
-    const discountAmount = Math.round(subtotalUSD * (discountPct / 100) * 100) / 100;
-    const totalUSD = Math.round((subtotalUSD - discountAmount) * 100) / 100;
-    const totalBs = Math.round((totalUSD * settings.tasaBCV) * 100) / 100;
+    const subtotalUSD = roundTo(cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0), 2);
+    const discountAmount = roundTo(subtotalUSD * (discountPct / 100), 2);
+    const totalUSD = roundTo(subtotalUSD - discountAmount, 2);
+    const totalBs = roundTo(totalUSD * settings.tasaBCV, 2);
 
     useEffect(() => {
         if (!isCheckoutModalOpen && !completedSale) {
@@ -317,9 +318,14 @@ export const POS = () => {
             void fetchProducts();
         };
 
-        // Fallback de sincronizacion para stock si realtime falla temporalmente.
-        const intervalMs = window.matchMedia('(max-width: 768px)').matches ? 8000 : 4000;
-        const intervalId = window.setInterval(refreshProducts, intervalMs);
+        // Fallback defensivo de sincronización para stock si realtime falla temporalmente.
+        // Se ejecuta cada 30s en escritorio / 45s en móvil solo con ventana visible (reduce re-renders masivos).
+        const intervalMs = window.matchMedia('(max-width: 768px)').matches ? 45000 : 30000;
+        const intervalId = window.setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                refreshProducts();
+            }
+        }, intervalMs);
 
         const handleFocus = () => {
             refreshProducts();
@@ -354,51 +360,35 @@ export const POS = () => {
         return paymentMethods[0]?.name || selectedPaymentMethod || 'Efectivo';
     }, [paymentMethods, selectedPaymentMethod]);
 
-    const handleCheckout = async () => {
-        if (isCreditSale && !selectedClient) {
-            toast.error('⚠️ Para vender a crédito, DEBES seleccionar un Cliente registrado.');
-            return;
-        }
-
-        // #2 Validación de límite de crédito
-        if (isCreditSale && selectedClient && (selectedClient.creditLimit ?? 0) > 0) {
-            const abono = parseFloat(initialPayment) || 0;
-            const newDebt = totalUSD - abono;
-            if (currentClientDebt + newDebt > (selectedClient.creditLimit ?? 0)) {
-                return alert(
-                    `⛔ Límite de crédito excedido.\n` +
-                    `Deuda actual: $${currentClientDebt.toFixed(2)}\n` +
-                    `Nueva deuda: $${newDebt.toFixed(2)}\n` +
-                    `Límite: $${(selectedClient.creditLimit ?? 0).toFixed(2)}`
-                );
-            }
-        }
-
-        const creditUsed = (applyCredit && selectedClient && (selectedClient.creditBalance ?? 0) > 0)
-            ? Math.min(selectedClient.creditBalance!, totalUSD)
-            : 0;
-        const effectiveTotal = Math.max(0, totalUSD - creditUsed);
-
-        let paymentAmount = effectiveTotal;
-        if (isCreditSale) {
-            const abono = parseFloat(initialPayment) || 0;
-            if (abono > effectiveTotal) return alert('El abono no puede ser mayor al total.');
-            paymentAmount = abono;
-        }
-
-        const sale = await completeSale(effectivePaymentMethod, selectedClient?.id, paymentAmount);
-        if (sale) {
-            // Deduct credit used from client balance
-            if (creditUsed > 0 && selectedClient) {
-                await applyClientCredit(selectedClient.id, -creditUsed);
-            }
+    // 🔒 MÁQUINA DE ESTADOS Y GUARDA SÍNCRONA CONTRA DOBLE COBRO
+    const {
+        status: checkoutStatus,
+        errorMessage: checkoutError,
+        isSubmitting,
+        executeCheckout,
+        resetCheckoutState,
+    } = usePOSCheckout({
+        totalUSD,
+        selectedClient,
+        isCreditSale,
+        initialPayment,
+        applyCredit,
+        effectivePaymentMethod,
+        currentClientDebt,
+        completeSale,
+        applyClientCredit,
+        onSuccess: (sale) => {
             setCompletedSale(sale);
             setIsCheckoutModalOpen(false);
             switchToProductsView();
-        } else {
-            setIsCheckoutModalOpen(false);
-        }
-    };
+        },
+    });
+
+    const handleCloseCheckoutModal = useCallback(() => {
+        if (isSubmitting) return; // Impedir cerrar mientras la petición está en vuelo
+        setIsCheckoutModalOpen(false);
+        resetCheckoutState();
+    }, [isSubmitting, resetCheckoutState]);
 
     // ✅ FIX: Guardar carrito como cotización
     const handleSaveQuote = useCallback(async () => {
@@ -450,6 +440,7 @@ export const POS = () => {
     const handleNewSale = () => {
         setCompletedSale(null);
         clearClient();
+        resetCheckoutState();
         switchToProductsView();
     };
 
@@ -798,6 +789,9 @@ export const POS = () => {
                 key={`checkout-${String(isCheckoutModalOpen)}-${selectedClient?.id ?? 'none'}`}
                 isOpen={isCheckoutModalOpen}
                 completedSale={completedSale}
+                isSubmitting={isSubmitting}
+                checkoutStatus={checkoutStatus}
+                checkoutError={checkoutError}
                 clients={clients}
                 selectedClient={selectedClient}
                 onSelectClientById={handleSelectClientById}
@@ -815,8 +809,8 @@ export const POS = () => {
                 paymentMethods={paymentMethods}
                 selectedPaymentMethod={effectivePaymentMethod}
                 setSelectedPaymentMethod={setSelectedPaymentMethod}
-                onCloseCheckout={() => setIsCheckoutModalOpen(false)}
-                onCheckout={handleCheckout}
+                onCloseCheckout={handleCloseCheckoutModal}
+                onCheckout={executeCheckout}
                 onNewSale={handleNewSale}
                 onSendWhatsApp={handleSendWhatsAppReceipt}
                 onPrint={handlePrintReceipt}

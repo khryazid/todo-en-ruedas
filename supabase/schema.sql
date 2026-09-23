@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS public.products (
     sku           TEXT UNIQUE NOT NULL,
     name          TEXT NOT NULL,
     category      TEXT DEFAULT 'General',
-    stock         NUMERIC DEFAULT 0,
+    stock         NUMERIC DEFAULT 0 CHECK (stock >= 0),
     min_stock     NUMERIC DEFAULT 0,
     cost          NUMERIC DEFAULT 0,
     cost_type     TEXT DEFAULT 'BCV' CHECK (cost_type IN ('BCV','TH')),
@@ -117,6 +117,9 @@ CREATE TABLE IF NOT EXISTS public.sales (
 CREATE INDEX IF NOT EXISTS idx_sales_client_id ON public.sales(client_id);
 CREATE INDEX IF NOT EXISTS idx_sales_date ON public.sales(date);
 CREATE INDEX IF NOT EXISTS idx_sales_status ON public.sales(status);
+CREATE INDEX IF NOT EXISTS idx_sales_user_id ON public.sales(user_id);
+CREATE INDEX IF NOT EXISTS idx_sales_status_date_desc ON public.sales(status, date DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_sales_local_id ON public.sales(local_id) WHERE local_id IS NOT NULL;
 
 
 -- ============================================================
@@ -128,7 +131,7 @@ CREATE TABLE IF NOT EXISTS public.sale_items (
     product_id            UUID REFERENCES public.products(id) ON DELETE SET NULL,
     sku                   TEXT,
     product_name_snapshot TEXT NOT NULL,
-    quantity              NUMERIC NOT NULL,
+    quantity              NUMERIC NOT NULL CHECK (quantity > 0),
     unit_price_usd        NUMERIC(10,4) NOT NULL,
     price_final_usd       NUMERIC(10,4),
     discount_pct          NUMERIC(5,2) DEFAULT 0,
@@ -137,6 +140,7 @@ CREATE TABLE IF NOT EXISTS public.sale_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON public.sale_items(sale_id);
+CREATE INDEX IF NOT EXISTS idx_sale_items_product_id ON public.sale_items(product_id);
 
 
 -- ============================================================
@@ -153,14 +157,17 @@ CREATE TABLE IF NOT EXISTS public.payments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_payments_sale_id ON public.payments(sale_id);
+CREATE INDEX IF NOT EXISTS idx_payments_method_created ON public.payments(method, created_at DESC);
 
 
 -- ============================================================
 -- 7. COTIZACIONES (quotes)
 -- ============================================================
+CREATE SEQUENCE IF NOT EXISTS public.quote_number_seq START 1;
+
 CREATE TABLE IF NOT EXISTS public.quotes (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    number      TEXT UNIQUE NOT NULL,
+    number      TEXT UNIQUE NOT NULL DEFAULT ('COT-' || lpad(nextval('public.quote_number_seq')::text, 4, '0')),
     date        TIMESTAMPTZ DEFAULT now(),
     valid_until TIMESTAMPTZ,
     client_id   UUID REFERENCES public.clients(id) ON DELETE SET NULL,
@@ -177,6 +184,7 @@ CREATE TABLE IF NOT EXISTS public.quotes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_quotes_status ON public.quotes(status);
+CREATE INDEX IF NOT EXISTS idx_quotes_client_id ON public.quotes(client_id);
 
 
 -- ============================================================
@@ -204,7 +212,7 @@ CREATE TABLE IF NOT EXISTS public.returns (
     sale_id           UUID NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
     date              TIMESTAMPTZ DEFAULT now(),
     client_id         UUID REFERENCES public.clients(id) ON DELETE SET NULL,
-    nc_number         TEXT,
+    nc_number         TEXT DEFAULT ('NC-' || lpad(nextval('public.nc_number_seq')::text, 4, '0')),
     option            TEXT DEFAULT 'REEMBOLSO' CHECK (option IN ('CREDIT','REEMBOLSO')),
     reason            TEXT,
     refund_amount_usd NUMERIC(10,2) NOT NULL DEFAULT 0,
@@ -217,7 +225,9 @@ CREATE TABLE IF NOT EXISTS public.returns (
 
 CREATE INDEX IF NOT EXISTS idx_returns_sale_id ON public.returns(sale_id);
 CREATE INDEX IF NOT EXISTS idx_returns_client_id ON public.returns(client_id);
+CREATE INDEX IF NOT EXISTS idx_returns_user_id ON public.returns(user_id);
 CREATE INDEX IF NOT EXISTS idx_returns_date ON public.returns(date);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_returns_nc_number ON public.returns(nc_number) WHERE nc_number IS NOT NULL;
 
 
 -- ============================================================
@@ -243,6 +253,8 @@ CREATE TABLE IF NOT EXISTS public.stock_movements (
 CREATE INDEX IF NOT EXISTS idx_stock_movements_product_id ON public.stock_movements(product_id);
 CREATE INDEX IF NOT EXISTS idx_stock_movements_type ON public.stock_movements(type);
 CREATE INDEX IF NOT EXISTS idx_stock_movements_created_at ON public.stock_movements(created_at);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_created_by ON public.stock_movements(created_by);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_product_created ON public.stock_movements(product_id, created_at DESC);
 
 
 -- ============================================================
@@ -306,6 +318,12 @@ CREATE TABLE IF NOT EXISTS public.cash_closes (
     total_usd       NUMERIC(10,2) DEFAULT 0,
     total_bs        NUMERIC(10,2) DEFAULT 0,
     tx_count        NUMERIC DEFAULT 0,
+    declared_usd    NUMERIC(10,2) DEFAULT 0,
+    declared_bs     NUMERIC(10,2) DEFAULT 0,
+    declared_cop    NUMERIC(10,2) DEFAULT 0,
+    shortage_usd    NUMERIC(10,2) DEFAULT 0,
+    overage_usd     NUMERIC(10,2) DEFAULT 0,
+    notes           TEXT,
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 
@@ -338,6 +356,8 @@ CREATE INDEX IF NOT EXISTS idx_cash_ledger_date ON public.cash_ledger(date);
 CREATE INDEX IF NOT EXISTS idx_cash_ledger_direction ON public.cash_ledger(direction);
 CREATE INDEX IF NOT EXISTS idx_cash_ledger_kind ON public.cash_ledger(kind);
 CREATE INDEX IF NOT EXISTS idx_cash_ledger_reference ON public.cash_ledger(reference_type, reference_id);
+CREATE INDEX IF NOT EXISTS idx_cash_ledger_user_id ON public.cash_ledger(user_id);
+CREATE INDEX IF NOT EXISTS idx_cash_ledger_created_at_desc ON public.cash_ledger(created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_cash_ledger_reference
     ON public.cash_ledger(reference_type, reference_id)
     WHERE reference_type IS NOT NULL AND reference_id IS NOT NULL;
@@ -400,6 +420,8 @@ CREATE TABLE IF NOT EXISTS public.invoices (
 
 CREATE INDEX IF NOT EXISTS idx_invoices_status ON public.invoices(status);
 CREATE INDEX IF NOT EXISTS idx_invoices_supplier ON public.invoices(supplier);
+CREATE INDEX IF NOT EXISTS idx_invoices_date_issue ON public.invoices(date_issue);
+CREATE INDEX IF NOT EXISTS idx_invoices_date_due ON public.invoices(date_due);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_supplier_number_normalized
     ON public.invoices (coalesce(supplier::text, '__NO_SUPPLIER__'), lower(btrim(number)));
 
@@ -467,66 +489,404 @@ ALTER TABLE public.invoices         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payment_methods  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs       ENABLE ROW LEVEL SECURITY;
 
--- Política general: usuario autenticado tiene acceso total
--- (la app controla RBAC a nivel aplicación)
-CREATE POLICY "Allow authenticated users full access on settings"
-    ON public.settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ============================================================
+-- FUNCIÓN AUXILIAR DE ROL (necesaria para todas las políticas)
+-- ============================================================
+-- Retorna el rol del usuario autenticado actual desde public.users.
+-- Si el usuario no existe o está desactivado, retorna 'DEACTIVATED'.
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS TEXT
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_role TEXT;
+BEGIN
+  SELECT role INTO v_role
+  FROM public.users
+  WHERE id = auth.uid() AND is_active = true;
+  RETURN COALESCE(v_role, 'DEACTIVATED');
+END;
+$$;
 
--- Permitir lectura a usuarios anónimos estructurando el inicio de sesión
--- Necesario para que useSetupCheck sepa si el sistema ya fue configurado
+-- ============================================================
+-- SETTINGS
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on settings" ON public.settings;
+DROP POLICY IF EXISTS "Allow anon read settings"                           ON public.settings;
+DROP POLICY IF EXISTS "Allow authenticated to read settings"              ON public.settings;
+DROP POLICY IF EXISTS "Allow admin to manage settings"                    ON public.settings;
+
+-- Lectura anónima: necesario para useSetupCheck (detectar si el sistema ya fue configurado)
 CREATE POLICY "Allow anon read settings"
     ON public.settings FOR SELECT TO anon USING (true);
+-- Lectura autenticada
+CREATE POLICY "Allow authenticated to read settings"
+    ON public.settings FOR SELECT TO authenticated USING (true);
+-- Escritura: solo ADMIN
+CREATE POLICY "Allow admin to manage settings"
+    ON public.settings FOR ALL TO authenticated
+    USING    (public.current_user_role() = 'ADMIN')
+    WITH CHECK (public.current_user_role() = 'ADMIN');
 
-CREATE POLICY "Allow authenticated users full access on products"
-    ON public.products FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ============================================================
+-- PRODUCTS
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on products"  ON public.products;
+DROP POLICY IF EXISTS "Allow authenticated to read products"              ON public.products;
+DROP POLICY IF EXISTS "Allow admin and manager to modify products"        ON public.products;
 
-CREATE POLICY "Allow authenticated users full access on clients"
-    ON public.clients FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow authenticated to read products"
+    ON public.products FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow admin and manager to modify products"
+    ON public.products FOR ALL TO authenticated
+    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
 
-CREATE POLICY "Allow authenticated users full access on sales"
-    ON public.sales FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ============================================================
+-- CLIENTS
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on clients"   ON public.clients;
+DROP POLICY IF EXISTS "Allow authenticated to read clients"               ON public.clients;
+DROP POLICY IF EXISTS "Allow staff to insert clients"                     ON public.clients;
+DROP POLICY IF EXISTS "Allow admin and manager to manage clients"         ON public.clients;
+DROP POLICY IF EXISTS "Allow admin and manager to delete clients"         ON public.clients;
 
-CREATE POLICY "Allow authenticated users full access on sale_items"
-    ON public.sale_items FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow authenticated to read clients"
+    ON public.clients FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow staff to insert clients"
+    ON public.clients FOR INSERT TO authenticated
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER', 'SELLER'));
+CREATE POLICY "Allow admin and manager to manage clients"
+    ON public.clients FOR UPDATE TO authenticated
+    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+CREATE POLICY "Allow admin and manager to delete clients"
+    ON public.clients FOR DELETE TO authenticated
+    USING (public.current_user_role() IN ('ADMIN', 'MANAGER'));
 
-CREATE POLICY "Allow authenticated users full access on payments"
-    ON public.payments FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ============================================================
+-- SALES
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on sales"     ON public.sales;
+DROP POLICY IF EXISTS "Allow read sales by role"                          ON public.sales;
+DROP POLICY IF EXISTS "Allow insert sales"                                ON public.sales;
+DROP POLICY IF EXISTS "Allow admin and manager to update sales"           ON public.sales;
 
-CREATE POLICY "Allow authenticated users full access on quotes"
-    ON public.quotes FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow read sales by role"
+    ON public.sales FOR SELECT TO authenticated
+    USING (
+        public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER')
+        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
+    );
+CREATE POLICY "Allow insert sales"
+    ON public.sales FOR INSERT TO authenticated
+    WITH CHECK (
+        public.current_user_role() IN ('ADMIN', 'MANAGER', 'SELLER')
+        AND user_id = auth.uid()
+    );
+CREATE POLICY "Allow admin and manager to update sales"
+    ON public.sales FOR UPDATE TO authenticated
+    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
 
-CREATE POLICY "Allow authenticated users full access on returns"
-    ON public.returns FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ============================================================
+-- SALE_ITEMS
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on sale_items" ON public.sale_items;
+DROP POLICY IF EXISTS "Allow read sale items by role"                       ON public.sale_items;
+DROP POLICY IF EXISTS "Allow insert sale items"                             ON public.sale_items;
 
-CREATE POLICY "Allow authenticated users full access on stock_movements"
-    ON public.stock_movements FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow read sale items by role"
+    ON public.sale_items FOR SELECT TO authenticated
+    USING (
+        public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER')
+        OR EXISTS (
+            SELECT 1 FROM public.sales s
+            WHERE s.id = sale_items.sale_id
+              AND public.current_user_role() = 'SELLER'
+              AND s.user_id = auth.uid()
+        )
+    );
+CREATE POLICY "Allow insert sale items"
+    ON public.sale_items FOR INSERT TO authenticated
+    WITH CHECK (
+        public.current_user_role() IN ('ADMIN', 'MANAGER')
+        OR EXISTS (
+            SELECT 1 FROM public.sales s
+            WHERE s.id = sale_items.sale_id
+              AND public.current_user_role() = 'SELLER'
+              AND s.user_id = auth.uid()
+        )
+    );
 
-CREATE POLICY "Allow authenticated users full access on expenses"
-    ON public.expenses FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ============================================================
+-- PAYMENTS
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on payments"  ON public.payments;
+DROP POLICY IF EXISTS "Allow read payments by role"                        ON public.payments;
+DROP POLICY IF EXISTS "Allow insert payments by role"                      ON public.payments;
+DROP POLICY IF EXISTS "Allow admin and manager to manage payments"          ON public.payments;
 
-CREATE POLICY "Allow authenticated users full access on recurring_expenses"
-    ON public.recurring_expenses FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow read payments by role"
+    ON public.payments FOR SELECT TO authenticated
+    USING (
+        public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER')
+        OR EXISTS (
+            SELECT 1 FROM public.sales s
+            WHERE s.id = payments.sale_id
+              AND public.current_user_role() = 'SELLER'
+              AND s.user_id = auth.uid()
+        )
+    );
+CREATE POLICY "Allow insert payments by role"
+    ON public.payments FOR INSERT TO authenticated
+    WITH CHECK (
+        public.current_user_role() IN ('ADMIN', 'MANAGER')
+        OR EXISTS (
+            SELECT 1 FROM public.sales s
+            WHERE s.id = payments.sale_id
+              AND public.current_user_role() = 'SELLER'
+              AND s.user_id = auth.uid()
+        )
+    );
+CREATE POLICY "Allow admin and manager to manage payments"
+    ON public.payments FOR ALL TO authenticated
+    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
 
-CREATE POLICY "Allow authenticated users full access on cash_closes"
-    ON public.cash_closes FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ============================================================
+-- QUOTES
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on quotes"    ON public.quotes;
+DROP POLICY IF EXISTS "Allow read quotes by role"                          ON public.quotes;
+DROP POLICY IF EXISTS "Allow insert quotes by role"                        ON public.quotes;
+DROP POLICY IF EXISTS "Allow update quotes by role"                        ON public.quotes;
+DROP POLICY IF EXISTS "Allow admin and manager to delete quotes"           ON public.quotes;
 
-CREATE POLICY "Allow authenticated users full access on cash_ledger"
-    ON public.cash_ledger FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow read quotes by role"
+    ON public.quotes FOR SELECT TO authenticated
+    USING (
+        public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER')
+        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
+    );
+CREATE POLICY "Allow insert quotes by role"
+    ON public.quotes FOR INSERT TO authenticated
+    WITH CHECK (
+        public.current_user_role() IN ('ADMIN', 'MANAGER')
+        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
+    );
+CREATE POLICY "Allow update quotes by role"
+    ON public.quotes FOR UPDATE TO authenticated
+    USING (
+        public.current_user_role() IN ('ADMIN', 'MANAGER')
+        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
+    )
+    WITH CHECK (
+        public.current_user_role() IN ('ADMIN', 'MANAGER')
+        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
+    );
+CREATE POLICY "Allow admin and manager to delete quotes"
+    ON public.quotes FOR DELETE TO authenticated
+    USING (public.current_user_role() IN ('ADMIN', 'MANAGER'));
 
-CREATE POLICY "Allow authenticated users full access on users"
-    ON public.users FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ============================================================
+-- RETURNS
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on returns"   ON public.returns;
+DROP POLICY IF EXISTS "Allow read returns by role"                         ON public.returns;
+DROP POLICY IF EXISTS "Allow insert returns by role"                       ON public.returns;
+DROP POLICY IF EXISTS "Allow admin and manager to manage returns"           ON public.returns;
 
-CREATE POLICY "Allow authenticated users full access on suppliers"
-    ON public.suppliers FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow read returns by role"
+    ON public.returns FOR SELECT TO authenticated
+    USING (
+        public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER')
+        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
+    );
+CREATE POLICY "Allow insert returns by role"
+    ON public.returns FOR INSERT TO authenticated
+    WITH CHECK (
+        public.current_user_role() IN ('ADMIN', 'MANAGER')
+        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
+    );
+CREATE POLICY "Allow admin and manager to manage returns"
+    ON public.returns FOR ALL TO authenticated
+    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
 
-CREATE POLICY "Allow authenticated users full access on invoices"
-    ON public.invoices FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ============================================================
+-- STOCK_MOVEMENTS
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on stock_movements"  ON public.stock_movements;
+DROP POLICY IF EXISTS "Allow read stock movements by role"                        ON public.stock_movements;
+DROP POLICY IF EXISTS "Allow admin and manager to insert stock movements"         ON public.stock_movements;
+DROP POLICY IF EXISTS "Allow admin to manage stock movements"                     ON public.stock_movements;
 
-CREATE POLICY "Allow authenticated users full access on payment_methods"
-    ON public.payment_methods FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow read stock movements by role"
+    ON public.stock_movements FOR SELECT TO authenticated
+    USING (public.current_user_role() IN ('ADMIN', 'MANAGER', 'SELLER', 'VIEWER'));
+CREATE POLICY "Allow admin and manager to insert stock movements"
+    ON public.stock_movements FOR INSERT TO authenticated
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+CREATE POLICY "Allow admin to manage stock movements"
+    ON public.stock_movements FOR ALL TO authenticated
+    USING    (public.current_user_role() = 'ADMIN')
+    WITH CHECK (public.current_user_role() = 'ADMIN');
 
-CREATE POLICY "Allow authenticated users full access on audit_logs"
-    ON public.audit_logs FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- ============================================================
+-- EXPENSES
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on expenses"         ON public.expenses;
+DROP POLICY IF EXISTS "Allow expenses access to authorized roles"                 ON public.expenses;
+
+CREATE POLICY "Allow expenses access to authorized roles"
+    ON public.expenses FOR ALL TO authenticated
+    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+
+-- ============================================================
+-- RECURRING_EXPENSES
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on recurring_expenses" ON public.recurring_expenses;
+DROP POLICY IF EXISTS "Allow recurring expenses to authorized roles"                ON public.recurring_expenses;
+
+CREATE POLICY "Allow recurring expenses to authorized roles"
+    ON public.recurring_expenses FOR ALL TO authenticated
+    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+
+-- ============================================================
+-- CASH_CLOSES
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on cash_closes"      ON public.cash_closes;
+DROP POLICY IF EXISTS "Allow read cash closes by role"                           ON public.cash_closes;
+DROP POLICY IF EXISTS "Allow insert cash closes by role"                         ON public.cash_closes;
+DROP POLICY IF EXISTS "Allow admin to manage cash closes"                         ON public.cash_closes;
+
+CREATE POLICY "Allow read cash closes by role"
+    ON public.cash_closes FOR SELECT TO authenticated
+    USING (public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER'));
+CREATE POLICY "Allow insert cash closes by role"
+    ON public.cash_closes FOR INSERT TO authenticated
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+CREATE POLICY "Allow admin to manage cash closes"
+    ON public.cash_closes FOR ALL TO authenticated
+    USING    (public.current_user_role() = 'ADMIN')
+    WITH CHECK (public.current_user_role() = 'ADMIN');
+
+-- ============================================================
+-- CASH_LEDGER
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on cash_ledger"      ON public.cash_ledger;
+DROP POLICY IF EXISTS "Allow read cash ledger by role"                           ON public.cash_ledger;
+DROP POLICY IF EXISTS "Allow insert cash ledger by role"                         ON public.cash_ledger;
+DROP POLICY IF EXISTS "Allow admin and manager to update cash ledger"            ON public.cash_ledger;
+
+CREATE POLICY "Allow read cash ledger by role"
+    ON public.cash_ledger FOR SELECT TO authenticated
+    USING (public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER'));
+CREATE POLICY "Allow insert cash ledger by role"
+    ON public.cash_ledger FOR INSERT TO authenticated
+    WITH CHECK (
+        public.current_user_role() IN ('ADMIN', 'MANAGER')
+        OR (
+            public.current_user_role() = 'SELLER'
+            AND user_id = auth.uid()
+        )
+    );
+CREATE POLICY "Allow admin and manager to update cash ledger"
+    ON public.cash_ledger FOR UPDATE TO authenticated
+    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+
+-- ============================================================
+-- USERS
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on users"            ON public.users;
+DROP POLICY IF EXISTS "Allow authenticated to read users"                        ON public.users;
+DROP POLICY IF EXISTS "Allow admin and manager to update users"                  ON public.users;
+DROP POLICY IF EXISTS "Allow admin to insert or delete users"                    ON public.users;
+
+CREATE POLICY "Allow authenticated to read users"
+    ON public.users FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow admin and manager to update users"
+    ON public.users FOR UPDATE TO authenticated
+    USING (
+        public.current_user_role() = 'ADMIN'
+        OR (
+            public.current_user_role() = 'MANAGER'
+            AND role IN ('SELLER', 'VIEWER')
+        )
+    )
+    WITH CHECK (
+        public.current_user_role() = 'ADMIN'
+        OR (
+            public.current_user_role() = 'MANAGER'
+            AND role IN ('SELLER', 'VIEWER')
+        )
+    );
+CREATE POLICY "Allow admin to insert or delete users"
+    ON public.users FOR ALL TO authenticated
+    USING    (public.current_user_role() = 'ADMIN')
+    WITH CHECK (public.current_user_role() = 'ADMIN');
+
+-- ============================================================
+-- SUPPLIERS
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on suppliers"        ON public.suppliers;
+DROP POLICY IF EXISTS "Allow staff to read suppliers"                             ON public.suppliers;
+DROP POLICY IF EXISTS "Allow admin and manager to manage suppliers"               ON public.suppliers;
+
+CREATE POLICY "Allow staff to read suppliers"
+    ON public.suppliers FOR SELECT TO authenticated
+    USING (public.current_user_role() IN ('ADMIN', 'MANAGER', 'SELLER'));
+CREATE POLICY "Allow admin and manager to manage suppliers"
+    ON public.suppliers FOR ALL TO authenticated
+    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+
+-- ============================================================
+-- INVOICES
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on invoices"         ON public.invoices;
+DROP POLICY IF EXISTS "Allow invoice access to authorized roles"                 ON public.invoices;
+
+CREATE POLICY "Allow invoice access to authorized roles"
+    ON public.invoices FOR ALL TO authenticated
+    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER'))
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+
+-- ============================================================
+-- PAYMENT_METHODS
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on payment_methods"  ON public.payment_methods;
+DROP POLICY IF EXISTS "Allow authenticated to read payment methods"              ON public.payment_methods;
+DROP POLICY IF EXISTS "Allow admin and manager to manage payment methods"         ON public.payment_methods;
+
+CREATE POLICY "Allow authenticated to read payment methods"
+    ON public.payment_methods FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Allow admin and manager to manage payment methods"
+    ON public.payment_methods FOR ALL TO authenticated
+    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
+    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+
+-- ============================================================
+-- AUDIT_LOGS
+-- ============================================================
+DROP POLICY IF EXISTS "Allow authenticated users full access on audit_logs"       ON public.audit_logs;
+DROP POLICY IF EXISTS "Allow admin and manager to read audit_logs"                ON public.audit_logs;
+DROP POLICY IF EXISTS "Allow verified insertion of audit_logs"                    ON public.audit_logs;
+
+CREATE POLICY "Allow admin and manager to read audit_logs"
+    ON public.audit_logs FOR SELECT TO authenticated
+    USING (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+CREATE POLICY "Allow verified insertion of audit_logs"
+    ON public.audit_logs FOR INSERT TO authenticated
+    WITH CHECK (user_id = auth.uid());
+
 
 
 -- ============================================================
@@ -575,6 +935,11 @@ $$;
 -- 18. SINCRONIZACION auth.users -> public.users
 -- Evita sesiones validas sin perfil en la tabla users de la app
 -- ============================================================
+-- ⚠️ SECURITY (H1): NUNCA leer 'role' de raw_user_meta_data.
+-- Un atacante puede llamar signUp({ options: { data: { role: 'ADMIN' } } })
+-- y escalar privilegios si confiamos en esa metadata.
+-- El rol siempre es VIEWER al registrarse. Solo un ADMIN autenticado
+-- puede cambiar el rol desde el panel de gestión de usuarios.
 CREATE OR REPLACE FUNCTION public.sync_public_user_from_auth()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -582,41 +947,46 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-    resolved_role text;
-    resolved_name text;
+    v_full_name text;
 BEGIN
-    resolved_role := upper(coalesce(NEW.raw_user_meta_data ->> 'role', 'VIEWER'));
-    IF resolved_role NOT IN ('ADMIN', 'MANAGER', 'SELLER', 'VIEWER') THEN
-        resolved_role := 'VIEWER';
-    END IF;
-
-    resolved_name := coalesce(
-        nullif(NEW.raw_user_meta_data ->> 'full_name', ''),
-        split_part(coalesce(NEW.email, ''), '@', 1),
+    v_full_name := coalesce(
+        nullif(trim(NEW.raw_user_meta_data ->> 'full_name'), ''),
+        split_part(coalesce(NEW.email, 'usuario'), '@', 1),
         'Usuario'
     );
 
     INSERT INTO public.users (id, email, full_name, role, is_active, updated_at)
-    VALUES (NEW.id, coalesce(NEW.email, ''), resolved_name, resolved_role, true, now())
+    VALUES (
+        NEW.id,
+        coalesce(NEW.email, ''),
+        v_full_name,
+        'VIEWER',   -- SIEMPRE VIEWER. Nunca leer role de raw_user_meta_data.
+        true,
+        now()
+    )
     ON CONFLICT (id) DO UPDATE
     SET
-        email = EXCLUDED.email,
-        full_name = EXCLUDED.full_name,
-        role = EXCLUDED.role,
+        email      = EXCLUDED.email,
+        full_name  = EXCLUDED.full_name,
+        -- NO actualizar 'role' en el ON CONFLICT: preservar el rol asignado por ADMIN.
         updated_at = now();
 
     RETURN NEW;
 END;
 $$;
 
+-- Eliminar ambas variantes de nombre que puedan existir en instancias previas
 DROP TRIGGER IF EXISTS trg_sync_public_user_from_auth ON auth.users;
+DROP TRIGGER IF EXISTS tr_sync_public_user_from_auth  ON auth.users;
 
+-- Solo en INSERT: evita sobrescribir rol cuando alguien cambia su email/metadata
 CREATE TRIGGER trg_sync_public_user_from_auth
-AFTER INSERT OR UPDATE OF email, raw_user_meta_data
-ON auth.users
+AFTER INSERT ON auth.users
 FOR EACH ROW
 EXECUTE FUNCTION public.sync_public_user_from_auth();
 
+-- Backfill: sincronizar usuarios de auth que no tengan perfil en public.users.
+-- Asigna VIEWER por defecto (no leer role de metadata).
 INSERT INTO public.users (
     id,
     email,
@@ -630,15 +1000,11 @@ SELECT
     au.id,
     coalesce(au.email, ''),
     coalesce(
-        nullif(au.raw_user_meta_data ->> 'full_name', ''),
+        nullif(trim(au.raw_user_meta_data ->> 'full_name'), ''),
         split_part(coalesce(au.email, ''), '@', 1),
         'Usuario'
     ) AS full_name,
-    CASE
-        WHEN upper(coalesce(au.raw_user_meta_data ->> 'role', 'VIEWER')) IN ('ADMIN', 'MANAGER', 'SELLER', 'VIEWER')
-            THEN upper(coalesce(au.raw_user_meta_data ->> 'role', 'VIEWER'))
-        ELSE 'VIEWER'
-    END AS role,
+    'VIEWER' AS role,  -- Siempre VIEWER en backfill también
     true,
     now(),
     now()
@@ -650,6 +1016,10 @@ WHERE pu.id IS NULL;
 -- ============================================================
 -- 18. FUNCIONES (RPC)
 -- ============================================================
+DROP FUNCTION IF EXISTS public.process_sale_atomic(uuid, text, numeric, text, numeric, numeric, boolean, uuid, text, jsonb);
+DROP FUNCTION IF EXISTS public.process_sale_atomic(uuid, text, numeric, text, numeric, numeric, boolean, uuid, text, jsonb, numeric);
+DROP FUNCTION IF EXISTS public.process_sale_atomic(uuid, text, numeric, text, numeric, numeric, boolean, uuid, text, jsonb, numeric, numeric, numeric);
+
 CREATE OR REPLACE FUNCTION public.process_sale_atomic(
     p_client_id uuid,
     p_payment_method text,
@@ -660,24 +1030,67 @@ CREATE OR REPLACE FUNCTION public.process_sale_atomic(
     p_is_credit boolean,
     p_user_id uuid,
     p_seller_name text,
-    p_items jsonb
+    p_items jsonb,
+    p_discount_pct numeric DEFAULT 0,
+    p_tasa_bcv numeric DEFAULT NULL,
+    p_tasa_cop numeric DEFAULT NULL
 )
 RETURNS TABLE (sale_id uuid, local_id integer, sale_date timestamptz)
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
-    item jsonb;
     v_sale_id uuid;
     v_local_id integer;
-    v_sale_date timestamptz;
-    v_product_id uuid;
-    v_quantity numeric;
+    v_sale_date timestamptz := now();
     v_stock numeric;
+    v_sku text;
+    v_pname text;
+    r_stock RECORD;
+    elem jsonb;
+    v_method_currency text := 'USD';
+    v_effective_tasa_bcv numeric;
+    v_effective_tasa_cop numeric;
+    v_paid_bs numeric;
+    v_paid_cop numeric;
+    -- H5: Variables para validación de límite de crédito
+    v_credit_limit   numeric;
+    v_credit_balance numeric;
+    v_new_debt       numeric;
 BEGIN
+    -- Validación de precondiciones
     IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN
-        RAISE EXCEPTION 'El carrito esta vacio';
+        RAISE EXCEPTION 'El carrito de venta no puede estar vacío';
     END IF;
 
+    -- H5: Validación de límite de crédito (backend enforcement)
+    -- REGLA DE NEGOCIO: credit_limit = 0 significa $0.00 de límite (no puede fiar).
+    -- Toda venta a crédito requiere un cliente asignado y no puede superar credit_limit.
+    IF coalesce(p_is_credit, false) = true THEN
+        IF p_client_id IS NULL THEN
+            RAISE EXCEPTION 'VENTA_CREDITO_SIN_CLIENTE:Venta a crédito requiere un cliente registrado';
+        END IF;
+
+        SELECT
+            coalesce(credit_limit, 0),
+            coalesce(credit_balance, 0)
+        INTO v_credit_limit, v_credit_balance
+        FROM public.clients
+        WHERE id = p_client_id
+        FOR SHARE;
+
+        v_new_debt := GREATEST(coalesce(p_total_usd, 0) - coalesce(p_paid_amount_usd, 0), 0);
+        IF (v_credit_balance + v_new_debt) > v_credit_limit THEN
+            RAISE EXCEPTION 'CREDITO_INSUFICIENTE:%:limite=%,deuda_actual=%,nueva_deuda=%',
+                p_client_id,
+                v_credit_limit,
+                v_credit_balance,
+                v_new_debt;
+        END IF;
+    END IF;
+
+    -- 1. Insertar Cabecera de Venta
     INSERT INTO public.sales (
         client_id,
         total_usd,
@@ -686,46 +1099,94 @@ BEGIN
         status,
         paid_amount_usd,
         is_credit,
+        discount_pct,
         user_id,
         seller_name,
         date
     ) VALUES (
         p_client_id,
         p_total_usd,
-        p_total_ved,
+        coalesce(p_total_ved, 0),
         p_payment_method,
         p_status,
-        p_paid_amount_usd,
-        p_is_credit,
+        coalesce(p_paid_amount_usd, 0),
+        coalesce(p_is_credit, false),
+        coalesce(p_discount_pct, 0),
         p_user_id,
         p_seller_name,
-        now()
+        v_sale_date
     )
     RETURNING id, sales.local_id, sales.date
     INTO v_sale_id, v_local_id, v_sale_date;
 
-    FOR item IN SELECT * FROM jsonb_array_elements(p_items)
-    LOOP
-        v_product_id := (item ->> 'product_id')::uuid;
-        v_quantity := (item ->> 'quantity')::numeric;
+    -- 2. Procesamiento y Bloqueo de Stock
+    -- NOTA DBA: Consolidar y ordenar estrictamente por product_id ASC para eliminar Deadlocks (40P01)
+    FOR r_stock IN (
+        SELECT 
+            (item->>'product_id')::uuid AS product_id,
+            sum((item->>'quantity')::numeric) AS total_quantity
+        FROM jsonb_array_elements(p_items) AS item
+        WHERE (item->>'product_id') IS NOT NULL
+        GROUP BY (item->>'product_id')::uuid
+        ORDER BY (item->>'product_id')::uuid ASC
+    ) LOOP
+        -- Validar cantidad estrictamente positiva
+        IF r_stock.total_quantity <= 0 THEN
+            RAISE EXCEPTION 'Cantidad inválida para producto %: % (Debe ser > 0)', r_stock.product_id, r_stock.total_quantity;
+        END IF;
 
-        SELECT stock INTO v_stock
+        -- Bloqueo pesimista determinista
+        SELECT stock, sku, name INTO v_stock, v_sku, v_pname
         FROM public.products
-        WHERE id = v_product_id
+        WHERE id = r_stock.product_id
         FOR UPDATE;
 
         IF v_stock IS NULL THEN
-            RAISE EXCEPTION 'Producto no encontrado: %', v_product_id;
+            RAISE EXCEPTION 'Producto no encontrado en catálogo: %', r_stock.product_id;
         END IF;
 
-        IF v_stock < v_quantity THEN
-            RAISE EXCEPTION 'STOCK_INSUFICIENTE:%:disponible=%,solicitado=%', v_product_id, v_stock, v_quantity;
+        IF v_stock < r_stock.total_quantity THEN
+            RAISE EXCEPTION 'STOCK_INSUFICIENTE:%:disponible=%,solicitado=%', r_stock.product_id, v_stock, r_stock.total_quantity;
         END IF;
 
+        -- Actualizar stock
         UPDATE public.products
-        SET stock = stock - v_quantity
-        WHERE id = v_product_id;
+        SET stock = stock - r_stock.total_quantity
+        WHERE id = r_stock.product_id;
 
+        -- Registrar movimiento de Kardex (stock_movements) DENTRO de la transacción
+        INSERT INTO public.stock_movements (
+            product_id,
+            sku,
+            product_name,
+            type,
+            qty_before,
+            qty_change,
+            qty_after,
+            reference_id,
+            reason,
+            created_by,
+            seller_name,
+            created_at
+        ) VALUES (
+            r_stock.product_id,
+            v_sku,
+            v_pname,
+            'SALE',
+            v_stock,
+            -r_stock.total_quantity,
+            v_stock - r_stock.total_quantity,
+            v_sale_id::text,
+            'Venta registrada #' || coalesce(v_local_id::text, substring(v_sale_id::text from 1 for 8)),
+            p_user_id,
+            p_seller_name,
+            v_sale_date
+        );
+    END LOOP;
+
+    -- 3. Registrar ítems individuales de venta (preservando snapshots y descuentos individuales)
+    FOR elem IN SELECT * FROM jsonb_array_elements(p_items)
+    LOOP
         INSERT INTO public.sale_items (
             sale_id,
             product_id,
@@ -733,25 +1194,400 @@ BEGIN
             product_name_snapshot,
             quantity,
             unit_price_usd,
-            cost_unit_usd
+            cost_unit_usd,
+            discount_pct
         ) VALUES (
             v_sale_id,
-            v_product_id,
-            item ->> 'sku',
-            item ->> 'product_name',
-            v_quantity,
-            (item ->> 'unit_price_usd')::numeric,
-            (item ->> 'cost_unit_usd')::numeric
+            (elem->>'product_id')::uuid,
+            coalesce(elem->>'sku', ''),
+            coalesce(elem->>'product_name', elem->>'name', 'Producto'),
+            (elem->>'quantity')::numeric,
+            (elem->>'unit_price_usd')::numeric,
+            coalesce((elem->>'cost_unit_usd')::numeric, 0),
+            coalesce((elem->>'discount_pct')::numeric, p_discount_pct, 0)
         );
     END LOOP;
 
+    -- 4. Registrar Pago y Asiento de Caja si hubo cobro
     IF p_paid_amount_usd > 0 THEN
-        INSERT INTO public.payments (sale_id, amount_usd, method, note)
-        VALUES (v_sale_id, p_paid_amount_usd, p_payment_method, 'Pago Inicial');
+        -- Resolver moneda del método de pago
+        SELECT coalesce(currency, 'USD') INTO v_method_currency
+        FROM public.payment_methods
+        WHERE name = p_payment_method
+        LIMIT 1;
+
+        -- Resolver tasas efectivas para el cálculo del cobro real
+        IF p_tasa_bcv IS NOT NULL AND p_tasa_bcv > 0 THEN
+            v_effective_tasa_bcv := p_tasa_bcv;
+        ELSIF p_total_usd > 0 AND p_total_ved > 0 THEN
+            v_effective_tasa_bcv := p_total_ved / p_total_usd;
+        ELSE
+            SELECT coalesce(tasa_bcv, 1) INTO v_effective_tasa_bcv FROM public.settings LIMIT 1;
+        END IF;
+
+        IF p_tasa_cop IS NOT NULL AND p_tasa_cop > 0 THEN
+            v_effective_tasa_cop := p_tasa_cop;
+        ELSE
+            SELECT coalesce(tasa_cop, 1) INTO v_effective_tasa_cop FROM public.settings LIMIT 1;
+        END IF;
+
+        -- Cálculos contables exactos según moneda de cobro
+        v_paid_bs := CASE WHEN v_method_currency = 'BS' THEN round(p_paid_amount_usd * coalesce(v_effective_tasa_bcv, 1), 2) ELSE NULL END;
+        v_paid_cop := CASE WHEN v_method_currency = 'COP' THEN round(p_paid_amount_usd * coalesce(v_effective_tasa_cop, 1)) ELSE NULL END;
+
+        INSERT INTO public.payments (
+            sale_id,
+            amount_usd,
+            amount_cop,
+            method,
+            note
+        ) VALUES (
+            v_sale_id,
+            p_paid_amount_usd,
+            coalesce(v_paid_cop, 0),
+            p_payment_method,
+            'Pago Inicial'
+        );
+
+        -- Asiento atómico en cash_ledger
+        INSERT INTO public.cash_ledger (
+            date,
+            direction,
+            kind,
+            amount_usd,
+            amount_bs,
+            amount_cop,
+            currency,
+            payment_method,
+            description,
+            reference_type,
+            reference_id,
+            user_id,
+            seller_name,
+            created_at
+        ) VALUES (
+            v_sale_date::text,
+            'IN',
+            'VENTA_COBRADA',
+            p_paid_amount_usd,
+            v_paid_bs,
+            v_paid_cop,
+            coalesce(v_method_currency, 'USD'),
+            p_payment_method,
+            'Cobro inicial de venta #' || coalesce(v_local_id::text, substring(v_sale_id::text from 1 for 8)),
+            'sale-payment',
+            v_sale_id::text || ':initial',
+            p_user_id,
+            p_seller_name,
+            v_sale_date
+        )
+        ON CONFLICT (reference_type, reference_id) DO NOTHING;
     END IF;
 
+    RETURN QUERY SELECT v_sale_id, v_local_id, v_sale_date;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.process_return_atomic(
+    p_sale_id uuid,
+    p_client_id uuid,
+    p_option text,             -- 'CREDIT' o 'REEMBOLSO'
+    p_reason text,
+    p_refund_amount_usd numeric,
+    p_type text,               -- 'FULL' o 'PARTIAL'
+    p_items jsonb,
+    p_user_id uuid,
+    p_seller_name text
+)
+RETURNS TABLE (return_id uuid, nc_number text, return_date timestamptz)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_return_id uuid;
+    v_nc_number text;
+    v_return_date timestamptz := now();
+    v_next_val bigint;
+    v_stock numeric;
+    v_sku text;
+    v_pname text;
+    r_stock RECORD;
+BEGIN
+    -- Validaciones de entrada
+    IF p_option NOT IN ('CREDIT', 'REEMBOLSO') THEN
+        RAISE EXCEPTION 'Opción de devolución inválida: %', p_option;
+    END IF;
+
+    -- 1. Adquisición estricta de bloqueos en orden jerárquico:
+    --    Paso A: Bloquear la venta asociada para evitar anulación/devolución simultánea
+    PERFORM 1 FROM public.sales WHERE id = p_sale_id FOR UPDATE;
+
+    --    Paso B: Asignar número correlativo de Nota de Crédito en la misma transacción DML
+    v_next_val := nextval('public.nc_number_seq');
+    v_nc_number := 'NC-' || lpad(v_next_val::text, 4, '0');
+
+    -- 2. Insertar Cabecera de Devolución
+    INSERT INTO public.returns (
+        sale_id,
+        client_id,
+        nc_number,
+        option,
+        reason,
+        refund_amount_usd,
+        type,
+        items,
+        user_id,
+        seller_name,
+        date
+    ) VALUES (
+        p_sale_id,
+        p_client_id,
+        v_nc_number,
+        p_option,
+        p_reason,
+        coalesce(p_refund_amount_usd, 0),
+        p_type,
+        p_items,
+        p_user_id,
+        p_seller_name,
+        v_return_date
+    )
+    RETURNING id INTO v_return_id;
+
+    -- 3. Restaurar stock en orden canónico (evita Deadlocks) y registrar Kardex
+    IF p_items IS NOT NULL AND jsonb_array_length(p_items) > 0 THEN
+        FOR r_stock IN (
+            SELECT 
+                coalesce(elem->>'productId', elem->>'product_id')::uuid AS product_id,
+                sum(coalesce(elem->>'quantity', elem->>'qty')::numeric) AS total_quantity
+            FROM jsonb_array_elements(p_items) AS elem
+            WHERE coalesce(elem->>'productId', elem->>'product_id') IS NOT NULL
+            GROUP BY coalesce(elem->>'productId', elem->>'product_id')::uuid
+            ORDER BY coalesce(elem->>'productId', elem->>'product_id')::uuid ASC
+        ) LOOP
+            IF r_stock.total_quantity > 0 THEN
+                SELECT stock, sku, name INTO v_stock, v_sku, v_pname
+                FROM public.products
+                WHERE id = r_stock.product_id
+                FOR UPDATE;
+
+                IF v_stock IS NOT NULL THEN
+                    UPDATE public.products
+                    SET stock = stock + r_stock.total_quantity
+                    WHERE id = r_stock.product_id;
+
+                    INSERT INTO public.stock_movements (
+                        product_id,
+                        sku,
+                        product_name,
+                        type,
+                        qty_before,
+                        qty_change,
+                        qty_after,
+                        reference_id,
+                        reason,
+                        created_by,
+                        seller_name,
+                        created_at
+                    ) VALUES (
+                        r_stock.product_id,
+                        v_sku,
+                        v_pname,
+                        'RETURN',
+                        v_stock,
+                        r_stock.total_quantity,
+                        v_stock + r_stock.total_quantity,
+                        v_return_id::text,
+                        coalesce(p_reason, 'Devolución asociada a ' || v_nc_number),
+                        p_user_id,
+                        p_seller_name,
+                        v_return_date
+                    );
+                END IF;
+            END IF;
+        END LOOP;
+    END IF;
+
+    -- 4. Asiento en Caja si fue REEMBOLSO en efectivo
+    IF p_option = 'REEMBOLSO' AND p_refund_amount_usd > 0 THEN
+        INSERT INTO public.cash_ledger (
+            date,
+            direction,
+            kind,
+            amount_usd,
+            currency,
+            payment_method,
+            description,
+            reference_type,
+            reference_id,
+            user_id,
+            seller_name,
+            created_at
+        ) VALUES (
+            v_return_date::text,
+            'OUT',
+            'AJUSTE',
+            p_refund_amount_usd,
+            'USD',
+            'Efectivo USD',
+            'Reembolso devolución ' || v_nc_number || coalesce(' — ' || p_reason, ''),
+            'return',
+            v_return_id::text,
+            p_user_id,
+            p_seller_name,
+            v_return_date
+        );
+    END IF;
+
+    -- 5. Si es saldo a favor (CREDIT), actualizar crédito del cliente
+    IF p_option = 'CREDIT' AND p_client_id IS NOT NULL AND p_refund_amount_usd > 0 THEN
+        UPDATE public.clients
+        SET credit_balance = coalesce(credit_balance, 0) + p_refund_amount_usd
+        WHERE id = p_client_id;
+    END IF;
+
+    -- 6. Si es devolución total, marcar venta como cancelada
+    IF p_type = 'FULL' THEN
+        UPDATE public.sales
+        SET status = 'CANCELLED'
+        WHERE id = p_sale_id;
+    END IF;
+
+    RETURN QUERY SELECT v_return_id, v_nc_number, v_return_date;
+END;
+$$;
+
+DROP FUNCTION IF EXISTS public.execute_safe_daily_close_z(uuid, text, numeric, numeric, numeric, text);
+
+CREATE OR REPLACE FUNCTION public.execute_safe_daily_close_z(
+    p_closed_by uuid,
+    p_seller_name text,
+    p_declared_usd numeric,
+    p_declared_bs numeric,
+    p_declared_cop numeric,
+    p_notes text DEFAULT NULL
+)
+RETURNS TABLE (
+    close_id uuid,
+    sequence_number integer,
+    closed_at timestamptz,
+    tx_count integer,
+    system_total_usd numeric,
+    system_total_bs numeric,
+    shortage_usd numeric,
+    overage_usd numeric
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_last_close_date timestamptz;
+    v_now timestamptz := clock_timestamp();
+    v_tx_count integer := 0;
+    v_system_total_usd numeric(12,2) := 0;
+    v_system_total_bs numeric(12,2) := 0;
+    v_system_total_cop numeric(14,2) := 0;
+    v_seq integer;
+    v_new_close_id uuid;
+    v_diff_usd numeric(12,2);
+    v_shortage numeric(12,2) := 0;
+    v_overage numeric(12,2) := 0;
+BEGIN
+    -- 1. Bloqueo pesimista de settings para serializar cierres y evitar ventanas de tiempo desincronizadas
+    SELECT last_close_date INTO v_last_close_date
+    FROM public.settings
+    LIMIT 1
+    FOR UPDATE;
+
+    IF v_last_close_date IS NULL THEN
+        v_last_close_date := '1970-01-01 00:00:00+00'::timestamptz;
+    END IF;
+
+    -- 2. Consolidar conteo de transacciones y cobros netos en el intervalo (last_close_date, v_now]
+    SELECT 
+        COUNT(*),
+        COALESCE(SUM(paid_amount_usd), 0)
+    INTO 
+        v_tx_count,
+        v_system_total_usd
+    FROM public.sales
+    WHERE date > v_last_close_date
+      AND date <= v_now
+      AND status <> 'CANCELLED';
+
+    -- 3. Calcular ingresos netos reales en gaveta por moneda desde cash_ledger durante el turno
+    -- Suma IN y resta OUT (gastos operativos / reembolsos) para reflejar saldo real
+    SELECT
+        COALESCE(SUM(CASE 
+            WHEN currency = 'BS' THEN 
+                CASE WHEN direction = 'IN' THEN coalesce(amount_bs, 0) ELSE -coalesce(amount_bs, 0) END 
+            ELSE 0 
+        END), 0),
+        COALESCE(SUM(CASE 
+            WHEN currency = 'COP' THEN 
+                CASE WHEN direction = 'IN' THEN coalesce(amount_cop, 0) ELSE -coalesce(amount_cop, 0) END 
+            ELSE 0 
+        END), 0)
+    INTO
+        v_system_total_bs,
+        v_system_total_cop
+    FROM public.cash_ledger
+    WHERE created_at > v_last_close_date
+      AND created_at <= v_now;
+
+    -- 4. Computar faltantes o sobrantes contra arqueo declarado en USD
+    v_diff_usd := coalesce(p_declared_usd, 0) - v_system_total_usd;
+    IF v_diff_usd < -0.01 THEN
+        v_shortage := ABS(v_diff_usd);
+    ELSIF v_diff_usd > 0.01 THEN
+        v_overage := v_diff_usd;
+    END IF;
+
+    -- 5. Registrar Cierre Oficial
+    INSERT INTO public.cash_closes (
+        closed_at,
+        closed_by,
+        seller_name,
+        total_usd,
+        total_bs,
+        tx_count,
+        declared_usd,
+        declared_bs,
+        declared_cop,
+        shortage_usd,
+        overage_usd,
+        notes
+    ) VALUES (
+        v_now,
+        p_closed_by,
+        p_seller_name,
+        v_system_total_usd,
+        v_system_total_bs,
+        v_tx_count,
+        p_declared_usd,
+        p_declared_bs,
+        p_declared_cop,
+        v_shortage,
+        v_overage,
+        p_notes
+    )
+    RETURNING id, cash_closes.sequence_number INTO v_new_close_id, v_seq;
+
+    -- 6. Avanzar la marca temporal exactamente a v_now
+    UPDATE public.settings SET last_close_date = v_now;
+
     RETURN QUERY
-    SELECT v_sale_id, v_local_id, v_sale_date;
+    SELECT 
+        v_new_close_id,
+        v_seq,
+        v_now,
+        v_tx_count,
+        v_system_total_usd,
+        v_system_total_bs,
+        v_shortage,
+        v_overage;
 END;
 $$;
 
@@ -761,11 +1597,17 @@ CREATE OR REPLACE FUNCTION public.adjust_product_stock(
 )
 RETURNS numeric
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
     v_stock numeric;
     v_new_stock numeric;
 BEGIN
+    IF p_product_id IS NULL THEN
+        RAISE EXCEPTION 'ID de producto no puede ser nulo';
+    END IF;
+
     SELECT stock INTO v_stock
     FROM public.products
     WHERE id = p_product_id
@@ -775,7 +1617,11 @@ BEGIN
         RAISE EXCEPTION 'Producto no encontrado: %', p_product_id;
     END IF;
 
-    v_new_stock := v_stock + coalesce(p_delta, 0);
+    IF coalesce(p_delta, 0) = 0 THEN
+        RETURN v_stock;
+    END IF;
+
+    v_new_stock := v_stock + p_delta;
 
     IF v_new_stock < 0 THEN
         RAISE EXCEPTION 'STOCK_NEGATIVO:%:actual=%,delta=%', p_product_id, v_stock, p_delta;

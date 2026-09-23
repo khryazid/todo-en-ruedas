@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store/useStore';
 import { usePermissions } from '../hooks/usePermissions';
-import { formatCurrency } from '../utils/pricing';
+import { formatCurrency, roundTo } from '../utils/pricing';
 import { printInvoice, printSalesList, sendToWhatsApp, printSalesReportA4 } from '../utils/ticketGenerator';
 import { exportToCSV } from '../utils/exportCSV';
 import {
@@ -184,7 +184,7 @@ export const Sales = () => {
         const ok = await addReturn({
             saleId: returnSale.id,
             reason: returnReason,
-            refundAmountUSD: Math.round(refundAmount * 100) / 100,
+            refundAmountUSD: roundTo(refundAmount, 2),
             type: returnType,
             clientId: returnSale.clientId,
             items: itemsToReturn,

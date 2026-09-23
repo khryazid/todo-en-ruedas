@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { supabase } from '../../supabase/client';
 import type { SetState, GetState } from '../types';
 import type { SaleReturn, ReturnOption } from '../../types';
+import { roundTo } from '../../utils/pricing';
 
 export interface ReturnSlice {
     returns: SaleReturn[];
@@ -68,12 +69,13 @@ export const createReturnSlice = (set: SetState, get: GetState): ReturnSlice => 
         try {
             // 1. Generate NC number
             const ncNumber = await nextNcNumber();
+            const refundAmountUSD = roundTo(ret.refundAmountUSD, 2);
 
             // 2. Insert into Supabase
             const { data, error } = await supabase.from('returns').insert({
                 sale_id: ret.saleId,
                 reason: ret.reason || null,
-                refund_amount_usd: ret.refundAmountUSD,
+                refund_amount_usd: refundAmountUSD,
                 type: ret.type,
                 option,
                 nc_number: ncNumber,
@@ -113,12 +115,12 @@ export const createReturnSlice = (set: SetState, get: GetState): ReturnSlice => 
             }
 
             // 3b. If REEMBOLSO, register cash outflow in ledger
-            if (option === 'REEMBOLSO' && ret.refundAmountUSD > 0) {
+            if (option === 'REEMBOLSO' && refundAmountUSD > 0) {
                 await get().recordCashMovement({
                     date: new Date().toISOString(),
                     direction: 'OUT',
                     kind: 'AJUSTE',
-                    amountUSD: ret.refundAmountUSD,
+                    amountUSD: refundAmountUSD,
                     currency: 'USD',
                     paymentMethod: 'Efectivo USD',
                     description: `Reembolso devolución ${ncNumber}${ret.reason ? ` — ${ret.reason}` : ''}`,
@@ -136,7 +138,7 @@ export const createReturnSlice = (set: SetState, get: GetState): ReturnSlice => 
 
             // 5. If CREDIT option, add credit balance to client
             if (option === 'CREDIT' && ret.clientId) {
-                await get().applyClientCredit(ret.clientId, ret.refundAmountUSD);
+                await get().applyClientCredit(ret.clientId, refundAmountUSD);
             }
 
             // 6. Build local return object

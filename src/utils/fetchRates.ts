@@ -10,6 +10,8 @@
  * el usuario la ingresa manualmente.
  */
 
+import { roundTo } from './pricing';
+
 const TIMEOUT_MS = 8000;
 
 interface BCVResponse {
@@ -47,7 +49,7 @@ export const fetchBCVRate = async (): Promise<number | null> => {
     if (!res.ok) return null;
     const data: BCVResponse = await res.json();
     const rate = data?.current?.usd;
-    return typeof rate === 'number' && rate > 0 ? Math.round(rate * 10000) / 10000 : null;
+    return typeof rate === 'number' && rate > 0 ? roundTo(rate, 4) : null;
   } catch (err) {
     console.warn('fetchBCVRate falló:', err);
     return null;
@@ -64,7 +66,7 @@ export const fetchCOPRate = async (): Promise<number | null> => {
     if (!res.ok) return null;
     const data: COPResponse = await res.json();
     const rate = data?.valor;
-    return typeof rate === 'number' && rate > 0 ? Math.round(rate * 100) / 100 : null;
+    return typeof rate === 'number' && rate > 0 ? roundTo(rate, 2) : null;
   } catch (err) {
     console.warn('fetchCOPRate falló:', err);
     return null;

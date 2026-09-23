@@ -1,5 +1,22 @@
 {
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window", "deno.ns"]
+  },
   "imports": {
-    "@supabase/functions-js": "jsr:@supabase/functions-js@^2"
+    "@supabase/functions-js": "jsr:@supabase/functions-js@^2.4.4",
+    "@supabase/supabase-js": "jsr:@supabase/supabase-js@^2.49.1",
+    "@std/http": "jsr:@std/http@^1.0.13"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "fmt": {
+    "useTabs": false,
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "singleQuote": true
   }
 }

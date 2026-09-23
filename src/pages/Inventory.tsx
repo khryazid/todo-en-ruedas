@@ -126,7 +126,9 @@ export const Inventory = () => {
           const invoiceData = data.data;
 
           const extractedSupplierName = (invoiceData.supplierName || '').trim();
-          const matchedSupplier = suppliers.find(s => normalizeText(s.name) === normalizeText(extractedSupplierName));
+          const extractedRif = (invoiceData.supplierRif || '').trim();
+          const matchedSupplier = (extractedRif ? suppliers.find(s => s.rif && normalizeText(s.rif) === normalizeText(extractedRif)) : null)
+            || suppliers.find(s => normalizeText(s.name) === normalizeText(extractedSupplierName));
 
           setInvoiceHeader((prev) => ({
             ...prev,

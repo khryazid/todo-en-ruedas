@@ -4,27 +4,36 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
+  const isProduction = mode === 'production';
 
-  // ✅ FIX: Construir regex de caching dinámicamente desde la variable de entorno
-  // en lugar de hardcodear la URL de Supabase.
   const supabaseUrl = env.VITE_SUPABASE_URL || '';
   const escapedUrl = supabaseUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const supabaseCachePattern = escapedUrl
-    ? new RegExp(`^${escapedUrl}/.*`, 'i')
-    : /^https:\/\/[a-z0-9]+\.supabase\.co\/.*/i;
+    ? new RegExp(`^${escapedUrl}/rest/v1/.*`, 'i')
+    : /^https:\/\/[a-z0-9]+\.supabase\.co\/rest\/v1\/.*/i;
 
   return {
     build: {
-      chunkSizeWarningLimit: 1200,
+      // ✅ SRE / DEVSECOPS: Desactivar sourcemaps en producción de forma explícita
+      sourcemap: false,
+      minify: 'esbuild',
+      target: 'es2022',
+      cssCodeSplit: true,
+      chunkSizeWarningLimit: 800,
       rollupOptions: {
         output: {
           manualChunks: {
             'react-vendor': ['react', 'react-dom', 'react-router-dom'],
             'supabase-vendor': ['@supabase/supabase-js'],
             'charts-vendor': ['recharts'],
+            'ui-vendor': ['lucide-react', 'react-hot-toast', 'clsx', 'tailwind-merge'],
           },
         },
       },
+    },
+    esbuild: {
+      // ✅ SRE / DEVSECOPS: Depuración y eliminación de logs en producción
+      drop: isProduction ? ['console', 'debugger'] : [],
     },
     plugins: [
       react(),
@@ -65,15 +74,20 @@ export default defineConfig(({ mode }) => {
           clientsClaim: true,
           skipWaiting: true,
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          // ✅ SRE / DEVSECOPS: Restringir caching únicamente a peticiones GET de lectura
           runtimeCaching: [
             {
               urlPattern: supabaseCachePattern,
               handler: 'NetworkFirst',
+              method: 'GET',
               options: {
-                cacheName: 'supabase-api',
+                cacheName: 'supabase-read-cache',
                 expiration: {
-                  maxEntries: 50,
-                  maxAgeSeconds: 60 * 5 // 5 minutos
+                  maxEntries: 40,
+                  maxAgeSeconds: 60 * 3 // 3 minutos
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
                 }
               }
             }
@@ -82,9 +96,9 @@ export default defineConfig(({ mode }) => {
       })
     ],
     server: {
-      host: true,
+      // ✅ DEVSECOPS: Enlazar a 127.0.0.1 por defecto. Requiere VITE_DEV_HOST para exponer a la red
+      host: process.env.VITE_DEV_HOST ? true : '127.0.0.1',
       port: 5173,
     }
   };
 })
-

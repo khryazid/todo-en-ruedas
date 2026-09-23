@@ -13,6 +13,7 @@ import type { Sale, Payment, SaleStatus } from '../../types';
 import type { SetState, GetState } from '../types';
 import { generateId } from '../../utils/id';
 import { mapSaleFromDB } from '../../utils/mappers';
+import { roundTo } from '../../utils/pricing';
 
 export const createSaleSlice = (set: SetState, get: GetState) => ({
 
@@ -35,7 +36,17 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
     }
   },
 
-  completeSale: async (paymentMethod: string, clientId?: string, initialPayment?: number) => {
+  completeSale: async (
+    paymentMethod: string,
+    clientId?: string,
+    initialPayment?: number,
+    idempotencyKey?: string,
+    discountPct: number = 0
+  ) => {
+    // idempotencyKey está disponible para auditoría/trazabilidad del despacho
+    if (import.meta.env.DEV && idempotencyKey) {
+      console.debug('[POS] completeSale iniciado con token:', idempotencyKey);
+    }
     const { cart, settings, products, currentUserData } = get();
     toast.dismiss();
 
@@ -82,14 +93,24 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
     const loadingToast = toast.loading('Procesando venta...');
 
     try {
-      const totalUSD = Math.round(cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0) * 100) / 100;
-      const totalVED = Math.round((totalUSD * settings.tasaBCV) * 100) / 100;
+      // 1. Cálculo financiero exacto con descuento contable
+      const grossSubtotalUSD = roundTo(
+        cart.reduce((acc, item) => acc + (item.priceFinalUSD * item.quantity), 0),
+        2
+      );
 
-      const paidAmount = initialPayment !== undefined ? initialPayment : totalUSD;
+      const safeDiscountPct = Math.min(100, Math.max(0, discountPct));
+      const discountAmountUSD = roundTo(grossSubtotalUSD * (safeDiscountPct / 100), 2);
+      const totalUSD = roundTo(grossSubtotalUSD - discountAmountUSD, 2);
+      const totalVED = roundTo(totalUSD * settings.tasaBCV, 2);
+
+      // 2. Determinación de Estado Real de Pago contra el NETO FACTURADO
+      const paidAmount = initialPayment !== undefined ? roundTo(initialPayment, 2) : totalUSD;
+      const isCredit = paidAmount < (totalUSD - 0.01);
       let status: SaleStatus = 'COMPLETED';
-      if (paidAmount < totalUSD - 0.01) status = paidAmount > 0 ? 'PARTIAL' : 'PENDING';
-
-      const isCredit = paidAmount < totalUSD - 0.01;
+      if (isCredit) {
+        status = paidAmount > 0 ? 'PARTIAL' : 'PENDING';
+      }
 
       const rpcItems = cart.map((item) => ({
         product_id: item.id,
@@ -98,6 +119,7 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         quantity: Number(item.quantity),
         unit_price_usd: Number(item.priceFinalUSD),
         cost_unit_usd: Number(item.cost),
+        discount_pct: safeDiscountPct,
       }));
 
       const { data: rpcData, error: saleError } = await supabase.rpc('process_sale_atomic', {
@@ -111,55 +133,29 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         p_user_id: currentUserData?.id || null,
         p_seller_name: currentUserData?.fullName || null,
         p_items: rpcItems,
+        p_discount_pct: safeDiscountPct,
+        p_tasa_bcv: settings.tasaBCV,
+        p_tasa_cop: settings.tasaCOP,
       });
 
       if (saleError || !rpcData || rpcData.length === 0) throw new Error(saleError?.message || 'No se pudo procesar la venta');
       const saleData = rpcData[0] as { sale_id: string; local_id: number | null; sale_date: string };
-
-      for (const item of cart) {
-        const product = products.find((p) => p.id === item.id);
-        if (!product) continue;
-
-        await get().addStockMovement({
-          productId: product.id,
-          productName: product.name,
-          sku: product.sku,
-          type: 'SALE',
-          qtyBefore: Number(product.stock),
-          qtyChange: -Number(item.quantity),
-          referenceId: saleData.sale_id,
-        });
-      }
 
       // 🚀 FAILSAFE: Si Supabase (vía PostgREST caché) no devuelve todavía la nueva columna local_id
       // Forzaremos el visualizador asumiendo el id de la venta anterior + 1.
       const lastId = get().sales.length > 0 ? (get().sales[0].localId || 0) : 0;
       const calculatedLocalId = saleData.local_id ? saleData.local_id : lastId + 1;
 
-      if (paidAmount > 0) {
-        const methodCurrency = get().paymentMethods.find((method) => method.name === paymentMethod)?.currency || 'USD';
-        const amountBS = methodCurrency === 'BS'
-          ? Math.round((paidAmount * settings.tasaBCV) * 100) / 100
-          : undefined;
-        const amountCOP = methodCurrency === 'COP'
-          ? Math.round((paidAmount * settings.tasaCOP))
-          : undefined;
-
-        await get().recordCashMovement({
-          date: saleData.sale_date,
-          direction: 'IN',
-          kind: 'VENTA_COBRADA',
-          amountUSD: paidAmount,
-          amountBS,
-          amountCOP,
-          currency: methodCurrency,
-          paymentMethod,
-          description: `Cobro inicial de venta #${calculatedLocalId || saleData.sale_id.slice(-6)}`,
-          referenceType: 'sale-payment',
-          referenceId: `${saleData.sale_id}:initial`,
-          userId: currentUserData?.id,
-          sellerName: currentUserData?.fullName,
-        });
+      // Sincronizar Kardex y Libro de Caja (insertados atómicamente por process_sale_atomic)
+      const currentRole = currentUserData?.role ?? 'VIEWER';
+      const isElevated = currentRole === 'ADMIN' || currentRole === 'MANAGER';
+      if (isElevated) {
+        try {
+          void get().fetchStockMovements();
+          void get().fetchCashLedger();
+        } catch {
+          // Sync silencioso vía realtime
+        }
       }
 
       // Tomar stock real post-venta para evitar desajustes visuales en POS bajo concurrencia.
@@ -247,6 +243,26 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
           );
           return null;
         }
+      }
+
+      if (message.includes('CREDITO_INSUFICIENTE:')) {
+        const match = message.match(/CREDITO_INSUFICIENTE:([^:]+):limite=([^,]+),deuda_actual=([^,]+),nueva_deuda=(.+)$/);
+        if (match) {
+          const [, , limitRaw, currentDebtRaw, newDebtRaw] = match;
+          toast.error(
+            `⛔ CRÉDITO EXCEDIDO\nLímite: $${Number(limitRaw).toFixed(2)}\nDeuda actual: $${Number(currentDebtRaw).toFixed(2)}\nNueva deuda: $${Number(newDebtRaw).toFixed(2)}`,
+            { duration: 6000, style: { border: '2px solid red' } }
+          );
+          return null;
+        }
+      }
+
+      if (message.includes('VENTA_CREDITO_SIN_CLIENTE:')) {
+        toast.error('⛔ Venta a crédito requiere asignar un cliente registrado.', {
+          duration: 5000,
+          style: { border: '2px solid red' },
+        });
+        return null;
       }
 
       toast.error(`Error crítico: ${message}`);

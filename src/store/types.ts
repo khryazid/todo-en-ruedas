@@ -45,7 +45,17 @@ export interface StoreState {
   // --- Settings ---
   fetchSettingsData: () => Promise<void>;
   updateSettings: (settings: AppSettings) => Promise<void>;
-  performDailyClose: (turnData?: { totalUSD: number; totalBs: number; txCount: number }) => Promise<CashClose | null>;
+  performDailyClose: (turnData?: {
+    totalUSD: number;
+    totalBs: number;
+    txCount: number;
+    declaredUSD?: number;
+    declaredBS?: number;
+    declaredCOP?: number;
+    shortageUSD?: number;
+    overageUSD?: number;
+    notes?: string;
+  }) => Promise<CashClose | null>;
   addPaymentMethod: (name: string, currency: 'USD' | 'BS' | 'COP', commissionPct?: number) => Promise<void>;
   refreshRates: () => Promise<void>;
   updatePaymentMethodCommission: (id: string, commissionPct: number) => Promise<void>;
@@ -133,7 +143,7 @@ export interface StoreState {
 
   // --- Sales ---
   fetchSales: () => Promise<void>;
-  completeSale: (paymentMethod: string, clientId?: string, initialPayment?: number) => Promise<Sale | null>;
+  completeSale: (paymentMethod: string, clientId?: string, initialPayment?: number, idempotencyKey?: string, discountPct?: number) => Promise<Sale | null>;
   annulSale: (saleId: string) => Promise<void>;
   deleteSale: (saleId: string) => Promise<void>;
   registerSalePayment: (saleId: string, payment: Payment) => Promise<void>;

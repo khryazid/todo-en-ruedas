@@ -4,74 +4,116 @@
  * OPTIMIZADO V2: Usa Inyección CSS para evitar páginas en blanco en móviles.
  */
 
+import toast from 'react-hot-toast';
 import type { Sale, PaymentMethod, Client } from '../types';
 import { useStore } from '../store/useStore';
+import { escapeHtml } from './sanitize';
+
+// --- HELPER MAESTRO DE VENTANA DE IMPRESIÓN (CON PROTECCIÓN CONTRA POP-UP BLOCKERS) ---
+export const openPrintWindow = (title: string, htmlBody: string, delayMs = 300): boolean => {
+    try {
+        const win = window.open('', '_blank');
+        if (!win) {
+            toast.error('⚠️ El navegador bloqueó la ventana de impresión. Habilite las ventanas emergentes (pop-ups) para Todo en Ruedas.', {
+                duration: 6000,
+                style: { border: '2px solid #f59e0b' },
+            });
+            return false;
+        }
+
+        win.document.write(`<!DOCTYPE html><html><head><title>${escapeHtml(title)}</title>
+            <style>@page{margin:15px;}body{margin:0;padding:10px;background:white;font-family:sans-serif;}</style>
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+        </head><body>${htmlBody}</body></html>`);
+        win.document.close();
+        win.focus();
+        setTimeout(() => {
+            try {
+                win.print();
+            } catch (printErr) {
+                console.error('Error al invocar impresión en popup:', printErr);
+            }
+        }, delayMs);
+        return true;
+    } catch (err) {
+        console.error('Error abriendo ventana de impresión:', err);
+        toast.error('No se pudo abrir el servicio de impresión.');
+        return false;
+    }
+};
 
 // --- 1. FUNCIÓN MAESTRA DE IMPRESIÓN (CSS INJECTION) ---
 const printMobileFriendly = (content: string) => {
-    // 1. Crear un contenedor para el ticket si no existe
-    let printArea = document.getElementById('print-area');
-    if (!printArea) {
-        printArea = document.createElement('div');
-        printArea.id = 'print-area';
-        document.body.appendChild(printArea);
-    }
+    try {
+        // 1. Crear un contenedor para el ticket si no existe
+        let printArea = document.getElementById('print-area');
+        if (!printArea) {
+            printArea = document.createElement('div');
+            printArea.id = 'print-area';
+            document.body.appendChild(printArea);
+        }
 
-    // 2. Inyectar el contenido del ticket
-    printArea.innerHTML = content;
+        // 2. Inyectar el contenido del ticket
+        printArea.innerHTML = content;
 
-    // 3. Agregar estilos específicos para ocultar la App y mostrar solo el ticket al imprimir
-    const styleId = 'print-styles';
-    let styleTag = document.getElementById(styleId);
-    if (!styleTag) {
-        styleTag = document.createElement('style');
-        styleTag.id = styleId;
-        styleTag.innerHTML = `
-            @media screen {
-                #print-area { display: none; } /* Oculto en pantalla normal */
-            }
-            @media print {
-                /* Ocultar TODO lo demás */
-                body * { visibility: hidden; }
-                #root, #root * { display: none; }
-                
-                /* Mostrar solo el área de impresión */
-                #print-area, #print-area * { 
-                    visibility: visible; 
-                    display: block; 
+        // 3. Agregar estilos específicos para ocultar la App y mostrar solo el ticket al imprimir
+        const styleId = 'print-styles';
+        let styleTag = document.getElementById(styleId);
+        if (!styleTag) {
+            styleTag = document.createElement('style');
+            styleTag.id = styleId;
+            styleTag.innerHTML = `
+                @media screen {
+                    #print-area { display: none; } /* Oculto en pantalla normal */
                 }
-                #print-area {
-                    position: absolute;
-                    left: 0;
-                    top: 0;
-                    width: 100%;
-                    margin: 0;
-                    padding: 0;
+                @media print {
+                    /* Ocultar TODO lo demás */
+                    body * { visibility: hidden; }
+                    #root, #root * { display: none; }
+                    
+                    /* Mostrar solo el área de impresión */
+                    #print-area, #print-area * { 
+                        visibility: visible; 
+                        display: block; 
+                    }
+                    #print-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        margin: 0;
+                        padding: 0;
+                    }
+                    
+                    /* Estilos del Ticket */
+                    body { font-family: 'Courier New', monospace; font-size: 12px; color: black; background: white; }
+                    .header { text-align: center; margin-bottom: 10px; border-bottom: 1px dashed #000; padding-bottom: 5px; }
+                    .title { font-size: 16px; font-weight: bold; margin: 5px 0; }
+                    .subtitle { font-size: 10px; text-transform: uppercase; }
+                    .divider { border-top: 1px dashed #000; margin: 5px 0; }
+                    .item { display: flex; justify-content: space-between; margin-bottom: 2px; }
+                    .totals { margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; }
+                    .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; }
+                    .footer { text-align: center; margin-top: 20px; font-size: 10px; }
+                    .bold { font-weight: bold; }
                 }
-                
-                /* Estilos del Ticket */
-                body { font-family: 'Courier New', monospace; font-size: 12px; color: black; background: white; }
-                .header { text-align: center; margin-bottom: 10px; border-bottom: 1px dashed #000; padding-bottom: 5px; }
-                .title { font-size: 16px; font-weight: bold; margin: 5px 0; }
-                .subtitle { font-size: 10px; text-transform: uppercase; }
-                .divider { border-top: 1px dashed #000; margin: 5px 0; }
-                .item { display: flex; justify-content: space-between; margin-bottom: 2px; }
-                .totals { margin-top: 10px; border-top: 1px dashed #000; padding-top: 5px; }
-                .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 14px; }
-                .footer { text-align: center; margin-top: 20px; font-size: 10px; }
-                .bold { font-weight: bold; }
+            `;
+            document.head.appendChild(styleTag);
+        }
+
+        // 4. Imprimir con un pequeño retraso para asegurar el renderizado
+        setTimeout(() => {
+            try {
+                window.print();
+            } catch (err) {
+                console.error('Error al invocar window.print():', err);
             }
-        `;
-        document.head.appendChild(styleTag);
+        }, 200);
+    } catch (err) {
+        console.error('Error en printMobileFriendly:', err);
+        toast.error('Error al generar la vista de impresión térmica.');
     }
-
-    // 4. Imprimir con un pequeño retraso para asegurar el renderizado
-    setTimeout(() => {
-        window.print();
-
-        // Opcional: Limpiar el área de impresión después
-        // setTimeout(() => { if(printArea) printArea.innerHTML = ''; }, 1000);
-    }, 200);
 };
 
 
@@ -93,7 +135,7 @@ export const printInvoice = (sale: Sale, directClient?: Client) => {
         const subtotal = price * item.quantity;
         itemsHTML += `
             <div style="margin-bottom: 4px;">
-                <div style="font-weight:bold;">${item.name}</div>
+                <div style="font-weight:bold;">${escapeHtml(item.name)}</div>
                 <div class="item">
                     <span>${item.quantity} x ${symbol}${price.toFixed(2)}</span>
                     <span>${symbol}${subtotal.toFixed(2)}</span>
@@ -104,13 +146,13 @@ export const printInvoice = (sale: Sale, directClient?: Client) => {
 
     const content = `
         <div class="header">
-            <div class="title">${settings.companyName}</div>
-            <div class="subtitle">${settings.rifType}-${settings.rif}</div>
-            <div class="subtitle">${settings.address}</div>
+            <div class="title">${escapeHtml(settings.companyName)}</div>
+            <div class="subtitle">${escapeHtml(settings.rifType)}-${escapeHtml(settings.rif)}</div>
+            <div class="subtitle">${escapeHtml(settings.address || '')}</div>
             <div class="divider"></div>
-            <div>Ticket: #${sale.localId || sale.id.slice(-6)}</div>
-            <div>Fecha: ${date}</div>
-            ${client ? `<div class="divider"></div><div style="text-align:left">CLIENTE: ${client.name}<br>RIF: ${client.rif}</div>` : ''}
+            <div>Ticket: #${escapeHtml(sale.localId || sale.id.slice(-6))}</div>
+            <div>Fecha: ${escapeHtml(date)}</div>
+            ${client ? `<div class="divider"></div><div style="text-align:left">CLIENTE: ${escapeHtml(client.name)}<br>RIF: ${escapeHtml(client.rif)}</div>` : ''}
         </div>
         
         <div class="items">
@@ -119,7 +161,7 @@ export const printInvoice = (sale: Sale, directClient?: Client) => {
 
         <div class="totals">
             <div class="total-row">
-                <span>TOTAL (${currency})</span>
+                <span>TOTAL (${escapeHtml(currency)})</span>
                 <span>${symbol} ${convert(sale.totalUSD).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
             </div>
             <div class="item" style="margin-top:5px; font-size:10px;">
@@ -129,7 +171,7 @@ export const printInvoice = (sale: Sale, directClient?: Client) => {
         </div>
 
         <div class="footer">
-            <p>Método Pago: ${sale.paymentMethod}</p>
+            <p>Método Pago: ${escapeHtml(sale.paymentMethod)}</p>
             <p>¡Gracias por su compra!</p>
             ${sale.status === 'PENDING' ? '*** VENTA A CRÉDITO ***' : ''}
         </div>
@@ -158,7 +200,7 @@ export const printTicket = (data: CloseReportProps) => {
     Object.entries(data.breakdown).forEach(([method, amount]) => {
         breakdownHTML += `
             <div class="item">
-                <span>${method}</span>
+                <span>${escapeHtml(method)}</span>
                 <span>$${amount.toFixed(2)}</span>
             </div>
         `;
@@ -166,10 +208,10 @@ export const printTicket = (data: CloseReportProps) => {
 
     const content = `
         <div class="header">
-            <div class="title">${settings.companyName}</div>
-            <div class="subtitle">${typeLabel}</div>
-            <div>Fecha: ${data.date}</div>
-            <div>Reporte #: ${data.reportNumber}</div>
+            <div class="title">${escapeHtml(settings.companyName)}</div>
+            <div class="subtitle">${escapeHtml(typeLabel)}</div>
+            <div>Fecha: ${escapeHtml(data.date)}</div>
+            <div>Reporte #: ${escapeHtml(data.reportNumber)}</div>
         </div>
 
         <div class="divider"></div>
@@ -206,13 +248,13 @@ export const printSalesList = (sales: Sale[], startDate: string, endDate: string
     const html = `
         <div style="font-family:monospace;width:280px;margin:0 auto;color:black;">
             <h2 style="text-align:center;margin:0 0 10px 0;">REPORTE DE VENTAS</h2>
-            <p>Desde: ${startDate || 'Inicio'}</p>
-            <p>Hasta: ${endDate || 'Hoy'}</p>
+            <p>Desde: ${escapeHtml(startDate || 'Inicio')}</p>
+            <p>Hasta: ${escapeHtml(endDate || 'Hoy')}</p>
             <hr style="border-top:1px dashed black;margin:10px 0;" />
             <table style="width:100%;font-size:12px;text-align:left;">
                 <thead><tr><th>Ticket</th><th>Total USD</th></tr></thead>
                 <tbody>
-                    ${sales.map(s => `<tr><td>#${s.localId || s.id.slice(-6)}</td><td>$${s.totalUSD.toFixed(2)}</td></tr>`).join('')}
+                    ${sales.map(s => `<tr><td>#${escapeHtml(s.localId || s.id.slice(-6))}</td><td>$${s.totalUSD.toFixed(2)}</td></tr>`).join('')}
                 </tbody>
             </table>
             <hr style="border-top:1px dashed black;margin:10px 0;" />
@@ -225,14 +267,10 @@ export const printSalesList = (sales: Sale[], startDate: string, endDate: string
         </div>
     `;
 
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Reporte de Ventas</title>
+    openPrintWindow('Reporte de Ventas', `
         <style>@page{margin:20px;}body{margin:0;padding:0;background:white;}</style>
-    </head><body>${html}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 300);
+        ${html}
+    `, 300);
 };
 
 // --- 5. GENERAR ENLACE DE WHATSAPP ---
@@ -262,7 +300,10 @@ export const sendToWhatsApp = (sale: Sale, directClient?: Client) => {
     message += `\nGracias por su compra! 🚗`;
 
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+    const win = window.open(url, '_blank');
+    if (!win) {
+        window.location.href = url;
+    }
 };
 
 // --- REPORTE CIERRE DE CAJA (Formato A4 / PDF) ---
@@ -284,7 +325,7 @@ export const printDailyCloseReport = (data: DailyCloseReportData) => {
         .filter(([, v]) => v > 0)
         .map(([method, amount]) => `
             <tr>
-                <td style="padding:8px 12px;font-weight:600;color:#374151;">${method}</td>
+                <td style="padding:8px 12px;font-weight:600;color:#374151;">${escapeHtml(method)}</td>
                 <td style="padding:8px 12px;text-align:right;font-weight:700;color:#111827;">$${amount.toFixed(2)}</td>
             </tr>
         `).join('');
@@ -292,7 +333,7 @@ export const printDailyCloseReport = (data: DailyCloseReportData) => {
     const sellerRows = data.sellerBreakdown
         ? Object.entries(data.sellerBreakdown).map(([seller, { count, totalUSD }]) => `
             <tr>
-                <td style="padding:8px 12px;color:#374151;">${seller}</td>
+                <td style="padding:8px 12px;color:#374151;">${escapeHtml(seller)}</td>
                 <td style="padding:8px 12px;text-align:center;color:#6b7280;">${count} op.</td>
                 <td style="padding:8px 12px;text-align:right;font-weight:700;color:#111827;">$${totalUSD.toFixed(2)}</td>
             </tr>
@@ -304,26 +345,26 @@ export const printDailyCloseReport = (data: DailyCloseReportData) => {
         <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:700px;margin:0 auto;padding:32px;color:#111;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e5e7eb;">
                 <div>
-                    <h1 style="margin:0;font-size:20px;font-weight:900;color:#111;">${data.companyName}</h1>
+                    <h1 style="margin:0;font-size:20px;font-weight:900;color:#111;">${escapeHtml(data.companyName)}</h1>
                     <p style="margin:4px 0 0;color:#6b7280;font-size:12px;">REPORTE DE ${isZ ? 'CIERRE Z — DEFINITIVO' : 'CORTE X — PARCIAL'}</p>
                 </div>
                 <div style="text-align:right;">
                     <span style="display:inline-block;padding:6px 16px;border-radius:20px;font-weight:900;font-size:13px;background:${isZ ? '#fee2e2' : '#dbeafe'};color:${isZ ? '#b91c1c' : '#1d4ed8'};">
                         ${isZ ? '🔒 CIERRE Z' : '📊 CORTE X'}
                     </span>
-                    <p style="margin:6px 0 0;font-size:11px;color:#9ca3af;">N° ${data.reportNumber}</p>
+                    <p style="margin:6px 0 0;font-size:11px;color:#9ca3af;">N° ${escapeHtml(data.reportNumber)}</p>
                 </div>
             </div>
 
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px;">
                 <div style="background:#f9fafb;border-radius:10px;padding:14px;border:1px solid #e5e7eb;">
                     <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;">Fecha Cierre</p>
-                    <p style="margin:0;font-size:13px;font-weight:700;color:#111;">${data.date}</p>
+                    <p style="margin:0;font-size:13px;font-weight:700;color:#111;">${escapeHtml(data.date)}</p>
                 </div>
                 ${data.shiftOpenTime ? `
                 <div style="background:#f0fdf4;border-radius:10px;padding:14px;border:1px solid #bbf7d0;">
                     <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#22c55e;">Apertura</p>
-                    <p style="margin:0;font-size:13px;font-weight:700;color:#111;">${data.shiftOpenTime}</p>
+                    <p style="margin:0;font-size:13px;font-weight:700;color:#111;">${escapeHtml(data.shiftOpenTime)}</p>
                 </div>` : '<div></div>'}
                 <div style="background:#f9fafb;border-radius:10px;padding:14px;border:1px solid #e5e7eb;">
                     <p style="margin:0 0 4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#9ca3af;">Operaciones</p>
@@ -367,23 +408,20 @@ export const printDailyCloseReport = (data: DailyCloseReportData) => {
             </div>` : ''}
 
             <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
-                <p style="margin:0;font-size:11px;color:#9ca3af;">Generado el ${new Date().toLocaleString('es-VE')} • ${data.companyName} • Sistema POS Glyph Core</p>
+                <p style="margin:0;font-size:11px;color:#9ca3af;">Generado el ${new Date().toLocaleString('es-VE')} • ${escapeHtml(data.companyName)} • Sistema POS Glyph Core</p>
                 ${isZ ? '<p style="margin:4px 0 0;font-size:11px;font-weight:700;color:#b91c1c;">⚠ Este es un documento de CIERRE DEFINITIVO — Los contadores han sido reiniciados.</p>' : ''}
             </div>
         </div>
     `;
 
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Reporte ${data.type} — ${data.date}</title>
+    openPrintWindow(`Reporte ${escapeHtml(data.type)} — ${escapeHtml(data.date)}`, `
         <style>@page{margin:20px;}body{margin:0;padding:0;background:white;}</style>
-    </head><body>${html}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 300);
+        ${html}
+    `, 300);
 };
 import type { Quote } from '../types';
 
+// ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF COTIZACIÓN
 // ─────────────────────────────────────────────────────────────────────────────
@@ -403,13 +441,13 @@ export const printQuoteReport = (quote: Quote, companyName: string, rate: number
             <!-- HEADER -->
             <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:24px;border-bottom:3px solid #dc2626;margin-bottom:24px;">
                 <div>
-                    <h1 style="margin:0;font-size:28px;font-weight:900;color:#111827;">${companyName}</h1>
+                    <h1 style="margin:0;font-size:28px;font-weight:900;color:#111827;">${escapeHtml(companyName)}</h1>
                     <p style="margin:4px 0 0;font-size:13px;color:#6b7280;">Sistema de Punto de Venta</p>
                 </div>
                 <div style="text-align:right;">
                     <div style="background:#dc2626;color:white;padding:8px 18px;border-radius:10px;font-size:20px;font-weight:900;letter-spacing:0.03em;">COTIZACIÓN</div>
                     <p style="margin:8px 0 2px;font-size:12px;color:#6b7280;">N° de Referencia</p>
-                    <p style="margin:0;font-size:15px;font-weight:700;font-family:monospace;">#${quote.number || quote.id.slice(-8).toUpperCase()}</p>
+                    <p style="margin:0;font-size:15px;font-weight:700;font-family:monospace;">#${escapeHtml(quote.number || quote.id.slice(-8).toUpperCase())}</p>
                 </div>
             </div>
 
@@ -417,7 +455,7 @@ export const printQuoteReport = (quote: Quote, companyName: string, rate: number
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
                 <div style="background:#f9fafb;padding:16px;border-radius:10px;">
                     <p style="margin:0 0 8px;font-size:10px;text-transform:uppercase;font-weight:700;color:#6b7280;letter-spacing:0.1em;">Cliente</p>
-                    <p style="margin:0;font-size:15px;font-weight:800;color:#111827;">${quote.clientName || 'Sin Cliente Asignado'}</p>
+                    <p style="margin:0;font-size:15px;font-weight:800;color:#111827;">${escapeHtml(quote.clientName || 'Sin Cliente Asignado')}</p>
                 </div>
                 <div style="background:#f9fafb;padding:16px;border-radius:10px;">
                     <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
@@ -430,7 +468,7 @@ export const printQuoteReport = (quote: Quote, companyName: string, rate: number
                     </div>` : ''}
                     <div style="display:flex;justify-content:space-between;">
                         <span style="font-size:11px;color:#6b7280;font-weight:600;">Estado</span>
-                        <span style="font-size:11px;font-weight:800;color:${statusColors[quote.status] || '#111827'};">${statusLabels[quote.status] || quote.status}</span>
+                        <span style="font-size:11px;font-weight:800;color:${statusColors[quote.status] || '#111827'};">${escapeHtml(statusLabels[quote.status] || quote.status)}</span>
                     </div>
                 </div>
             </div>
@@ -449,8 +487,8 @@ export const printQuoteReport = (quote: Quote, companyName: string, rate: number
                 <tbody>
                     ${quote.items.map((item, i) => `
                     <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f9fafb'};">
-                        <td style="padding:10px 12px;font-size:11px;font-family:monospace;color:#6b7280;">${item.sku}</td>
-                        <td style="padding:10px 12px;font-size:12px;font-weight:600;">${item.name}</td>
+                        <td style="padding:10px 12px;font-size:11px;font-family:monospace;color:#6b7280;">${escapeHtml(item.sku)}</td>
+                        <td style="padding:10px 12px;font-size:12px;font-weight:600;">${escapeHtml(item.name)}</td>
                         <td style="padding:10px 12px;text-align:center;font-size:12px;font-weight:700;">${item.quantity}</td>
                         <td style="padding:10px 12px;text-align:right;font-size:12px;">$${item.priceFinalUSD.toFixed(2)}</td>
                         <td style="padding:10px 12px;text-align:right;font-size:12px;font-weight:700;">$${(item.priceFinalUSD * item.quantity).toFixed(2)}</td>
@@ -474,25 +512,19 @@ export const printQuoteReport = (quote: Quote, companyName: string, rate: number
 
             ${quote.notes ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:12px;margin-bottom:20px;">
                 <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;">Observaciones</p>
-                <p style="margin:0;font-size:12px;color:#78350f;">${quote.notes}</p>
+                <p style="margin:0;font-size:12px;color:#78350f;">${escapeHtml(quote.notes)}</p>
             </div>` : ''}
 
             <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;">
-                <p style="margin:0;font-size:11px;color:#9ca3af;">Esta cotización es válida por los días indicados • ${companyName} • Generado el ${new Date().toLocaleString('es-VE')}</p>
+                <p style="margin:0;font-size:11px;color:#9ca3af;">Esta cotización es válida por los días indicados • ${escapeHtml(companyName)} • Generado el ${new Date().toLocaleString('es-VE')}</p>
             </div>
         </div>
     `;
 
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Cotización #${quote.number || quote.id.slice(-8).toUpperCase()} — ${companyName}</title>
+    openPrintWindow(`Cotización #${escapeHtml(quote.number || quote.id.slice(-8).toUpperCase())} — ${escapeHtml(companyName)}`, `
         <style>@page{margin:20px;}body{margin:0;padding:20px;background:white;}</style>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    </head><body>${html}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 500);
+        ${html}
+    `, 500);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -503,7 +535,7 @@ export const printInventoryReportA4 = (products: { sku: string; name: string; ca
         <div style="font-family:Inter,system-ui,sans-serif;max-width:800px;margin:0 auto;color:#111827;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:20px;border-bottom:3px solid #dc2626;">
                 <div>
-                    <h1 style="margin:0;font-size:24px;font-weight:900;">${companyName}</h1>
+                    <h1 style="margin:0;font-size:24px;font-weight:900;">${escapeHtml(companyName)}</h1>
                     <p style="margin:4px 0 0;font-size:12px;color:#6b7280;">Reporte de Existencias / Inventario Físico</p>
                 </div>
                 <div style="text-align:right;">
@@ -528,9 +560,9 @@ export const printInventoryReportA4 = (products: { sku: string; name: string; ca
     products.forEach((p, i) => {
         html += `
             <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f9fafb'}; border-bottom:1px solid #e5e7eb;">
-                <td style="padding:8px 10px;font-size:11px;font-family:monospace;">${p.sku}</td>
-                <td style="padding:8px 10px;font-size:12px;font-weight:600;">${p.name}</td>
-                <td style="padding:8px 10px;text-align:center;font-size:11px;color:#6b7280;">${p.category}</td>
+                <td style="padding:8px 10px;font-size:11px;font-family:monospace;">${escapeHtml(p.sku)}</td>
+                <td style="padding:8px 10px;font-size:12px;font-weight:600;">${escapeHtml(p.name)}</td>
+                <td style="padding:8px 10px;text-align:center;font-size:11px;color:#6b7280;">${escapeHtml(p.category || '')}</td>
                 <td style="padding:8px 10px;text-align:right;font-size:12px;">$${Number(p.cost || p.costo || 0).toFixed(2)}</td>
                 <td style="padding:8px 10px;text-align:center;font-size:12px;font-weight:700;color:${p.stock <= (p.minStock || 0) ? '#dc2626' : (p.stock > 0 ? '#16a34a' : '#000')};">${p.stock}</td>
             </tr>
@@ -546,16 +578,10 @@ export const printInventoryReportA4 = (products: { sku: string; name: string; ca
         </div>
     `;
 
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Inventario - ${companyName}</title>
+    openPrintWindow(`Inventario - ${escapeHtml(companyName)}`, `
         <style>@page{margin:20px;}body{margin:0;padding:20px;background:white;} table, th, td { border-collapse: collapse; }</style>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    </head><body>${html}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 500);
+        ${html}
+    `, 500);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -566,7 +592,7 @@ export const printSalesReportA4 = (sales: { date: string; localId?: string | num
         <div style="font-family:Inter,system-ui,sans-serif;max-width:800px;margin:0 auto;color:#111827;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:20px;border-bottom:3px solid #dc2626;">
                 <div>
-                    <h1 style="margin:0;font-size:24px;font-weight:900;">${companyName}</h1>
+                    <h1 style="margin:0;font-size:24px;font-weight:900;">${escapeHtml(companyName)}</h1>
                     <p style="margin:4px 0 0;font-size:12px;color:#6b7280;">Reporte Consolidado de Ventas</p>
                 </div>
                 <div style="text-align:right;">
@@ -595,8 +621,8 @@ export const printSalesReportA4 = (sales: { date: string; localId?: string | num
         html += `
             <tr style="background:${i % 2 === 0 ? '#ffffff' : '#f9fafb'}; border-bottom:1px solid #e5e7eb;">
                 <td style="padding:8px 10px;font-size:11px;color:#374151;">${new Date(s.date).toLocaleString('es-VE')}</td>
-                <td style="padding:8px 10px;font-size:11px;font-family:monospace;font-weight:700;">#${s.localId || s.id.slice(-6).toUpperCase()}</td>
-                <td style="padding:8px 10px;font-size:11px;font-weight:600;">${s.clientName || 'Cliente General'}</td>
+                <td style="padding:8px 10px;font-size:11px;font-family:monospace;font-weight:700;">#${escapeHtml(s.localId || s.id.slice(-6).toUpperCase())}</td>
+                <td style="padding:8px 10px;font-size:11px;font-weight:600;">${escapeHtml(s.clientName || 'Cliente General')}</td>
                 <td style="padding:8px 10px;text-align:center;font-size:12px;">${itemQty}</td>
                 <td style="padding:8px 10px;text-align:right;font-size:12px;font-weight:700;color:#16a34a;">$${Number(s.totalUSD || 0).toFixed(2)}</td>
             </tr>
@@ -620,14 +646,8 @@ export const printSalesReportA4 = (sales: { date: string; localId?: string | num
         </div>
     `;
 
-    const win = window.open('', '_blank');
-    if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>Historial - ${companyName}</title>
+    openPrintWindow(`Historial - ${escapeHtml(companyName)}`, `
         <style>@page{margin:20px;}body{margin:0;padding:20px;background:white;} table, th, td { border-collapse: collapse; }</style>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    </head><body>${html}</body></html>`);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 500);
+        ${html}
+    `, 500);
 };

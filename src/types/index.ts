@@ -305,6 +305,12 @@ export interface CashClose {
   totalUSD: number;
   totalBs: number;
   txCount: number;
+  declaredUSD?: number;
+  declaredBS?: number;
+  declaredCOP?: number;
+  shortageUSD?: number;
+  overageUSD?: number;
+  notes?: string;
 }
 
 // --- SISTEMA DE USUARIOS ---

@@ -266,18 +266,60 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
     }
   },
 
-  performDailyClose: async (turnData?: { totalUSD: number; totalBs: number; txCount: number }) => {
+  performDailyClose: async (turnData?: {
+    totalUSD: number;
+    totalBs: number;
+    txCount: number;
+    declaredUSD?: number;
+    declaredBS?: number;
+    declaredCOP?: number;
+    shortageUSD?: number;
+    overageUSD?: number;
+    notes?: string;
+  }) => {
     const now = new Date().toISOString();
     const { currentUserData, settingsId } = get();
+
     try {
-      // 1. Actualizar last_close_date en settings
+      // 1. Intentar procedimiento atómico en PostgreSQL (FIN-CLS-002)
+      const { data: rpcRows, error: rpcError } = await supabase.rpc('execute_safe_daily_close_z', {
+        p_closed_by: currentUserData?.id || null,
+        p_seller_name: currentUserData?.fullName || null,
+        p_declared_usd: turnData?.declaredUSD ?? turnData?.totalUSD ?? 0,
+        p_declared_bs: turnData?.declaredBS ?? turnData?.totalBs ?? 0,
+        p_declared_cop: turnData?.declaredCOP ?? 0,
+        p_notes: turnData?.notes || null,
+      });
+
+      if (!rpcError && rpcRows && rpcRows.length > 0) {
+        const row = rpcRows[0];
+        set((state) => ({ settings: { ...state.settings, lastCloseDate: row.closed_at } }));
+        toast.success(`Cierre de caja Z #${row.sequence_number} exitoso 🏁`);
+        return {
+          id: row.close_id,
+          sequenceNumber: row.sequence_number,
+          closedAt: row.closed_at,
+          totalUSD: Number(row.system_total_usd),
+          totalBs: Number(row.system_total_bs),
+          txCount: Number(row.tx_count),
+          declaredUSD: turnData?.declaredUSD,
+          declaredBS: turnData?.declaredBS,
+          declaredCOP: turnData?.declaredCOP,
+          shortageUSD: Number(row.shortage_usd),
+          overageUSD: Number(row.overage_usd),
+          notes: turnData?.notes,
+          sellerName: currentUserData?.fullName || undefined,
+          closedBy: currentUserData?.id || undefined
+        };
+      }
+
+      // 2. Fallback de cliente si la RPC aún no está aplicada
       if (settingsId) {
         await supabase.from('settings').update({ last_close_date: now }).eq('id', settingsId);
       } else {
         await supabase.from('settings').update({ last_close_date: now }).neq('id', '00000000-0000-0000-0000-000000000000');
       }
 
-      // 2. ✅ Registrar en historial de cierres y obtener retorno
       const { data: newClose, error } = await supabase.from('cash_closes').insert({
         closed_at: now,
         closed_by: currentUserData?.id || null,
@@ -285,9 +327,15 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
         total_usd: turnData?.totalUSD ?? 0,
         total_bs: turnData?.totalBs ?? 0,
         tx_count: turnData?.txCount ?? 0,
+        declared_usd: turnData?.declaredUSD ?? turnData?.totalUSD ?? 0,
+        declared_bs: turnData?.declaredBS ?? turnData?.totalBs ?? 0,
+        declared_cop: turnData?.declaredCOP ?? 0,
+        shortage_usd: turnData?.shortageUSD ?? 0,
+        overage_usd: turnData?.overageUSD ?? 0,
+        notes: turnData?.notes || null,
       }).select().single();
 
-      if (error) console.error("Error al cerrar caja:", error);
+      if (error) console.error("Error al registrar cierre de caja:", error);
 
       set((state) => ({ settings: { ...state.settings, lastCloseDate: now } }));
       toast.success('Cierre de caja exitoso 🏁');
@@ -299,6 +347,12 @@ export const createSettingsSlice = (set: SetState, get: GetState) => ({
         totalUSD: newClose.total_usd,
         totalBs: newClose.total_bs,
         txCount: newClose.tx_count,
+        declaredUSD: newClose.declared_usd,
+        declaredBS: newClose.declared_bs,
+        declaredCOP: newClose.declared_cop,
+        shortageUSD: newClose.shortage_usd,
+        overageUSD: newClose.overage_usd,
+        notes: newClose.notes,
         sellerName: newClose.seller_name || undefined,
         closedBy: newClose.closed_by || undefined
       } : null;

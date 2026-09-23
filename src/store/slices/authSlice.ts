@@ -155,33 +155,61 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     try {
       // Cargar datos del usuario actual
       await get().fetchCurrentUserData();
+      const currentRole = get().currentUserData?.role ?? 'VIEWER';
+      const isElevated = currentRole === 'ADMIN' || currentRole === 'MANAGER';
 
-      // ✅ FIX: Paralelizar queries independientes con Promise.all()
+      // 1. Consultas esenciales para la operación de la interfaz y POS
+      const settingsPromise = supabase.from('settings').select('*').order('created_at', { ascending: true }).limit(1).maybeSingle();
+      const productsPromise = supabase.from('products').select('*');
+      const clientsPromise = supabase.from('clients').select('*');
+      const paymentMethodsPromise = supabase.from('payment_methods').select('*');
+
+      // 2. Consulta de ventas aislada por rol (SELLER solo consulta sus propias ventas)
+      let salesQuery = supabase
+        .from('sales')
+        .select(`*, sale_items(*), payments(*)`)
+        .order('date', { ascending: false })
+        .limit(500);
+
+      if (currentRole === 'SELLER' && get().user) {
+        salesQuery = salesQuery.eq('user_id', get().user!.id);
+      }
+
+      // 3. Consultas protegidas según nivel de acceso (SEC-APP-005)
+      const suppliersPromise = isElevated || currentRole === 'SELLER'
+        ? supabase.from('suppliers').select('*')
+        : Promise.resolve({ data: [] as never[], error: null });
+
+      const invoicesPromise = isElevated || currentRole === 'VIEWER'
+        ? supabase.from('invoices').select('*')
+        : Promise.resolve({ data: [] as never[], error: null });
+
+      // Ejecutar consultas concurrentes
       const [
         settingsResult,
         productsResult,
         clientsResult,
+        paymentMethodsResult,
         salesResult,
         suppliersResult,
         invoicesResult,
-        paymentMethodsResult,
       ] = await Promise.all([
-        supabase.from('settings').select('*').order('created_at', { ascending: true }).limit(1).maybeSingle(),
-        supabase.from('products').select('*'),
-        supabase.from('clients').select('*'),
-        supabase.from('sales').select(`*, sale_items(*), payments(*)`).order('date', { ascending: false }).limit(500),
-        supabase.from('suppliers').select('*'),
-        supabase.from('invoices').select('*'),
-        supabase.from('payment_methods').select('*'),
+        settingsPromise,
+        productsPromise,
+        clientsPromise,
+        paymentMethodsPromise,
+        salesQuery,
+        suppliersPromise,
+        invoicesPromise,
       ]);
 
       const settingsData = settingsResult.data;
       const productsData = productsResult.data;
       const clientsData = clientsResult.data;
+      const paymentMethodsData = paymentMethodsResult.data;
       const salesData = salesResult.data;
       const suppliersData = suppliersResult.data;
       const invoicesData = invoicesResult.data;
-      const paymentMethodsData = paymentMethodsResult.data;
 
       if (settingsData) {
         // Sanitize RIF safely: column is TEXT NULL in DB, so it may be null/undefined.
@@ -234,7 +262,7 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
         set({ paymentMethods: paymentMethodsData.map(mapPaymentMethodFromDB) });
       }
 
-      if (invoicesData) {
+      if (invoicesData && invoicesData.length > 0) {
         set({
           invoices: invoicesData.map((inv) => mapInvoiceFromDB(inv, suppliersData || []))
         });
@@ -251,21 +279,29 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
       set({ isLoading: false });
     }
 
-    // Cargar cotizaciones, gastos, libro mayor, devoluciones y movimientos de stock (no críticos — fallar silenciosamente)
+    // Cargar módulos secundarios según roles autorizados
+    const currentRole = get().currentUserData?.role ?? 'VIEWER';
+    const isElevated = currentRole === 'ADMIN' || currentRole === 'MANAGER';
+
     try {
       await get().fetchQuotes();
     } catch (e) { console.warn('fetchQuotes:', e); }
-    try {
-      await get().fetchExpenses();
-    } catch (e) { console.warn('fetchExpenses:', e); }
-    try {
-      await get().fetchCashLedger();
-    } catch (e) { console.warn('fetchCashLedger:', e); }
+
     try {
       await get().fetchReturns();
     } catch (e) { console.warn('fetchReturns:', e); }
-    try {
-      await get().fetchStockMovements();
-    } catch (e) { console.warn('fetchStockMovements:', e); }
+
+    // Gastos, arqueos y movimientos reservados para roles administrativos
+    if (isElevated) {
+      try {
+        await get().fetchExpenses();
+      } catch (e) { console.warn('fetchExpenses:', e); }
+      try {
+        await get().fetchCashLedger();
+      } catch (e) { console.warn('fetchCashLedger:', e); }
+      try {
+        await get().fetchStockMovements();
+      } catch (e) { console.warn('fetchStockMovements:', e); }
+    }
   },
 });

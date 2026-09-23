@@ -18,6 +18,7 @@ type MethodMovement = {
   direction: 'IN' | 'OUT';
   amountUSD: number;
   amountBS?: number;
+  amountCOP?: number;
   currency: 'USD' | 'BS' | 'COP';
   kind: string;
   description: string;
@@ -164,7 +165,14 @@ export const ExpectedByMethodTable = ({
                                 <div className="flex items-center gap-2">
                                   <p className={`text-xs font-black whitespace-nowrap ${movement.direction === 'IN' ? 'text-green-700' : 'text-red-700'}`}>
                                     {movement.direction === 'IN' ? '+' : '-'}
-                                    {formatCurrency(row.currency === 'BS' ? (movement.amountBS ?? 0) : movement.amountUSD, row.currency)}
+                                    {formatCurrency(
+                                      row.currency === 'BS'
+                                        ? (movement.amountBS ?? 0)
+                                        : row.currency === 'COP'
+                                          ? (movement.amountCOP ?? 0)
+                                          : movement.amountUSD,
+                                      row.currency
+                                    )}
                                   </p>
                                   {isAdmin && movement.kind === 'AJUSTE' && (
                                     <button

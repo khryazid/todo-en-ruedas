@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { formatCurrency, calculatePrices } from '../utils/pricing';
+import { formatCurrency, calculatePrices, roundTo } from '../utils/pricing';
 import { logAudit } from '../utils/audit';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDarkMode } from '../hooks/useDarkMode';
@@ -451,9 +451,14 @@ export const Dashboard = () => {
         };
       }
 
-      const amountInMethodCurrency = map[method].currency === 'BS'
-        ? (movement.amountBS ?? (movement.amountUSD * settings.tasaBCV))
-        : movement.amountUSD;
+      let amountInMethodCurrency: number;
+      if (map[method].currency === 'BS') {
+        amountInMethodCurrency = movement.amountBS ?? (movement.amountUSD * settings.tasaBCV);
+      } else if (map[method].currency === 'COP') {
+        amountInMethodCurrency = movement.amountCOP ?? Math.round(movement.amountUSD * settings.tasaCOP);
+      } else {
+        amountInMethodCurrency = movement.amountUSD;
+      }
 
       if (movement.direction === 'IN') {
         map[method].grossIn += amountInMethodCurrency;
@@ -467,8 +472,9 @@ export const Dashboard = () => {
 
     return Object.values(map)
       .map((row) => {
-        const commissionCost = row.commissionableIn * (row.commissionPct / 100);
-        const expectedBalance = row.grossIn - commissionCost - row.cashOut;
+        const decimals = row.currency === 'COP' ? 0 : 2;
+        const commissionCost = roundTo(row.commissionableIn * (row.commissionPct / 100), decimals);
+        const expectedBalance = roundTo(row.grossIn - commissionCost - row.cashOut, decimals);
         return {
           ...row,
           commissionCost,
@@ -476,7 +482,7 @@ export const Dashboard = () => {
         };
       })
       .sort((a, b) => b.expectedBalance - a.expectedBalance);
-  }, [paymentMethods, settings.tasaBCV]);
+  }, [paymentMethods, settings.tasaBCV, settings.tasaCOP]);
 
   const expectedByMethodAccum = useMemo(() => {
     return buildExpectedByMethod(cashLedgerUntilEndDate);

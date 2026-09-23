@@ -8,11 +8,22 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store/useStore';
-import { formatCurrency } from '../utils/pricing';
+import { formatCurrency, roundTo } from '../utils/pricing';
 import { printTicket, printDailyCloseReport } from '../utils/ticketGenerator';
 import { supabase } from '../supabase/client';
 import { generateId } from '../utils/id';
-import { DollarSign, Printer, Lock, Clock, AlertTriangle, History, User, FileText, TrendingDown } from 'lucide-react';
+import {
+    calculateCashDrawerAudit,
+    USD_DENOMINATIONS,
+    BS_DENOMINATIONS,
+    COP_DENOMINATIONS,
+    sumDenominationMap,
+    type DenominationCountMap
+} from '../utils/cashAudit';
+import {
+    DollarSign, Printer, Lock, Clock, AlertTriangle, History,
+    User, FileText, TrendingDown, Coins, CheckCircle2, XCircle, ChevronDown, ChevronUp
+} from 'lucide-react';
 import type { CashClose } from '../types';
 
 export const DailyClose = () => {
@@ -26,6 +37,16 @@ export const DailyClose = () => {
     const fetchCashLedger = useStore((s) => s.fetchCashLedger);
     const [reportType, setReportType] = useState<'X' | 'Z'>('X');
     const [closeHistory, setCloseHistory] = useState<CashClose[]>([]);
+
+    // Estados para Arqueo Físico de Gaveta (FIN-ARQ-005)
+    const [declaredUSD, setDeclaredUSD] = useState<string>('');
+    const [declaredBS, setDeclaredBS] = useState<string>('');
+    const [declaredCOP, setDeclaredCOP] = useState<string>('');
+    const [closeNotes, setCloseNotes] = useState<string>('');
+    const [showDenominations, setShowDenominations] = useState<boolean>(false);
+    const [usdCounts, setUsdCounts] = useState<DenominationCountMap>({});
+    const [bsCounts, setBsCounts] = useState<DenominationCountMap>({});
+    const [copCounts, setCopCounts] = useState<DenominationCountMap>({});
 
     // --- FETCH HISTORIAL DE CIERRES ---
     useEffect(() => {
@@ -43,9 +64,15 @@ export const DailyClose = () => {
                     closedAt: r.closed_at,
                     closedBy: r.closed_by,
                     sellerName: r.seller_name,
-                    totalUSD: r.total_usd,
-                    totalBs: r.total_bs,
-                    txCount: r.tx_count,
+                    totalUSD: Number(r.total_usd) || 0,
+                    totalBs: Number(r.total_bs) || 0,
+                    txCount: Number(r.tx_count) || 0,
+                    declaredUSD: r.declared_usd !== null && r.declared_usd !== undefined ? Number(r.declared_usd) : undefined,
+                    declaredBS: r.declared_bs !== null && r.declared_bs !== undefined ? Number(r.declared_bs) : undefined,
+                    declaredCOP: r.declared_cop !== null && r.declared_cop !== undefined ? Number(r.declared_cop) : undefined,
+                    shortageUSD: r.shortage_usd !== null && r.shortage_usd !== undefined ? Number(r.shortage_usd) : undefined,
+                    overageUSD: r.overage_usd !== null && r.overage_usd !== undefined ? Number(r.overage_usd) : undefined,
+                    notes: r.notes || undefined,
                 })));
             }
         };
@@ -82,9 +109,9 @@ export const DailyClose = () => {
     // --- CÁLCULOS DEL TURNO ACTUAL ---
     // ✅ AUDIT FIX #9: Usar paidAmountUSD (dinero físicamente recibido) en lugar de
     // totalUSD (que incluye ventas a crédito aún no cobradas y genera descuadre en el arqueo).
-    const totalUSD = currentShiftSales.reduce((acc, s) => acc + s.paidAmountUSD, 0);
-    const totalBs = currentShiftSales.reduce((acc, s) => acc + (s.paidAmountUSD * settings.tasaBCV), 0);
-    const totalBsByRate = totalUSD * settings.tasaBCV;
+    const totalUSD = roundTo(currentShiftSales.reduce((acc, s) => acc + s.paidAmountUSD, 0), 2);
+    const totalBs = roundTo(currentShiftSales.reduce((acc, s) => acc + (s.paidAmountUSD * settings.tasaBCV), 0), 2);
+    const totalBsByRate = roundTo(totalUSD * settings.tasaBCV, 2);
 
     // Gastos del turno actual
     const shiftExpenses = useMemo(() => {
@@ -92,8 +119,8 @@ export const DailyClose = () => {
         const sinceStr = lastClose ? lastClose.toISOString().split('T')[0] : null;
         return expenses.filter(e => e.date === todayStr || (sinceStr && e.date >= sinceStr));
     }, [expenses, lastClose]);
-    const totalExpensesUSD = shiftExpenses.reduce((acc, e) => acc + e.amountUSD, 0);
-    const netProfitUSD = totalUSD - totalExpensesUSD;
+    const totalExpensesUSD = roundTo(shiftExpenses.reduce((acc, e) => acc + e.amountUSD, 0), 2);
+    const netProfitUSD = roundTo(totalUSD - totalExpensesUSD, 2);
 
     // ✅ AUDIT FIX #12: Integrar cash_ledger para el arqueo exacto por método de pago (entradas y salidas)
     const shiftCashMovements = useMemo(() => {
@@ -134,6 +161,80 @@ export const DailyClose = () => {
         return map;
     }, [paymentMethods, shiftCashMovements, currentShiftSales]);
 
+    // --- CONCILIACIÓN DE EFECTIVO FÍSICO (ARQUEO DE GAVETA - FIN-ARQ-005) ---
+    const expectedCashUSD = useMemo(() => {
+        let sum = 0;
+        Object.entries(breakdown).forEach(([name, info]) => {
+            if (info.currency === 'USD' && name.toLowerCase().includes('efectivo')) {
+                sum += info.amountUSD;
+            }
+        });
+        return roundTo(sum, 2);
+    }, [breakdown]);
+
+    const expectedCashBS = useMemo(() => {
+        let sum = 0;
+        Object.entries(breakdown).forEach(([, info]) => {
+            if (info.currency === 'BS') {
+                sum += info.amountUSD * settings.tasaBCV;
+            }
+        });
+        return roundTo(sum, 2);
+    }, [breakdown, settings.tasaBCV]);
+
+    const expectedCashCOP = useMemo(() => {
+        let sum = 0;
+        Object.entries(breakdown).forEach(([, info]) => {
+            if (info.currency === 'COP') {
+                sum += Math.round(info.amountUSD * settings.tasaCOP);
+            }
+        });
+        return roundTo(sum, 0);
+    }, [breakdown, settings.tasaCOP]);
+
+    const effectiveDeclaredUSD = useMemo(() => {
+        const fromCount = sumDenominationMap(usdCounts);
+        if (fromCount > 0) return fromCount;
+        return declaredUSD.trim() !== '' ? parseFloat(declaredUSD) || 0 : expectedCashUSD;
+    }, [usdCounts, declaredUSD, expectedCashUSD]);
+
+    const effectiveDeclaredBS = useMemo(() => {
+        const fromCount = sumDenominationMap(bsCounts);
+        if (fromCount > 0) return fromCount;
+        return declaredBS.trim() !== '' ? parseFloat(declaredBS) || 0 : expectedCashBS;
+    }, [bsCounts, declaredBS, expectedCashBS]);
+
+    const effectiveDeclaredCOP = useMemo(() => {
+        const fromCount = sumDenominationMap(copCounts);
+        if (fromCount > 0) return fromCount;
+        return declaredCOP.trim() !== '' ? parseFloat(declaredCOP) || 0 : expectedCashCOP;
+    }, [copCounts, declaredCOP, expectedCashCOP]);
+
+    const cashAudit = useMemo(() => {
+        return calculateCashDrawerAudit(
+            { usd: expectedCashUSD, bs: expectedCashBS, cop: expectedCashCOP },
+            { usd: effectiveDeclaredUSD, bs: effectiveDeclaredBS, cop: effectiveDeclaredCOP },
+            settings.tasaBCV,
+            settings.tasaCOP
+        );
+    }, [expectedCashUSD, expectedCashBS, expectedCashCOP, effectiveDeclaredUSD, effectiveDeclaredBS, effectiveDeclaredCOP, settings.tasaBCV, settings.tasaCOP]);
+
+    const handleDenomChange = (
+        currency: 'USD' | 'BS' | 'COP',
+        denom: number,
+        qtyStr: string
+    ) => {
+        const qty = parseInt(qtyStr, 10);
+        const validQty = isNaN(qty) || qty < 0 ? 0 : qty;
+        if (currency === 'USD') {
+            setUsdCounts(prev => ({ ...prev, [denom]: validQty }));
+        } else if (currency === 'BS') {
+            setBsCounts(prev => ({ ...prev, [denom]: validQty }));
+        } else {
+            setCopCounts(prev => ({ ...prev, [denom]: validQty }));
+        }
+    };
+
     const handlePrint = async () => {
         if (reportType === 'X' && currentShiftSales.length === 0) {
             return alert('No hay movimientos para imprimir.');
@@ -152,6 +253,12 @@ export const DailyClose = () => {
                     totalUSD,
                     totalBs,
                     txCount: currentShiftSales.length,
+                    declaredUSD: effectiveDeclaredUSD,
+                    declaredBS: effectiveDeclaredBS,
+                    declaredCOP: effectiveDeclaredCOP,
+                    shortageUSD: cashAudit.shortageUSD,
+                    overageUSD: cashAudit.overageUSD,
+                    notes: closeNotes || undefined,
                 });
 
                 if (newCloseResult && newCloseResult.sequenceNumber) {
@@ -191,9 +298,15 @@ export const DailyClose = () => {
                             closedAt: r.closed_at,
                             closedBy: r.closed_by,
                             sellerName: r.seller_name,
-                            totalUSD: r.total_usd,
-                            totalBs: r.total_bs,
-                            txCount: r.tx_count,
+                            totalUSD: Number(r.total_usd) || 0,
+                            totalBs: Number(r.total_bs) || 0,
+                            txCount: Number(r.tx_count) || 0,
+                            declaredUSD: r.declared_usd !== null && r.declared_usd !== undefined ? Number(r.declared_usd) : undefined,
+                            declaredBS: r.declared_bs !== null && r.declared_bs !== undefined ? Number(r.declared_bs) : undefined,
+                            declaredCOP: r.declared_cop !== null && r.declared_cop !== undefined ? Number(r.declared_cop) : undefined,
+                            shortageUSD: r.shortage_usd !== null && r.shortage_usd !== undefined ? Number(r.shortage_usd) : undefined,
+                            overageUSD: r.overage_usd !== null && r.overage_usd !== undefined ? Number(r.overage_usd) : undefined,
+                            notes: r.notes || undefined,
                         })));
                     });
             }
@@ -361,6 +474,233 @@ export const DailyClose = () => {
                         </div>
                     </div>
 
+                    {/* ARQUEO FÍSICO DE GAVETA Y CONCILIACIÓN MULTIMONEDA (FIN-ARQ-005) */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div className="p-4 border-b border-gray-50 bg-gray-50/50 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                                <Coins size={18} className="text-amber-600" />
+                                <div>
+                                    <h3 className="font-bold text-gray-800 text-sm">Arqueo Físico y Conciliación Multimoneda</h3>
+                                    <p className="text-[11px] text-gray-500">Declaración de efectivo físico en gaveta vs esperado del turno</p>
+                                </div>
+                            </div>
+                            <div>
+                                {cashAudit.isClean && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                                        <CheckCircle2 size={13} /> Gaveta Cuadrada
+                                    </span>
+                                )}
+                                {cashAudit.shortageUSD > 0.01 && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800">
+                                        <XCircle size={13} /> Faltante: -{formatCurrency(cashAudit.shortageUSD, 'USD')}
+                                    </span>
+                                )}
+                                {cashAudit.overageUSD > 0.01 && (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                                        <AlertTriangle size={13} /> Sobrante: +{formatCurrency(cashAudit.overageUSD, 'USD')}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="p-4 space-y-4">
+                            {/* COMPARACIÓN MULTIMONEDA (USD / BS / COP) */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                {/* USD */}
+                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-xs font-bold text-gray-600">Dólares ($ USD)</span>
+                                        <span className="text-[10px] text-gray-400">Esperado: {formatCurrency(expectedCashUSD, 'USD')}</span>
+                                    </div>
+                                    <div className="relative">
+                                        <span className="absolute left-2.5 top-2 text-xs font-bold text-gray-400">$</span>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={sumDenominationMap(usdCounts) > 0 ? effectiveDeclaredUSD : declaredUSD}
+                                            onChange={(e) => setDeclaredUSD(e.target.value)}
+                                            placeholder={expectedCashUSD.toFixed(2)}
+                                            disabled={sumDenominationMap(usdCounts) > 0}
+                                            className="w-full pl-6 pr-2 py-1.5 text-sm font-mono font-bold bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                                        />
+                                    </div>
+                                    <div className="mt-1.5 flex justify-between text-[11px]">
+                                        <span className="text-gray-500">Diferencia:</span>
+                                        <span className={`font-mono font-bold ${
+                                            cashAudit.usd.difference < -0.01 ? 'text-red-600' :
+                                            cashAudit.usd.difference > 0.01 ? 'text-blue-600' : 'text-emerald-600'
+                                        }`}>
+                                            {cashAudit.usd.difference > 0 ? '+' : ''}{cashAudit.usd.difference.toFixed(2)} USD
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* BS */}
+                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-xs font-bold text-gray-600">Bolívares (Bs.)</span>
+                                        <span className="text-[10px] text-gray-400">Esperado: Bs. {expectedCashBS.toLocaleString('es-VE', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="relative">
+                                        <span className="absolute left-2.5 top-2 text-xs font-bold text-gray-400">Bs.</span>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={sumDenominationMap(bsCounts) > 0 ? effectiveDeclaredBS : declaredBS}
+                                            onChange={(e) => setDeclaredBS(e.target.value)}
+                                            placeholder={expectedCashBS.toFixed(2)}
+                                            disabled={sumDenominationMap(bsCounts) > 0}
+                                            className="w-full pl-8 pr-2 py-1.5 text-sm font-mono font-bold bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                                        />
+                                    </div>
+                                    <div className="mt-1.5 flex justify-between text-[11px]">
+                                        <span className="text-gray-500">Diferencia:</span>
+                                        <span className={`font-mono font-bold ${
+                                            cashAudit.bs.difference < -0.01 ? 'text-red-600' :
+                                            cashAudit.bs.difference > 0.01 ? 'text-blue-600' : 'text-emerald-600'
+                                        }`}>
+                                            {cashAudit.bs.difference > 0 ? '+' : ''}{cashAudit.bs.difference.toFixed(2)} Bs.
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* COP */}
+                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-xs font-bold text-gray-600">Pesos (COP)</span>
+                                        <span className="text-[10px] text-gray-400">Esperado: $ {expectedCashCOP.toLocaleString('es-CO')}</span>
+                                    </div>
+                                    <div className="relative">
+                                        <span className="absolute left-2.5 top-2 text-xs font-bold text-gray-400">COP</span>
+                                        <input
+                                            type="number"
+                                            step="100"
+                                            value={sumDenominationMap(copCounts) > 0 ? effectiveDeclaredCOP : declaredCOP}
+                                            onChange={(e) => setDeclaredCOP(e.target.value)}
+                                            placeholder={expectedCashCOP.toString()}
+                                            disabled={sumDenominationMap(copCounts) > 0}
+                                            className="w-full pl-10 pr-2 py-1.5 text-sm font-mono font-bold bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                                        />
+                                    </div>
+                                    <div className="mt-1.5 flex justify-between text-[11px]">
+                                        <span className="text-gray-500">Diferencia:</span>
+                                        <span className={`font-mono font-bold ${
+                                            cashAudit.cop.difference < -0.01 ? 'text-red-600' :
+                                            cashAudit.cop.difference > 0.01 ? 'text-blue-600' : 'text-emerald-600'
+                                        }`}>
+                                            {cashAudit.cop.difference > 0 ? '+' : ''}{cashAudit.cop.difference.toLocaleString('es-CO')} COP
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* TOGGLE CONTEO DE BILLETES */}
+                            <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDenominations(!showDenominations)}
+                                    className="w-full px-4 py-2.5 bg-gray-50 hover:bg-gray-100 flex items-center justify-between text-xs font-bold text-gray-700 transition"
+                                >
+                                    <span className="flex items-center gap-1.5">
+                                        <Coins size={14} className="text-amber-600" />
+                                        Desglose físico por denominación / billetes (Opcional)
+                                    </span>
+                                    {showDenominations ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </button>
+
+                                {showDenominations && (
+                                    <div className="p-4 bg-white grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-100 text-xs">
+                                        {/* USD Denominations */}
+                                        <div className="space-y-1.5">
+                                            <div className="font-bold text-gray-700 pb-1 border-b border-gray-100 flex justify-between">
+                                                <span>Billetes USD</span>
+                                                <span className="text-emerald-600 font-mono">${sumDenominationMap(usdCounts).toFixed(2)}</span>
+                                            </div>
+                                            {USD_DENOMINATIONS.map(({ denomination, label }) => (
+                                                <div key={denomination} className="flex items-center justify-between gap-2">
+                                                    <span className="font-mono text-gray-500 w-12">{label}</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        placeholder="0"
+                                                        value={usdCounts[denomination] || ''}
+                                                        onChange={(e) => handleDenomChange('USD', denomination, e.target.value)}
+                                                        className="w-16 px-1.5 py-0.5 text-center font-mono border rounded border-gray-300"
+                                                    />
+                                                    <span className="font-mono text-gray-700 w-14 text-right">
+                                                        ${((usdCounts[denomination] || 0) * denomination).toFixed(0)}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* BS Denominations */}
+                                        <div className="space-y-1.5">
+                                            <div className="font-bold text-gray-700 pb-1 border-b border-gray-100 flex justify-between">
+                                                <span>Billetes Bs.</span>
+                                                <span className="text-blue-600 font-mono">Bs. {sumDenominationMap(bsCounts).toLocaleString('es-VE')}</span>
+                                            </div>
+                                            {BS_DENOMINATIONS.map(({ denomination, label }) => (
+                                                <div key={denomination} className="flex items-center justify-between gap-2">
+                                                    <span className="font-mono text-gray-500 w-14">{label}</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        placeholder="0"
+                                                        value={bsCounts[denomination] || ''}
+                                                        onChange={(e) => handleDenomChange('BS', denomination, e.target.value)}
+                                                        className="w-16 px-1.5 py-0.5 text-center font-mono border rounded border-gray-300"
+                                                    />
+                                                    <span className="font-mono text-gray-700 w-16 text-right">
+                                                        {((bsCounts[denomination] || 0) * denomination).toLocaleString('es-VE')}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        {/* COP Denominations */}
+                                        <div className="space-y-1.5">
+                                            <div className="font-bold text-gray-700 pb-1 border-b border-gray-100 flex justify-between">
+                                                <span>Billetes COP</span>
+                                                <span className="text-purple-600 font-mono">${sumDenominationMap(copCounts).toLocaleString('es-CO')}</span>
+                                            </div>
+                                            {COP_DENOMINATIONS.map(({ denomination, label }) => (
+                                                <div key={denomination} className="flex items-center justify-between gap-2">
+                                                    <span className="font-mono text-gray-500 w-14">{label}</span>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        placeholder="0"
+                                                        value={copCounts[denomination] || ''}
+                                                        onChange={(e) => handleDenomChange('COP', denomination, e.target.value)}
+                                                        className="w-16 px-1.5 py-0.5 text-center font-mono border rounded border-gray-300"
+                                                    />
+                                                    <span className="font-mono text-gray-700 w-16 text-right">
+                                                        {((copCounts[denomination] || 0) * denomination).toLocaleString('es-CO')}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* NOTAS / JUSTIFICACIÓN */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-600 mb-1">
+                                    Notas u observaciones del arqueo {!cashAudit.isClean && <span className="text-red-500 font-normal">(Requerido si hay descuadre)</span>}
+                                </label>
+                                <input
+                                    type="text"
+                                    value={closeNotes}
+                                    onChange={(e) => setCloseNotes(e.target.value)}
+                                    placeholder="Ej: Faltante por diferencia en cambio de denominación pequeña..."
+                                    className="w-full px-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     {/* HISTORIAL DE CIERRES Z */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                         <div className="p-4 border-b border-gray-50 bg-gray-50/50 flex items-center gap-2">
@@ -391,12 +731,26 @@ export const DailyClose = () => {
                                         <div className="text-right flex-shrink-0 mr-2">
                                             <p className="font-bold text-gray-800">Cierre Z - {formatCurrency(c.totalUSD, 'USD')}</p>
                                             <p className="text-xs text-gray-400 font-mono">#{c.sequenceNumber || c.id.slice(-6)} ({c.txCount} tx)</p>
-                                            <p className="text-[10px] text-gray-500">
-                                                Tasa implícita:{' '}
-                                                {c.totalUSD > 0
-                                                    ? `Bs. ${(c.totalBs / c.totalUSD).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / $1`
-                                                    : 'N/A'}
-                                            </p>
+                                            <div className="flex items-center justify-end gap-1 mt-1">
+                                                {c.shortageUSD && c.shortageUSD > 0.01 ? (
+                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
+                                                        Faltante: -${c.shortageUSD.toFixed(2)}
+                                                    </span>
+                                                ) : c.overageUSD && c.overageUSD > 0.01 ? (
+                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700">
+                                                        Sobrante: +${c.overageUSD.toFixed(2)}
+                                                    </span>
+                                                ) : c.declaredUSD !== undefined ? (
+                                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-700">
+                                                        Cuadrado
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                            {c.notes && (
+                                                <p className="text-[10px] text-gray-400 italic max-w-[180px] truncate" title={c.notes}>
+                                                    {c.notes}
+                                                </p>
+                                            )}
                                         </div>
                                         {/* Botón reimprimir */}
                                         <button
