@@ -17,9 +17,11 @@ import {
     LayoutDashboard, ShoppingCart, Package, FileText,
     Settings, LogOut, History, PieChart, Users, Wallet,
     Shield, ClipboardList, Award, Menu, X, Search,
-    ChevronDown, UserCircle, Sliders, TrendingDown, Moon, Sun, Truck
+    ChevronDown, UserCircle, Sliders, TrendingDown, Moon, Sun, Truck,
+    Building2, Plus, Check
 } from 'lucide-react';
 import { useDarkMode } from '../../hooks/useDarkMode';
+import { CreateOrganizationModal } from '../organization/CreateOrganizationModal';
 import type { PermissionType } from '../../utils/permissions';
 
 interface MenuItem {
@@ -75,6 +77,8 @@ export const TopBar = memo(() => {
     const [moreOpen, setMoreOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [pinModalOpen, setPinModalOpen] = useState(false);
+    const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
+    const [createOrgOpen, setCreateOrgOpen] = useState(false);
     const { isDark, toggle: toggleDark } = useDarkMode();
 
     // Pines persistidos en localStorage — el usuario elige qué va en la barra
@@ -87,11 +91,16 @@ export const TopBar = memo(() => {
 
     const moreRef = useRef<HTMLDivElement>(null);
     const userRef = useRef<HTMLDivElement>(null);
+    const orgRef = useRef<HTMLDivElement>(null);
 
     const settings = useStore((s) => s.settings);
     const logout = useStore((s) => s.logout);
     const currentUserData = useStore(s => s.currentUserData);
     const products = useStore(s => s.products);
+    const currentOrganization = useStore(s => s.currentOrganization);
+    const userOrganizations = useStore(s => s.userOrganizations);
+    const currentOrgMember = useStore(s => s.currentOrgMember);
+    const switchOrganization = useStore(s => s.switchOrganization);
     const { canAny, role } = usePermissions();
     const navigate = useNavigate();
 
@@ -103,6 +112,9 @@ export const TopBar = memo(() => {
             }
             if (userRef.current && !userRef.current.contains(e.target as Node)) {
                 setUserMenuOpen(false);
+            }
+            if (orgRef.current && !orgRef.current.contains(e.target as Node)) {
+                setOrgDropdownOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClick);
@@ -140,9 +152,9 @@ export const TopBar = memo(() => {
         try { localStorage.setItem('topbar-pinned', JSON.stringify(PRIMARY_PATHS)); } catch { console.warn('Storage error'); }
     };
 
-    const companyName = settings.companyName && settings.companyName !== 'Cargando...'
+    const companyName = currentOrganization?.name || (settings.companyName && settings.companyName !== 'Cargando...'
         ? settings.companyName
-        : 'Glyph Core';
+        : 'Glyph Core');
 
     const handleLogout = async () => {
         setUserMenuOpen(false);
@@ -171,20 +183,97 @@ export const TopBar = memo(() => {
                     <Menu size={20} />
                 </button>
 
-                {/* LOGO + NOMBRE */}
+                {/* LOGO */}
                 <button
                     onClick={() => navigate('/dashboard')}
-                    className="flex items-center gap-2.5 flex-shrink-0 mr-2 hover:opacity-90 transition"
+                    className="flex items-center gap-2 flex-shrink-0 hover:opacity-90 transition mr-1"
+                    title="Dashboard"
                 >
-                    <div className="hidden sm:block leading-tight text-left">
-                        <p className="text-white font-black text-sm leading-tight tracking-tight truncate max-w-[180px]">
-                            {companyName}
-                        </p>
-                        <p className="text-gray-500 text-[9px] uppercase tracking-widest font-bold leading-none mt-0.5">
-                            Business Management
-                        </p>
+                    <div className="w-8 h-8 bg-red-600 rounded-xl flex items-center justify-center shadow-md shadow-red-900/40">
+                        <span className="text-white font-black text-xs">TR</span>
                     </div>
                 </button>
+
+                {/* SELECTOR DE NEGOCIO / EMPRESA */}
+                <div className="relative flex-shrink-0 mr-1" ref={orgRef}>
+                    <button
+                        onClick={() => setOrgDropdownOpen(v => !v)}
+                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition max-w-[170px] sm:max-w-[210px] text-left ${
+                            orgDropdownOpen
+                                ? 'bg-white/15 border-white/20'
+                                : 'bg-white/5 border-white/10 hover:bg-white/10'
+                        }`}
+                        title="Cambiar negocio activo"
+                    >
+                        <Building2 size={15} className="text-red-400 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                            <p className="text-white font-bold text-xs leading-tight truncate">
+                                {currentOrganization?.name || companyName}
+                            </p>
+                            <p className="text-gray-400 text-[9px] uppercase font-semibold leading-none mt-0.5 truncate">
+                                {currentOrgMember?.role ? `${currentOrgMember.role.toLowerCase()}` : 'Empresa'}
+                            </p>
+                        </div>
+                        <ChevronDown size={12} className={`text-gray-400 transition-transform duration-200 flex-shrink-0 ${orgDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* DROPDOWN DE NEGOCIOS */}
+                    {orgDropdownOpen && (
+                        <div className="absolute top-full left-0 mt-2 w-64 bg-gray-800 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-[9999] animate-in fade-in slide-in-from-top-2 duration-150">
+                            <div className="p-3 border-b border-white/8 bg-gray-850">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Empresas / Sucursales</p>
+                            </div>
+                            <div className="max-h-56 overflow-y-auto p-1.5 space-y-1">
+                                {userOrganizations.length === 0 ? (
+                                    <div className="p-3 text-center text-xs text-gray-400">
+                                        No hay negocios disponibles
+                                    </div>
+                                ) : (
+                                    userOrganizations.map((org) => {
+                                        const isCurrent = currentOrganization?.id === org.id;
+                                        return (
+                                            <button
+                                                key={org.id}
+                                                onClick={() => {
+                                                    setOrgDropdownOpen(false);
+                                                    if (!isCurrent) switchOrganization(org.id);
+                                                }}
+                                                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition text-left ${
+                                                    isCurrent
+                                                        ? 'bg-red-600 text-white shadow-md shadow-red-900/30'
+                                                        : 'text-gray-300 hover:bg-white/10 hover:text-white'
+                                                }`}
+                                            >
+                                                <Building2 size={15} className={isCurrent ? 'text-white' : 'text-gray-400'} />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="truncate font-bold">{org.name}</p>
+                                                    {isCurrent && currentOrgMember && (
+                                                        <p className="text-[9px] uppercase tracking-wider font-semibold text-red-200">
+                                                            {currentOrgMember.role}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                {isCurrent && <Check size={14} className="flex-shrink-0" />}
+                                            </button>
+                                        );
+                                    })
+                                )}
+                            </div>
+                            <div className="p-2 border-t border-white/8 bg-gray-850">
+                                <button
+                                    onClick={() => {
+                                        setOrgDropdownOpen(false);
+                                        setCreateOrgOpen(true);
+                                    }}
+                                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-red-600/15 hover:bg-red-600/25 border border-red-500/30 text-red-300 hover:text-white text-xs font-bold rounded-xl transition"
+                                >
+                                    <Plus size={14} />
+                                    Nuevo Negocio
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
 
                 {/* SEPARADOR */}
                 <div className="hidden md:block w-px h-6 bg-white/10 flex-shrink-0" />
@@ -382,6 +471,48 @@ export const TopBar = memo(() => {
                             </button>
                         </div>
 
+                        {/* Selector de Negocio en Móvil */}
+                        <div className="px-4 pt-3 pb-1">
+                            <div className="p-2.5 bg-white/5 rounded-xl border border-white/8">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Building2 size={12} className="text-red-400" /> Negocio Activo
+                                    </span>
+                                    <button
+                                        onClick={() => {
+                                            setMobileOpen(false);
+                                            setCreateOrgOpen(true);
+                                        }}
+                                        className="text-[10px] text-red-400 hover:text-red-300 font-bold flex items-center gap-1"
+                                    >
+                                        <Plus size={12} /> Nuevo
+                                    </button>
+                                </div>
+                                <div className="space-y-1 max-h-36 overflow-y-auto">
+                                    {userOrganizations.map((org) => {
+                                        const isCurrent = currentOrganization?.id === org.id;
+                                        return (
+                                            <button
+                                                key={org.id}
+                                                onClick={() => {
+                                                    if (!isCurrent) switchOrganization(org.id);
+                                                    setMobileOpen(false);
+                                                }}
+                                                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                                                    isCurrent
+                                                        ? 'bg-red-600 text-white shadow-sm'
+                                                        : 'text-gray-300 hover:bg-white/10'
+                                                }`}
+                                            >
+                                                <span className="truncate">{org.name}</span>
+                                                {isCurrent && <Check size={12} />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Perfil */}
                         {currentUserData && (
                             <div className="mx-4 mt-4 p-3 bg-white/5 rounded-xl border border-white/8">
@@ -531,6 +662,12 @@ export const TopBar = memo(() => {
                     </div>
                 </div>
             )}
+
+            {/* Modal para Crear Nueva Organización / Negocio */}
+            <CreateOrganizationModal
+                isOpen={createOrgOpen}
+                onClose={() => setCreateOrgOpen(false)}
+            />
         </>
     );
 });

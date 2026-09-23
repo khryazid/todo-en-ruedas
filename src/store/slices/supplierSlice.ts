@@ -23,7 +23,10 @@ export const createSupplierSlice = (set: SetState, get: GetState) => ({
 
     fetchSuppliers: async () => {
         try {
-            const { data: suppliersData, error } = await supabase.from('suppliers').select('*');
+            let query = supabase.from('suppliers').select('*');
+            const orgId = get().currentOrganization?.id;
+            if (orgId) query = query.eq('organization_id', orgId);
+            const { data: suppliersData, error } = await query;
             if (error) throw error;
 
             set({ suppliers: (suppliersData || []).map(mapSupplierFromDB) });
@@ -34,10 +37,12 @@ export const createSupplierSlice = (set: SetState, get: GetState) => ({
 
     addSupplier: async (supplierData: Omit<Supplier, 'id' | 'createdAt'>) => {
         try {
+            const orgId = get().currentOrganization?.id;
             const rifValue = normalizeNullable(supplierData.rif);
             const { data, error } = await supabase
                 .from('suppliers')
                 .insert([{
+                    ...(orgId ? { organization_id: orgId } : {}),
                     name: supplierData.name.trim(),
                     rif: rifValue,
                     rif_type: rifValue ? (supplierData.rifType || 'J') : null,

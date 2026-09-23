@@ -153,35 +153,60 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     if (!get().user) return;
     set({ isLoading: true });
     try {
+      // 0. Cargar organizaciones del usuario
+      await get().fetchUserOrganizations();
+      const currentOrgId = get().currentOrganization?.id || null;
+
       // Cargar datos del usuario actual
       await get().fetchCurrentUserData();
       const currentRole = get().currentUserData?.role ?? 'VIEWER';
       const isElevated = currentRole === 'ADMIN' || currentRole === 'MANAGER';
 
       // 1. Consultas esenciales para la operación de la interfaz y POS
-      const settingsPromise = supabase.from('settings').select('*').order('created_at', { ascending: true }).limit(1).maybeSingle();
-      const productsPromise = supabase.from('products').select('*');
-      const clientsPromise = supabase.from('clients').select('*');
-      const paymentMethodsPromise = supabase.from('payment_methods').select('*');
+      let settingsQuery = supabase.from('settings').select('*').order('created_at', { ascending: true });
+      if (currentOrgId) settingsQuery = settingsQuery.eq('organization_id', currentOrgId);
+      const settingsPromise = settingsQuery.limit(1).maybeSingle();
 
-      // 2. Consulta de ventas aislada por rol (SELLER solo consulta sus propias ventas)
+      let productsQuery = supabase.from('products').select('*');
+      if (currentOrgId) productsQuery = productsQuery.eq('organization_id', currentOrgId);
+      const productsPromise = productsQuery;
+
+      let clientsQuery = supabase.from('clients').select('*');
+      if (currentOrgId) clientsQuery = clientsQuery.eq('organization_id', currentOrgId);
+      const clientsPromise = clientsQuery;
+
+      let paymentMethodsQuery = supabase.from('payment_methods').select('*');
+      if (currentOrgId) paymentMethodsQuery = paymentMethodsQuery.eq('organization_id', currentOrgId);
+      const paymentMethodsPromise = paymentMethodsQuery;
+
+      // 2. Consulta de ventas aislada por rol y organizacion
       let salesQuery = supabase
         .from('sales')
         .select(`*, sale_items(*), payments(*)`)
         .order('date', { ascending: false })
         .limit(500);
 
+      if (currentOrgId) {
+        salesQuery = salesQuery.eq('organization_id', currentOrgId);
+      }
+
       if (currentRole === 'SELLER' && get().user) {
         salesQuery = salesQuery.eq('user_id', get().user!.id);
       }
 
       // 3. Consultas protegidas según nivel de acceso (SEC-APP-005)
+      let suppliersQuery = supabase.from('suppliers').select('*');
+      if (currentOrgId) suppliersQuery = suppliersQuery.eq('organization_id', currentOrgId);
+
       const suppliersPromise = isElevated || currentRole === 'SELLER'
-        ? supabase.from('suppliers').select('*')
+        ? suppliersQuery
         : Promise.resolve({ data: [] as never[], error: null });
 
+      let invoicesQuery = supabase.from('invoices').select('*');
+      if (currentOrgId) invoicesQuery = invoicesQuery.eq('organization_id', currentOrgId);
+
       const invoicesPromise = isElevated || currentRole === 'VIEWER'
-        ? supabase.from('invoices').select('*')
+        ? invoicesQuery
         : Promise.resolve({ data: [] as never[], error: null });
 
       // Ejecutar consultas concurrentes

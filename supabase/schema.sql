@@ -17,12 +17,156 @@
 -- ============================================================
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- ============================================================
+-- 0. ORGANIZACIONES / MULTI-TENANCY (organizations & members)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.organizations (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name        TEXT NOT NULL,
+    slug        TEXT UNIQUE NOT NULL,
+    rif         TEXT,
+    phone       TEXT,
+    email       TEXT,
+    address     TEXT,
+    logo_url    TEXT,
+    is_active   BOOLEAN DEFAULT true,
+    created_at  TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_organizations_slug ON public.organizations(slug);
+
+CREATE TABLE IF NOT EXISTS public.organization_members (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+    user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    role            TEXT NOT NULL DEFAULT 'SELLER'
+                      CHECK (role IN ('OWNER', 'ADMIN', 'MANAGER', 'SELLER', 'VIEWER')),
+    is_active       BOOLEAN DEFAULT true,
+    created_at      TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(organization_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_org_members_user ON public.organization_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_org_members_org ON public.organization_members(organization_id);
+
+-- Semilla de organización por defecto (para compatibilidad mono/multi-tenant)
+INSERT INTO public.organizations (id, name, slug, rif)
+VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'Mi Empresa', 'mi-empresa', 'J-00000000')
+ON CONFLICT (slug) DO NOTHING;
+
+-- Funciones de acceso y contexto multi-tenant
+CREATE OR REPLACE FUNCTION public.user_has_org_access(target_org_id UUID, allowed_roles TEXT[] DEFAULT NULL)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.organization_members om
+    WHERE om.organization_id = target_org_id
+      AND om.user_id = auth.uid()
+      AND om.is_active = true
+      AND (allowed_roles IS NULL OR om.role = ANY(allowed_roles))
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_user_org_ids()
+RETURNS SETOF UUID
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT organization_id FROM public.organization_members
+  WHERE user_id = auth.uid() AND is_active = true;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_user_org_role(target_org_id UUID)
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT role FROM public.organization_members
+  WHERE organization_id = target_org_id
+    AND user_id = auth.uid()
+    AND is_active = true
+  LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION public.create_organization(
+    p_name TEXT,
+    p_slug TEXT,
+    p_rif TEXT DEFAULT NULL,
+    p_currency TEXT DEFAULT 'USD'
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_org_id UUID;
+    v_clean_slug TEXT;
+BEGIN
+    IF auth.uid() IS NULL THEN
+        RAISE EXCEPTION 'Usuario no autenticado';
+    END IF;
+
+    v_clean_slug := lower(regexp_replace(trim(p_slug), '[^a-z0-9_-]', '', 'g'));
+    IF v_clean_slug = '' THEN
+        RAISE EXCEPTION 'Slug inválido';
+    END IF;
+
+    INSERT INTO public.organizations (name, slug, rif)
+    VALUES (trim(p_name), v_clean_slug, trim(p_rif))
+    RETURNING id INTO v_org_id;
+
+    INSERT INTO public.organization_members (organization_id, user_id, role, is_active)
+    VALUES (v_org_id, auth.uid(), 'OWNER', true);
+
+    INSERT INTO public.settings (
+        organization_id,
+        company_name,
+        rif,
+        printer_currency,
+        tasa_bcv,
+        tasa_monitor,
+        tasa_cop,
+        default_margin,
+        default_vat
+    )
+    VALUES (
+        v_org_id,
+        trim(p_name),
+        coalesce(trim(p_rif), 'J-00000000'),
+        coalesce(p_currency, 'USD'),
+        0, 0, 0, 30, 16
+    );
+
+    INSERT INTO public.payment_methods (organization_id, name, type, currency, is_active)
+    VALUES
+        (v_org_id, 'Efectivo USD', 'CASH_USD', 'USD', true),
+        (v_org_id, 'Efectivo Bs', 'CASH_BS', 'BS', true),
+        (v_org_id, 'Transferencia Bs', 'TRANSFER_BS', 'BS', true),
+        (v_org_id, 'Pago Móvil', 'PAGO_MOVIL', 'BS', true),
+        (v_org_id, 'Punto de Venta', 'POS', 'BS', true),
+        (v_org_id, 'Zelle', 'ZELLE', 'USD', true);
+
+    RETURN v_org_id;
+END;
+$$;
+
+
 
 -- ============================================================
 -- 1. CONFIGURACIÓN EMPRESARIAL (settings)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.settings (
     id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id       UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
     company_name          TEXT NOT NULL DEFAULT 'Mi Empresa',
     rif                   TEXT NOT NULL DEFAULT 'J-00000000',
     address               TEXT,
@@ -44,8 +188,8 @@ CREATE TABLE IF NOT EXISTS public.settings (
     created_at            TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_settings_singleton
-    ON public.settings ((true));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_settings_organization
+    ON public.settings (organization_id);
 
 
 
@@ -55,7 +199,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_settings_singleton
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.products (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    sku           TEXT UNIQUE NOT NULL,
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+    sku           TEXT NOT NULL,
     name          TEXT NOT NULL,
     category      TEXT DEFAULT 'General',
     stock         NUMERIC DEFAULT 0 CHECK (stock >= 0),
@@ -78,8 +223,9 @@ CREATE INDEX IF NOT EXISTS idx_products_category ON public.products(category);
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.clients (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
     name           TEXT NOT NULL,
-    rif            TEXT UNIQUE NOT NULL,
+    rif            TEXT NOT NULL,
     phone          TEXT,
     address        TEXT,
     email          TEXT,
@@ -380,6 +526,7 @@ CREATE TABLE IF NOT EXISTS public.users (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.suppliers (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
     name         TEXT NOT NULL,
     rif          TEXT,
     rif_type     TEXT,
@@ -401,6 +548,7 @@ CREATE INDEX IF NOT EXISTS idx_suppliers_name ON public.suppliers(name);
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.invoices (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id   UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
     number            TEXT NOT NULL,
     supplier          UUID REFERENCES public.suppliers(id) ON DELETE SET NULL,
     date_issue        TEXT NOT NULL,
@@ -422,8 +570,8 @@ CREATE INDEX IF NOT EXISTS idx_invoices_status ON public.invoices(status);
 CREATE INDEX IF NOT EXISTS idx_invoices_supplier ON public.invoices(supplier);
 CREATE INDEX IF NOT EXISTS idx_invoices_date_issue ON public.invoices(date_issue);
 CREATE INDEX IF NOT EXISTS idx_invoices_date_due ON public.invoices(date_due);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_supplier_number_normalized
-    ON public.invoices (coalesce(supplier::text, '__NO_SUPPLIER__'), lower(btrim(number)));
+CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_org_supplier_number
+    ON public.invoices (organization_id, coalesce(supplier::text, '__NO_SUPPLIER__'), lower(btrim(number)));
 
 
 -- ============================================================
@@ -431,6 +579,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_supplier_number_normalized
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.payment_methods (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001'::uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
     name       TEXT NOT NULL,
     currency   TEXT DEFAULT 'USD' CHECK (currency IN ('USD','BS','COP')),
     commission_pct NUMERIC(5,2) DEFAULT 0,
@@ -451,6 +600,7 @@ ON CONFLICT DO NOTHING;
 -- ============================================================
 CREATE TABLE IF NOT EXISTS public.audit_logs (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE,
     user_id    UUID,
     user_name  TEXT,
     user_email TEXT,
@@ -470,6 +620,8 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON public.audit_logs(entity);
 -- ROW LEVEL SECURITY (RLS)
 -- ============================================================
 -- Habilitar RLS en todas las tablas
+ALTER TABLE public.organizations    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.organization_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.settings         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clients          ENABLE ROW LEVEL SECURITY;
@@ -512,24 +664,63 @@ END;
 $$;
 
 -- ============================================================
+-- ORGANIZATIONS
+-- ============================================================
+DROP POLICY IF EXISTS "organizations_select" ON public.organizations;
+CREATE POLICY "organizations_select" ON public.organizations
+    FOR SELECT TO authenticated
+    USING (public.user_has_org_access(id));
+
+DROP POLICY IF EXISTS "organizations_insert" ON public.organizations;
+CREATE POLICY "organizations_insert" ON public.organizations
+    FOR INSERT TO authenticated
+    WITH CHECK (true);
+
+DROP POLICY IF EXISTS "organizations_update" ON public.organizations;
+CREATE POLICY "organizations_update" ON public.organizations
+    FOR UPDATE TO authenticated
+    USING (public.user_has_org_access(id, ARRAY['OWNER', 'ADMIN']))
+    WITH CHECK (public.user_has_org_access(id, ARRAY['OWNER', 'ADMIN']));
+
+DROP POLICY IF EXISTS "organizations_delete" ON public.organizations;
+CREATE POLICY "organizations_delete" ON public.organizations
+    FOR DELETE TO authenticated
+    USING (public.user_has_org_access(id, ARRAY['OWNER']));
+
+-- ============================================================
+-- ORGANIZATION_MEMBERS
+-- ============================================================
+DROP POLICY IF EXISTS "org_members_select" ON public.organization_members;
+CREATE POLICY "org_members_select" ON public.organization_members
+    FOR SELECT TO authenticated
+    USING (public.user_has_org_access(organization_id));
+
+DROP POLICY IF EXISTS "org_members_manage" ON public.organization_members;
+CREATE POLICY "org_members_manage" ON public.organization_members
+    FOR ALL TO authenticated
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN']))
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN']));
+
+-- ============================================================
 -- SETTINGS
 -- ============================================================
 DROP POLICY IF EXISTS "Allow authenticated users full access on settings" ON public.settings;
 DROP POLICY IF EXISTS "Allow anon read settings"                           ON public.settings;
 DROP POLICY IF EXISTS "Allow authenticated to read settings"              ON public.settings;
 DROP POLICY IF EXISTS "Allow admin to manage settings"                    ON public.settings;
+DROP POLICY IF EXISTS "settings_org_select"                               ON public.settings;
+DROP POLICY IF EXISTS "settings_org_update"                               ON public.settings;
+DROP POLICY IF EXISTS "settings_org_insert"                               ON public.settings;
 
--- Lectura anónima: necesario para useSetupCheck (detectar si el sistema ya fue configurado)
 CREATE POLICY "Allow anon read settings"
     ON public.settings FOR SELECT TO anon USING (true);
--- Lectura autenticada
-CREATE POLICY "Allow authenticated to read settings"
-    ON public.settings FOR SELECT TO authenticated USING (true);
--- Escritura: solo ADMIN
-CREATE POLICY "Allow admin to manage settings"
+CREATE POLICY "settings_org_select"
+    ON public.settings FOR SELECT TO authenticated
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "settings_org_manage"
     ON public.settings FOR ALL TO authenticated
-    USING    (public.current_user_role() = 'ADMIN')
-    WITH CHECK (public.current_user_role() = 'ADMIN');
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN']))
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN']));
 
 -- ============================================================
 -- PRODUCTS
@@ -537,13 +728,16 @@ CREATE POLICY "Allow admin to manage settings"
 DROP POLICY IF EXISTS "Allow authenticated users full access on products"  ON public.products;
 DROP POLICY IF EXISTS "Allow authenticated to read products"              ON public.products;
 DROP POLICY IF EXISTS "Allow admin and manager to modify products"        ON public.products;
+DROP POLICY IF EXISTS "products_org_select"                               ON public.products;
+DROP POLICY IF EXISTS "products_org_manage"                               ON public.products;
 
-CREATE POLICY "Allow authenticated to read products"
-    ON public.products FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow admin and manager to modify products"
+CREATE POLICY "products_org_select"
+    ON public.products FOR SELECT TO authenticated
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "products_org_manage"
     ON public.products FOR ALL TO authenticated
-    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']))
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']));
 
 -- ============================================================
 -- CLIENTS
@@ -553,19 +747,24 @@ DROP POLICY IF EXISTS "Allow authenticated to read clients"               ON pub
 DROP POLICY IF EXISTS "Allow staff to insert clients"                     ON public.clients;
 DROP POLICY IF EXISTS "Allow admin and manager to manage clients"         ON public.clients;
 DROP POLICY IF EXISTS "Allow admin and manager to delete clients"         ON public.clients;
+DROP POLICY IF EXISTS "clients_org_select"                                ON public.clients;
+DROP POLICY IF EXISTS "clients_org_insert"                                ON public.clients;
+DROP POLICY IF EXISTS "clients_org_update"                                ON public.clients;
+DROP POLICY IF EXISTS "clients_org_delete"                                ON public.clients;
 
-CREATE POLICY "Allow authenticated to read clients"
-    ON public.clients FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow staff to insert clients"
+CREATE POLICY "clients_org_select"
+    ON public.clients FOR SELECT TO authenticated
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "clients_org_insert"
     ON public.clients FOR INSERT TO authenticated
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER', 'SELLER'));
-CREATE POLICY "Allow admin and manager to manage clients"
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER', 'SELLER']));
+CREATE POLICY "clients_org_update"
     ON public.clients FOR UPDATE TO authenticated
-    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
-CREATE POLICY "Allow admin and manager to delete clients"
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER', 'SELLER']))
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER', 'SELLER']));
+CREATE POLICY "clients_org_delete"
     ON public.clients FOR DELETE TO authenticated
-    USING (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN']));
 
 -- ============================================================
 -- SALES
@@ -574,23 +773,33 @@ DROP POLICY IF EXISTS "Allow authenticated users full access on sales"     ON pu
 DROP POLICY IF EXISTS "Allow read sales by role"                          ON public.sales;
 DROP POLICY IF EXISTS "Allow insert sales"                                ON public.sales;
 DROP POLICY IF EXISTS "Allow admin and manager to update sales"           ON public.sales;
+DROP POLICY IF EXISTS "sales_org_select"                                  ON public.sales;
+DROP POLICY IF EXISTS "sales_org_insert"                                  ON public.sales;
+DROP POLICY IF EXISTS "sales_org_update"                                  ON public.sales;
+DROP POLICY IF EXISTS "sales_org_delete"                                  ON public.sales;
 
-CREATE POLICY "Allow read sales by role"
+CREATE POLICY "sales_org_select"
     ON public.sales FOR SELECT TO authenticated
     USING (
-        public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER')
-        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
+        public.user_has_org_access(organization_id)
+        AND (
+            public.get_user_org_role(organization_id) IN ('OWNER', 'ADMIN', 'MANAGER', 'VIEWER')
+            OR (public.get_user_org_role(organization_id) = 'SELLER' AND user_id = auth.uid())
+        )
     );
-CREATE POLICY "Allow insert sales"
+CREATE POLICY "sales_org_insert"
     ON public.sales FOR INSERT TO authenticated
     WITH CHECK (
-        public.current_user_role() IN ('ADMIN', 'MANAGER', 'SELLER')
+        public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER', 'SELLER'])
         AND user_id = auth.uid()
     );
-CREATE POLICY "Allow admin and manager to update sales"
+CREATE POLICY "sales_org_update"
     ON public.sales FOR UPDATE TO authenticated
-    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']))
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']));
+CREATE POLICY "sales_org_delete"
+    ON public.sales FOR DELETE TO authenticated
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN']));
 
 -- ============================================================
 -- SALE_ITEMS
@@ -598,298 +807,250 @@ CREATE POLICY "Allow admin and manager to update sales"
 DROP POLICY IF EXISTS "Allow authenticated users full access on sale_items" ON public.sale_items;
 DROP POLICY IF EXISTS "Allow read sale items by role"                       ON public.sale_items;
 DROP POLICY IF EXISTS "Allow insert sale items"                             ON public.sale_items;
+DROP POLICY IF EXISTS "sale_items_org_select"                               ON public.sale_items;
+DROP POLICY IF EXISTS "sale_items_org_insert"                               ON public.sale_items;
 
-CREATE POLICY "Allow read sale items by role"
+CREATE POLICY "sale_items_org_select"
     ON public.sale_items FOR SELECT TO authenticated
-    USING (
-        public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER')
-        OR EXISTS (
-            SELECT 1 FROM public.sales s
-            WHERE s.id = sale_items.sale_id
-              AND public.current_user_role() = 'SELLER'
-              AND s.user_id = auth.uid()
-        )
-    );
-CREATE POLICY "Allow insert sale items"
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "sale_items_org_insert"
     ON public.sale_items FOR INSERT TO authenticated
-    WITH CHECK (
-        public.current_user_role() IN ('ADMIN', 'MANAGER')
-        OR EXISTS (
-            SELECT 1 FROM public.sales s
-            WHERE s.id = sale_items.sale_id
-              AND public.current_user_role() = 'SELLER'
-              AND s.user_id = auth.uid()
-        )
-    );
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER', 'SELLER']));
 
 -- ============================================================
 -- PAYMENTS
 -- ============================================================
-DROP POLICY IF EXISTS "Allow authenticated users full access on payments"  ON public.payments;
+DROP POLICY IF EXISTS "Allow authenticated users full access on payments"   ON public.payments;
 DROP POLICY IF EXISTS "Allow read payments by role"                        ON public.payments;
 DROP POLICY IF EXISTS "Allow insert payments by role"                      ON public.payments;
-DROP POLICY IF EXISTS "Allow admin and manager to manage payments"          ON public.payments;
+DROP POLICY IF EXISTS "payments_org_select"                                ON public.payments;
+DROP POLICY IF EXISTS "payments_org_insert"                                ON public.payments;
 
-CREATE POLICY "Allow read payments by role"
+CREATE POLICY "payments_org_select"
     ON public.payments FOR SELECT TO authenticated
-    USING (
-        public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER')
-        OR EXISTS (
-            SELECT 1 FROM public.sales s
-            WHERE s.id = payments.sale_id
-              AND public.current_user_role() = 'SELLER'
-              AND s.user_id = auth.uid()
-        )
-    );
-CREATE POLICY "Allow insert payments by role"
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "payments_org_insert"
     ON public.payments FOR INSERT TO authenticated
-    WITH CHECK (
-        public.current_user_role() IN ('ADMIN', 'MANAGER')
-        OR EXISTS (
-            SELECT 1 FROM public.sales s
-            WHERE s.id = payments.sale_id
-              AND public.current_user_role() = 'SELLER'
-              AND s.user_id = auth.uid()
-        )
-    );
-CREATE POLICY "Allow admin and manager to manage payments"
-    ON public.payments FOR ALL TO authenticated
-    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER', 'SELLER']));
 
 -- ============================================================
 -- QUOTES
 -- ============================================================
 DROP POLICY IF EXISTS "Allow authenticated users full access on quotes"    ON public.quotes;
-DROP POLICY IF EXISTS "Allow read quotes by role"                          ON public.quotes;
-DROP POLICY IF EXISTS "Allow insert quotes by role"                        ON public.quotes;
-DROP POLICY IF EXISTS "Allow update quotes by role"                        ON public.quotes;
-DROP POLICY IF EXISTS "Allow admin and manager to delete quotes"           ON public.quotes;
+DROP POLICY IF EXISTS "Allow read quotes by role"                         ON public.quotes;
+DROP POLICY IF EXISTS "Allow insert quotes by role"                       ON public.quotes;
+DROP POLICY IF EXISTS "Allow update quotes by role"                       ON public.quotes;
+DROP POLICY IF EXISTS "Allow delete quotes by role"                       ON public.quotes;
+DROP POLICY IF EXISTS "quotes_org_select"                                 ON public.quotes;
+DROP POLICY IF EXISTS "quotes_org_insert"                                 ON public.quotes;
+DROP POLICY IF EXISTS "quotes_org_update"                                 ON public.quotes;
+DROP POLICY IF EXISTS "quotes_org_delete"                                 ON public.quotes;
 
-CREATE POLICY "Allow read quotes by role"
+CREATE POLICY "quotes_org_select"
     ON public.quotes FOR SELECT TO authenticated
-    USING (
-        public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER')
-        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
-    );
-CREATE POLICY "Allow insert quotes by role"
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "quotes_org_insert"
     ON public.quotes FOR INSERT TO authenticated
-    WITH CHECK (
-        public.current_user_role() IN ('ADMIN', 'MANAGER')
-        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
-    );
-CREATE POLICY "Allow update quotes by role"
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER', 'SELLER']));
+CREATE POLICY "quotes_org_update"
     ON public.quotes FOR UPDATE TO authenticated
-    USING (
-        public.current_user_role() IN ('ADMIN', 'MANAGER')
-        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
-    )
-    WITH CHECK (
-        public.current_user_role() IN ('ADMIN', 'MANAGER')
-        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
-    );
-CREATE POLICY "Allow admin and manager to delete quotes"
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER', 'SELLER']))
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER', 'SELLER']));
+CREATE POLICY "quotes_org_delete"
     ON public.quotes FOR DELETE TO authenticated
-    USING (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN']));
 
 -- ============================================================
 -- RETURNS
 -- ============================================================
 DROP POLICY IF EXISTS "Allow authenticated users full access on returns"   ON public.returns;
-DROP POLICY IF EXISTS "Allow read returns by role"                         ON public.returns;
-DROP POLICY IF EXISTS "Allow insert returns by role"                       ON public.returns;
-DROP POLICY IF EXISTS "Allow admin and manager to manage returns"           ON public.returns;
+DROP POLICY IF EXISTS "Allow read returns by role"                        ON public.returns;
+DROP POLICY IF EXISTS "Allow insert returns by role"                      ON public.returns;
+DROP POLICY IF EXISTS "returns_org_select"                                ON public.returns;
+DROP POLICY IF EXISTS "returns_org_insert"                                ON public.returns;
 
-CREATE POLICY "Allow read returns by role"
+CREATE POLICY "returns_org_select"
     ON public.returns FOR SELECT TO authenticated
-    USING (
-        public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER')
-        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
-    );
-CREATE POLICY "Allow insert returns by role"
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "returns_org_insert"
     ON public.returns FOR INSERT TO authenticated
-    WITH CHECK (
-        public.current_user_role() IN ('ADMIN', 'MANAGER')
-        OR (public.current_user_role() = 'SELLER' AND user_id = auth.uid())
-    );
-CREATE POLICY "Allow admin and manager to manage returns"
-    ON public.returns FOR ALL TO authenticated
-    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']));
 
 -- ============================================================
 -- STOCK_MOVEMENTS
 -- ============================================================
-DROP POLICY IF EXISTS "Allow authenticated users full access on stock_movements"  ON public.stock_movements;
-DROP POLICY IF EXISTS "Allow read stock movements by role"                        ON public.stock_movements;
-DROP POLICY IF EXISTS "Allow admin and manager to insert stock movements"         ON public.stock_movements;
-DROP POLICY IF EXISTS "Allow admin to manage stock movements"                     ON public.stock_movements;
+DROP POLICY IF EXISTS "Allow authenticated users full access on stock_movements" ON public.stock_movements;
+DROP POLICY IF EXISTS "Allow read stock_movements by role"                       ON public.stock_movements;
+DROP POLICY IF EXISTS "Allow insert stock_movements by role"                     ON public.stock_movements;
+DROP POLICY IF EXISTS "stock_movements_org_select"                               ON public.stock_movements;
+DROP POLICY IF EXISTS "stock_movements_org_insert"                               ON public.stock_movements;
 
-CREATE POLICY "Allow read stock movements by role"
+CREATE POLICY "stock_movements_org_select"
     ON public.stock_movements FOR SELECT TO authenticated
-    USING (public.current_user_role() IN ('ADMIN', 'MANAGER', 'SELLER', 'VIEWER'));
-CREATE POLICY "Allow admin and manager to insert stock movements"
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "stock_movements_org_insert"
     ON public.stock_movements FOR INSERT TO authenticated
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
-CREATE POLICY "Allow admin to manage stock movements"
-    ON public.stock_movements FOR ALL TO authenticated
-    USING    (public.current_user_role() = 'ADMIN')
-    WITH CHECK (public.current_user_role() = 'ADMIN');
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']));
 
 -- ============================================================
 -- EXPENSES
 -- ============================================================
-DROP POLICY IF EXISTS "Allow authenticated users full access on expenses"         ON public.expenses;
-DROP POLICY IF EXISTS "Allow expenses access to authorized roles"                 ON public.expenses;
+DROP POLICY IF EXISTS "Allow authenticated users full access on expenses"  ON public.expenses;
+DROP POLICY IF EXISTS "Allow read expenses by role"                       ON public.expenses;
+DROP POLICY IF EXISTS "Allow insert expenses by role"                     ON public.expenses;
+DROP POLICY IF EXISTS "Allow update expenses by role"                     ON public.expenses;
+DROP POLICY IF EXISTS "Allow delete expenses by role"                     ON public.expenses;
+DROP POLICY IF EXISTS "expenses_org_select"                               ON public.expenses;
+DROP POLICY IF EXISTS "expenses_org_manage"                               ON public.expenses;
 
-CREATE POLICY "Allow expenses access to authorized roles"
+CREATE POLICY "expenses_org_select"
+    ON public.expenses FOR SELECT TO authenticated
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "expenses_org_manage"
     ON public.expenses FOR ALL TO authenticated
-    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']))
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']));
 
 -- ============================================================
 -- RECURRING_EXPENSES
 -- ============================================================
 DROP POLICY IF EXISTS "Allow authenticated users full access on recurring_expenses" ON public.recurring_expenses;
-DROP POLICY IF EXISTS "Allow recurring expenses to authorized roles"                ON public.recurring_expenses;
+DROP POLICY IF EXISTS "Allow read recurring_expenses by role"                       ON public.recurring_expenses;
+DROP POLICY IF EXISTS "Allow insert recurring_expenses by role"                     ON public.recurring_expenses;
+DROP POLICY IF EXISTS "Allow update recurring_expenses by role"                     ON public.recurring_expenses;
+DROP POLICY IF EXISTS "Allow delete recurring_expenses by role"                     ON public.recurring_expenses;
+DROP POLICY IF EXISTS "recurring_expenses_org_select"                               ON public.recurring_expenses;
+DROP POLICY IF EXISTS "recurring_expenses_org_manage"                               ON public.recurring_expenses;
 
-CREATE POLICY "Allow recurring expenses to authorized roles"
+CREATE POLICY "recurring_expenses_org_select"
+    ON public.recurring_expenses FOR SELECT TO authenticated
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "recurring_expenses_org_manage"
     ON public.recurring_expenses FOR ALL TO authenticated
-    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']))
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']));
 
 -- ============================================================
 -- CASH_CLOSES
 -- ============================================================
-DROP POLICY IF EXISTS "Allow authenticated users full access on cash_closes"      ON public.cash_closes;
-DROP POLICY IF EXISTS "Allow read cash closes by role"                           ON public.cash_closes;
-DROP POLICY IF EXISTS "Allow insert cash closes by role"                         ON public.cash_closes;
-DROP POLICY IF EXISTS "Allow admin to manage cash closes"                         ON public.cash_closes;
+DROP POLICY IF EXISTS "Allow authenticated users full access on cash_closes" ON public.cash_closes;
+DROP POLICY IF EXISTS "Allow read cash_closes by role"                       ON public.cash_closes;
+DROP POLICY IF EXISTS "Allow insert cash_closes by role"                     ON public.cash_closes;
+DROP POLICY IF EXISTS "cash_closes_org_select"                               ON public.cash_closes;
+DROP POLICY IF EXISTS "cash_closes_org_insert"                               ON public.cash_closes;
 
-CREATE POLICY "Allow read cash closes by role"
+CREATE POLICY "cash_closes_org_select"
     ON public.cash_closes FOR SELECT TO authenticated
-    USING (public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER'));
-CREATE POLICY "Allow insert cash closes by role"
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "cash_closes_org_insert"
     ON public.cash_closes FOR INSERT TO authenticated
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
-CREATE POLICY "Allow admin to manage cash closes"
-    ON public.cash_closes FOR ALL TO authenticated
-    USING    (public.current_user_role() = 'ADMIN')
-    WITH CHECK (public.current_user_role() = 'ADMIN');
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']));
 
 -- ============================================================
 -- CASH_LEDGER
 -- ============================================================
-DROP POLICY IF EXISTS "Allow authenticated users full access on cash_ledger"      ON public.cash_ledger;
-DROP POLICY IF EXISTS "Allow read cash ledger by role"                           ON public.cash_ledger;
-DROP POLICY IF EXISTS "Allow insert cash ledger by role"                         ON public.cash_ledger;
-DROP POLICY IF EXISTS "Allow admin and manager to update cash ledger"            ON public.cash_ledger;
+DROP POLICY IF EXISTS "Allow authenticated users full access on cash_ledger" ON public.cash_ledger;
+DROP POLICY IF EXISTS "Allow read cash_ledger by role"                       ON public.cash_ledger;
+DROP POLICY IF EXISTS "Allow insert cash_ledger by role"                     ON public.cash_ledger;
+DROP POLICY IF EXISTS "cash_ledger_org_select"                               ON public.cash_ledger;
+DROP POLICY IF EXISTS "cash_ledger_org_insert"                               ON public.cash_ledger;
 
-CREATE POLICY "Allow read cash ledger by role"
+CREATE POLICY "cash_ledger_org_select"
     ON public.cash_ledger FOR SELECT TO authenticated
-    USING (public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER'));
-CREATE POLICY "Allow insert cash ledger by role"
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "cash_ledger_org_insert"
     ON public.cash_ledger FOR INSERT TO authenticated
-    WITH CHECK (
-        public.current_user_role() IN ('ADMIN', 'MANAGER')
-        OR (
-            public.current_user_role() = 'SELLER'
-            AND user_id = auth.uid()
-        )
-    );
-CREATE POLICY "Allow admin and manager to update cash ledger"
-    ON public.cash_ledger FOR UPDATE TO authenticated
-    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']));
 
 -- ============================================================
--- USERS
+-- USERS (Perfil de usuario)
 -- ============================================================
-DROP POLICY IF EXISTS "Allow authenticated users full access on users"            ON public.users;
-DROP POLICY IF EXISTS "Allow authenticated to read users"                        ON public.users;
-DROP POLICY IF EXISTS "Allow admin and manager to update users"                  ON public.users;
-DROP POLICY IF EXISTS "Allow admin to insert or delete users"                    ON public.users;
+DROP POLICY IF EXISTS "Allow authenticated users full access on users"      ON public.users;
+DROP POLICY IF EXISTS "Allow read users by role"                           ON public.users;
+DROP POLICY IF EXISTS "Allow update own user or admin"                     ON public.users;
 
-CREATE POLICY "Allow authenticated to read users"
-    ON public.users FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow admin and manager to update users"
+CREATE POLICY "Allow read users by role"
+    ON public.users FOR SELECT TO authenticated
+    USING (true);
+CREATE POLICY "Allow update own user or admin"
     ON public.users FOR UPDATE TO authenticated
-    USING (
-        public.current_user_role() = 'ADMIN'
-        OR (
-            public.current_user_role() = 'MANAGER'
-            AND role IN ('SELLER', 'VIEWER')
-        )
-    )
-    WITH CHECK (
-        public.current_user_role() = 'ADMIN'
-        OR (
-            public.current_user_role() = 'MANAGER'
-            AND role IN ('SELLER', 'VIEWER')
-        )
-    );
-CREATE POLICY "Allow admin to insert or delete users"
-    ON public.users FOR ALL TO authenticated
-    USING    (public.current_user_role() = 'ADMIN')
-    WITH CHECK (public.current_user_role() = 'ADMIN');
+    USING (id = auth.uid() OR public.current_user_role() = 'ADMIN')
+    WITH CHECK (id = auth.uid() OR public.current_user_role() = 'ADMIN');
 
 -- ============================================================
 -- SUPPLIERS
 -- ============================================================
-DROP POLICY IF EXISTS "Allow authenticated users full access on suppliers"        ON public.suppliers;
-DROP POLICY IF EXISTS "Allow staff to read suppliers"                             ON public.suppliers;
-DROP POLICY IF EXISTS "Allow admin and manager to manage suppliers"               ON public.suppliers;
+DROP POLICY IF EXISTS "Allow authenticated users full access on suppliers" ON public.suppliers;
+DROP POLICY IF EXISTS "Allow read suppliers by role"                       ON public.suppliers;
+DROP POLICY IF EXISTS "Allow insert suppliers by role"                     ON public.suppliers;
+DROP POLICY IF EXISTS "Allow update suppliers by role"                     ON public.suppliers;
+DROP POLICY IF EXISTS "Allow delete suppliers by role"                     ON public.suppliers;
+DROP POLICY IF EXISTS "suppliers_org_select"                               ON public.suppliers;
+DROP POLICY IF EXISTS "suppliers_org_manage"                               ON public.suppliers;
 
-CREATE POLICY "Allow staff to read suppliers"
+CREATE POLICY "suppliers_org_select"
     ON public.suppliers FOR SELECT TO authenticated
-    USING (public.current_user_role() IN ('ADMIN', 'MANAGER', 'SELLER'));
-CREATE POLICY "Allow admin and manager to manage suppliers"
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "suppliers_org_manage"
     ON public.suppliers FOR ALL TO authenticated
-    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']))
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']));
 
 -- ============================================================
 -- INVOICES
 -- ============================================================
-DROP POLICY IF EXISTS "Allow authenticated users full access on invoices"         ON public.invoices;
-DROP POLICY IF EXISTS "Allow invoice access to authorized roles"                 ON public.invoices;
+DROP POLICY IF EXISTS "Allow authenticated users full access on invoices"  ON public.invoices;
+DROP POLICY IF EXISTS "Allow read invoices by role"                       ON public.invoices;
+DROP POLICY IF EXISTS "Allow insert invoices by role"                     ON public.invoices;
+DROP POLICY IF EXISTS "Allow update invoices by role"                     ON public.invoices;
+DROP POLICY IF EXISTS "Allow delete invoices by role"                     ON public.invoices;
+DROP POLICY IF EXISTS "invoices_org_select"                               ON public.invoices;
+DROP POLICY IF EXISTS "invoices_org_manage"                               ON public.invoices;
 
-CREATE POLICY "Allow invoice access to authorized roles"
+CREATE POLICY "invoices_org_select"
+    ON public.invoices FOR SELECT TO authenticated
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "invoices_org_manage"
     ON public.invoices FOR ALL TO authenticated
-    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER', 'VIEWER'))
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']))
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN', 'MANAGER']));
 
 -- ============================================================
 -- PAYMENT_METHODS
 -- ============================================================
-DROP POLICY IF EXISTS "Allow authenticated users full access on payment_methods"  ON public.payment_methods;
-DROP POLICY IF EXISTS "Allow authenticated to read payment methods"              ON public.payment_methods;
-DROP POLICY IF EXISTS "Allow admin and manager to manage payment methods"         ON public.payment_methods;
+DROP POLICY IF EXISTS "Allow authenticated users full access on payment_methods" ON public.payment_methods;
+DROP POLICY IF EXISTS "Allow read payment_methods by role"                       ON public.payment_methods;
+DROP POLICY IF EXISTS "Allow insert payment_methods by role"                     ON public.payment_methods;
+DROP POLICY IF EXISTS "Allow update payment_methods by role"                     ON public.payment_methods;
+DROP POLICY IF EXISTS "Allow delete payment_methods by role"                     ON public.payment_methods;
+DROP POLICY IF EXISTS "payment_methods_org_select"                               ON public.payment_methods;
+DROP POLICY IF EXISTS "payment_methods_org_manage"                               ON public.payment_methods;
 
-CREATE POLICY "Allow authenticated to read payment methods"
-    ON public.payment_methods FOR SELECT TO authenticated USING (true);
-CREATE POLICY "Allow admin and manager to manage payment methods"
+CREATE POLICY "payment_methods_org_select"
+    ON public.payment_methods FOR SELECT TO authenticated
+    USING (public.user_has_org_access(organization_id));
+CREATE POLICY "payment_methods_org_manage"
     ON public.payment_methods FOR ALL TO authenticated
-    USING    (public.current_user_role() IN ('ADMIN', 'MANAGER'))
-    WITH CHECK (public.current_user_role() IN ('ADMIN', 'MANAGER'));
+    USING (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN']))
+    WITH CHECK (public.user_has_org_access(organization_id, ARRAY['OWNER', 'ADMIN']));
 
 -- ============================================================
 -- AUDIT_LOGS
 -- ============================================================
-DROP POLICY IF EXISTS "Allow authenticated users full access on audit_logs"       ON public.audit_logs;
-DROP POLICY IF EXISTS "Allow admin and manager to read audit_logs"                ON public.audit_logs;
-DROP POLICY IF EXISTS "Allow verified insertion of audit_logs"                    ON public.audit_logs;
+DROP POLICY IF EXISTS "Allow authenticated users full access on audit_logs" ON public.audit_logs;
+DROP POLICY IF EXISTS "Allow read audit_logs by role"                       ON public.audit_logs;
+DROP POLICY IF EXISTS "Allow insert audit_logs by role"                     ON public.audit_logs;
+DROP POLICY IF EXISTS "audit_logs_org_select"                               ON public.audit_logs;
+DROP POLICY IF EXISTS "audit_logs_org_insert"                               ON public.audit_logs;
 
-CREATE POLICY "Allow admin and manager to read audit_logs"
+CREATE POLICY "audit_logs_org_select"
     ON public.audit_logs FOR SELECT TO authenticated
-    USING (public.current_user_role() IN ('ADMIN', 'MANAGER'));
-CREATE POLICY "Allow verified insertion of audit_logs"
+    USING (organization_id IS NULL OR public.user_has_org_access(organization_id));
+CREATE POLICY "audit_logs_org_insert"
     ON public.audit_logs FOR INSERT TO authenticated
-    WITH CHECK (user_id = auth.uid());
+    WITH CHECK (organization_id IS NULL OR public.user_has_org_access(organization_id));
 
 
-
--- ============================================================
 -- 17. PUBLICACION REALTIME (sincronizacion multiusuario)
 -- ============================================================
 DO $$

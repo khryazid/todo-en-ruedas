@@ -8,13 +8,28 @@ import type { User } from '@supabase/supabase-js';
 import type {
   Product, CartItem, Sale, Invoice, Payment, AppSettings,
   Supplier, PaymentMethod, Client, AppUser, Quote, SaleReturn, Expense, CashClose,
-  StockMovement, ReturnOption, CashLedgerEntry, CashDirection, CashLedgerKind
+  StockMovement, ReturnOption, CashLedgerEntry, CashDirection, CashLedgerKind,
+  Organization, OrganizationMember
 } from '../types';
 
 export type SetState = (partial: Partial<StoreState> | ((state: StoreState) => Partial<StoreState>)) => void;
 export type GetState = () => StoreState;
 
 export interface StoreState {
+  // --- Multi-Tenancy ---
+  currentOrganization: Organization | null;
+  userOrganizations: Organization[];
+  currentOrgMember: OrganizationMember | null;
+  setCurrentOrganization: (org: Organization) => void;
+  fetchUserOrganizations: () => Promise<Organization[]>;
+  createOrganization: (data: {
+    name: string;
+    slug: string;
+    rif?: string;
+    currency?: string;
+  }) => Promise<Organization | null>;
+  switchOrganization: (orgId: string) => Promise<void>;
+
   // --- Estado ---
   user: User | null;
   isLoading: boolean;

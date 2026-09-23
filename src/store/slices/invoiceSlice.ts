@@ -21,7 +21,10 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
 
   fetchInvoices: async () => {
     try {
-      const { data: invoicesData, error } = await supabase.from('invoices').select('*');
+      let query = supabase.from('invoices').select('*');
+      const orgId = get().currentOrganization?.id;
+      if (orgId) query = query.eq('organization_id', orgId);
+      const { data: invoicesData, error } = await query;
       if (error) throw error;
 
       const suppliers = get().suppliers;
@@ -38,6 +41,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
   addInvoice: async (invoice: Invoice) => {
     const loadingToast = toast.loading("Registrando factura...");
     try {
+      const orgId = get().currentOrganization?.id;
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
       const normalize = (value: string) => value.trim().toLowerCase();
       const suppliers = get().suppliers;
@@ -63,6 +67,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
       }
 
       const { data: invoiceData, error } = await supabase.from('invoices').insert({
+        ...(orgId ? { organization_id: orgId } : {}),
         number: invoice.number,
         supplier: supplierId,
         date_issue: invoice.dateIssue,
@@ -97,6 +102,7 @@ export const createInvoiceSlice = (set: SetState, get: GetState) => ({
           });
         } else {
           const { data: newProdData } = await supabase.from('products').insert({
+            ...(orgId ? { organization_id: orgId } : {}),
             sku: item.sku,
             name: item.name,
             stock: Number(item.quantity),

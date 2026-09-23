@@ -17,7 +17,10 @@ export const createClientSlice = (set: SetState, get: GetState) => ({
 
   fetchClients: async () => {
     try {
-      const { data: clientsData, error } = await supabase.from('clients').select('*');
+      let query = supabase.from('clients').select('*');
+      const orgId = get().currentOrganization?.id;
+      if (orgId) query = query.eq('organization_id', orgId);
+      const { data: clientsData, error } = await query;
       if (error) throw error;
 
       // ✅ FIX: Usar mapeo centralizado
@@ -29,7 +32,9 @@ export const createClientSlice = (set: SetState, get: GetState) => ({
 
   addClient: async (client: Client) => {
     try {
+      const orgId = get().currentOrganization?.id;
       const { data, error } = await supabase.from('clients').insert({
+        ...(orgId ? { organization_id: orgId } : {}),
         name: client.name, rif: client.rif, phone: client.phone,
         address: client.address, email: client.email, notes: client.notes,
         credit_limit: client.creditLimit ?? 0,

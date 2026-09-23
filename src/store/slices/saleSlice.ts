@@ -21,12 +21,16 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
 
   fetchSales: async () => {
     try {
-      const { data: salesData, error } = await supabase
+      let query = supabase
         .from('sales')
         .select('*, sale_items(*), payments(*)')
         .order('date', { ascending: false })
         .limit(500);
 
+      const orgId = get().currentOrganization?.id;
+      if (orgId) query = query.eq('organization_id', orgId);
+
+      const { data: salesData, error } = await query;
       if (error) throw error;
 
       // ✅ FIX: Usar mapeo centralizado
@@ -136,6 +140,7 @@ export const createSaleSlice = (set: SetState, get: GetState) => ({
         p_discount_pct: safeDiscountPct,
         p_tasa_bcv: settings.tasaBCV,
         p_tasa_cop: settings.tasaCOP,
+        p_organization_id: get().currentOrganization?.id || null,
       });
 
       if (saleError || !rpcData || rpcData.length === 0) throw new Error(saleError?.message || 'No se pudo procesar la venta');

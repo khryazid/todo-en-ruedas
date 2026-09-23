@@ -8,6 +8,32 @@
  *   3.3 — Agregado isCredit en Sale
  */
 
+// --- MULTI-TENANCY ---
+export type OrganizationRole = 'OWNER' | 'ADMIN' | 'MANAGER' | 'SELLER' | 'VIEWER';
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  rif?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  logoUrl?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface OrganizationMember {
+  id: string;
+  organizationId: string;
+  userId: string;
+  role: OrganizationRole;
+  isActive: boolean;
+  createdAt: string;
+  organization?: Organization;
+}
+
 // --- TIPOS BÁSICOS ---
 export type PaymentMethodType = 'USD' | 'BS' | 'COP';
 export type CostType = 'BCV' | 'TH';

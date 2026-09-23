@@ -13,10 +13,15 @@ export const createExpenseSlice = (_set: SetState, get: GetState) => ({
     expenses: [] as Expense[],
 
     fetchExpenses: async () => {
-        const { data, error } = await supabase
+        let query = supabase
             .from('expenses')
             .select('*')
             .order('date', { ascending: false });
+
+        const orgId = get().currentOrganization?.id;
+        if (orgId) query = query.eq('organization_id', orgId);
+
+        const { data, error } = await query;
 
         if (error) { console.error('fetchExpenses:', error); return; }
 
@@ -42,9 +47,11 @@ export const createExpenseSlice = (_set: SetState, get: GetState) => ({
     },
 
     addExpense: async (expense: Omit<Expense, 'id'>) => {
+        const orgId = get().currentOrganization?.id;
         const { data, error } = await supabase
             .from('expenses')
             .insert({
+                ...(orgId ? { organization_id: orgId } : {}),
                 date: expense.date,
                 description: expense.description,
                 amount_usd: expense.amountUSD,

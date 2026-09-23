@@ -17,7 +17,10 @@ export const createProductSlice = (set: SetState, get: GetState) => ({
 
   fetchProducts: async () => {
     try {
-      const { data: productsData, error } = await supabase.from('products').select('*');
+      let query = supabase.from('products').select('*');
+      const orgId = get().currentOrganization?.id;
+      if (orgId) query = query.eq('organization_id', orgId);
+      const { data: productsData, error } = await query;
       if (error) throw error;
 
       // ✅ FIX: Usar mapeo centralizado
@@ -29,7 +32,9 @@ export const createProductSlice = (set: SetState, get: GetState) => ({
 
   addProduct: async (product: Product) => {
     try {
+      const orgId = get().currentOrganization?.id;
       const { data, error } = await supabase.from('products').insert({
+        ...(orgId ? { organization_id: orgId } : {}),
         sku: product.sku, name: product.name, category: product.category,
         stock: product.stock, min_stock: product.minStock, cost: product.cost,
         cost_type: product.costType, freight: product.freight, supplier: product.supplier
@@ -39,7 +44,11 @@ export const createProductSlice = (set: SetState, get: GetState) => ({
 
       if (product.supplier && product.supplier !== 'General') {
         const existingSupplier = get().suppliers.find((s) => s.name.toLowerCase() === product.supplier!.toLowerCase());
-        if (!existingSupplier) await supabase.from('suppliers').insert({ name: product.supplier, catalog: [] });
+        if (!existingSupplier) await supabase.from('suppliers').insert({
+          ...(orgId ? { organization_id: orgId } : {}),
+          name: product.supplier,
+          catalog: []
+        });
       }
 
       if (data) {

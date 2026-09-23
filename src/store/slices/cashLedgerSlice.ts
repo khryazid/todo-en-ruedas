@@ -1,6 +1,6 @@
 import { supabase } from '../../supabase/client';
 import type { CashLedgerEntry } from '../../types';
-import type { SetState } from '../types';
+import type { SetState, GetState } from '../types';
 
 const mapLedgerRow = (row: Record<string, unknown>): CashLedgerEntry => ({
   id: row.id as string,
@@ -20,16 +20,21 @@ const mapLedgerRow = (row: Record<string, unknown>): CashLedgerEntry => ({
   createdAt: (row.created_at as string) || new Date().toISOString(),
 });
 
-export const createCashLedgerSlice = (set: SetState) => ({
+export const createCashLedgerSlice = (set: SetState, get?: GetState) => ({
   cashLedger: [] as CashLedgerEntry[],
 
   fetchCashLedger: async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from('cash_ledger')
       .select('*')
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(500);
+
+    const orgId = get ? get().currentOrganization?.id : null;
+    if (orgId) query = query.eq('organization_id', orgId);
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('fetchCashLedger:', error);
@@ -55,9 +60,11 @@ export const createCashLedgerSlice = (set: SetState) => ({
     userId?: string;
     sellerName?: string;
   }) => {
+    const orgId = get ? get().currentOrganization?.id : null;
     const { data, error } = await supabase
       .from('cash_ledger')
       .insert({
+        ...(orgId ? { organization_id: orgId } : {}),
         date: entry.date,
         direction: entry.direction,
         kind: entry.kind,

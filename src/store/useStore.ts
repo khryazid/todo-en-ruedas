@@ -35,6 +35,7 @@ import { createExpenseSlice } from './slices/expenseSlice';
 import { createSupplierSlice } from './slices/supplierSlice';
 import { createStockMovementSlice } from './slices/stockMovementSlice';
 import { createCashLedgerSlice } from './slices/cashLedgerSlice';
+import { createTenantSlice } from './slices/tenantSlice';
 
 export const useStore = create<StoreState>((set, get) => ({
   realtimeGuardReasons: [],
@@ -59,6 +60,7 @@ export const useStore = create<StoreState>((set, get) => ({
     });
   },
 
+  ...createTenantSlice(set, get),
   ...createAuthSlice(set, get),
   ...createUserSlice(set, get),
   ...createSettingsSlice(set, get),
@@ -70,7 +72,7 @@ export const useStore = create<StoreState>((set, get) => ({
   ...createQuoteSlice(set, get),
   ...createReturnSlice(set, get),
   ...createExpenseSlice(set, get),
-  ...createCashLedgerSlice(set),
+  ...createCashLedgerSlice(set, get),
   ...createSupplierSlice(set, get),
   ...createStockMovementSlice(set, get),
 }));

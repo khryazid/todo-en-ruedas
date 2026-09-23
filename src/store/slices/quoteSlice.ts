@@ -22,10 +22,15 @@ export const createQuoteSlice = (set: SetState, get: GetState): QuoteSlice => ({
     quotes: [],
 
     fetchQuotes: async () => {
-        const { data, error } = await supabase
+        let query = supabase
             .from('quotes')
             .select('*')
             .order('date', { ascending: false });
+
+        const orgId = get().currentOrganization?.id;
+        if (orgId) query = query.eq('organization_id', orgId);
+
+        const { data, error } = await query;
 
         if (error) { console.error('Error fetching quotes:', error); return; }
 
@@ -66,8 +71,10 @@ export const createQuoteSlice = (set: SetState, get: GetState): QuoteSlice => ({
         const { currentUserData, settings } = get();
         const tasaBCV = settings.tasaBCV || 1;
         const totalBs = quote.totalUSD * tasaBCV;
+        const orgId = get().currentOrganization?.id;
 
         const payload = {
+            ...(orgId ? { organization_id: orgId } : {}),
             id: quote.id,
             number: quote.number,
             date: quote.date,
