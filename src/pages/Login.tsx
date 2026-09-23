@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
 import { useNavigate, Link } from 'react-router-dom';
-import { Key, Mail, Lock, Loader2 } from 'lucide-react';
+import { Mail, Lock, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const Login = () => {
@@ -41,12 +41,14 @@ export const Login = () => {
             <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl overflow-hidden">
 
                 {/* Header */}
-                <div className="bg-blue-600 p-8 text-center">
-                    <div className="mx-auto bg-white/20 w-16 h-16 rounded-full flex items-center justify-center mb-4 backdrop-blur-sm">
-                        <Key className="text-white" size={32} />
-                    </div>
-                    <h2 className="text-3xl font-black text-white">Bienvenido</h2>
-                    <p className="text-blue-100 mt-2">Glyph Core Management</p>
+                <div className="bg-slate-900 border-b border-gray-100 p-8 text-center">
+                    <img
+                        src="/logo.png"
+                        alt="Glyph Core Logo"
+                        className="w-16 h-16 rounded-2xl mx-auto mb-3 shadow-lg object-contain bg-white/5 p-1 border border-white/10 drop-shadow-[0_0_15px_rgba(59,130,246,0.3)]"
+                    />
+                    <h2 className="text-3xl font-black text-white">GLYPH <span className="text-red-500">CORE</span></h2>
+                    <p className="text-gray-400 mt-1 text-sm font-medium">Sistema de Gestión Empresarial</p>
                 </div>
 
                 {/* Formulario */}

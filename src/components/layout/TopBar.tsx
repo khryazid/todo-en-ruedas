@@ -189,9 +189,14 @@ export const TopBar = memo(() => {
                     className="flex items-center gap-2 flex-shrink-0 hover:opacity-90 transition mr-1"
                     title="Dashboard"
                 >
-                    <div className="w-8 h-8 bg-red-600 rounded-xl flex items-center justify-center shadow-md shadow-red-900/40">
-                        <span className="text-white font-black text-xs">TR</span>
-                    </div>
+                    <img
+                        src={currentOrganization?.logoUrl || settings.companyLogo || "/logo.png"}
+                        alt="Logo"
+                        className="w-8 h-8 rounded-xl object-contain shadow-md bg-white/5 p-0.5 border border-white/10"
+                        onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                        }}
+                    />
                 </button>
 
                 {/* SELECTOR DE NEGOCIO / EMPRESA */}
@@ -455,9 +460,14 @@ export const TopBar = memo(() => {
                         {/* Header */}
                         <div className="flex items-center justify-between p-5 border-b border-white/8">
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 bg-red-600 rounded-xl flex items-center justify-center shadow-lg">
-                                    <span className="text-white font-black text-sm">TR</span>
-                                </div>
+                                <img
+                                    src={currentOrganization?.logoUrl || settings.companyLogo || "/logo.png"}
+                                    alt="Logo"
+                                    className="w-9 h-9 rounded-xl object-contain shadow-lg bg-white/5 p-0.5 border border-white/10"
+                                    onError={(e) => {
+                                        (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                                    }}
+                                />
                                 <div>
                                     <p className="text-white font-black text-sm leading-tight truncate max-w-[160px]">{companyName}</p>
                                     <p className="text-gray-500 text-[9px] uppercase tracking-widest">Sistema POS</p>
