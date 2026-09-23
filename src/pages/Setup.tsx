@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-// No router hooks needed here anymore
+import { Link } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { Building2, User, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -327,6 +327,13 @@ export const Setup = () => {
                         <p className="text-xs text-blue-200 text-center">
                             🔒 Esta cuenta tendrá permisos de <strong>Administrador</strong> con acceso completo al sistema
                         </p>
+                    </div>
+
+                    {/* Link a Login */}
+                    <div className="mt-4 text-center">
+                        <Link to="/login" className="text-sm text-gray-400 hover:text-white transition">
+                            ¿Ya tienes cuenta de acceso? <span className="text-brand-400 font-semibold underline">Inicia Sesión</span>
+                        </Link>
                     </div>
                 </div>
 

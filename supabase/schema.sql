@@ -54,6 +54,29 @@ INSERT INTO public.organizations (id, name, slug, rif)
 VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'Mi Empresa', 'mi-empresa', 'J-00000000')
 ON CONFLICT (slug) DO NOTHING;
 
+-- Semilla de configuración por defecto (evita redirecciones forzadas a /setup)
+INSERT INTO public.settings (
+    organization_id,
+    company_name,
+    rif,
+    tasa_bcv,
+    tasa_monitor,
+    show_monitor_rate,
+    default_margin,
+    default_vat,
+    printer_currency
+) VALUES (
+    '00000000-0000-0000-0000-000000000001'::uuid,
+    'Glyph Core',
+    'J-00000000',
+    36.0,
+    38.0,
+    false,
+    30,
+    16,
+    'USD'
+) ON CONFLICT DO NOTHING;
+
 -- Funciones de acceso y contexto multi-tenant
 CREATE OR REPLACE FUNCTION public.user_has_org_access(target_org_id UUID, allowed_roles TEXT[] DEFAULT NULL)
 RETURNS BOOLEAN

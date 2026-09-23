@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Key, Mail, Lock, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -101,12 +101,24 @@ export const Login = () => {
                                 Volver al inicio de sesión
                             </button>
                         ) : (
-                            <button
-                                onClick={() => setIsRecovering(true)}
-                                className="text-gray-500 hover:text-blue-600 font-medium transition"
-                            >
-                                ¿Olvidaste tu contraseña?
-                            </button>
+                            <div className="space-y-3">
+                                <div>
+                                    <button
+                                        onClick={() => setIsRecovering(true)}
+                                        className="text-gray-500 hover:text-blue-600 font-medium transition"
+                                    >
+                                        ¿Olvidaste tu contraseña?
+                                    </button>
+                                </div>
+                                <div>
+                                    <Link
+                                        to="/setup"
+                                        className="text-gray-400 hover:text-blue-600 text-xs transition"
+                                    >
+                                        ¿Primera vez? Configurar empresa
+                                    </Link>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>

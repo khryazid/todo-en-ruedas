@@ -108,20 +108,8 @@ function App() {
         {/* Siempre permitimos la ruta de reset-password para que pueda capturar el token del email */}
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Ruta de Setup - Primera prioridad si necesita configuración */}
-        {needsSetup ? (
-          <>
-            <Route path="/setup" element={<ErrorBoundary><Setup /></ErrorBoundary>} />
-            <Route path="*" element={<Navigate to="/setup" replace />} />
-          </>
-        ) : !user ? (
-          /* Ruta de Login - Si no necesita setup pero no está autenticado */
-          <>
-            <Route path="/login" element={<Login />} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </>
-        ) : (
-          /* Rutas autenticadas - Si no necesita setup y está autenticado */
+        {/* 1. Si el usuario ya está autenticado, tiene acceso directo a la aplicación */}
+        {user ? (
           <Route
             path="/*"
             element={
@@ -258,6 +246,20 @@ function App() {
               </div>
             }
           />
+        ) : needsSetup ? (
+          /* 2. Si no hay sesión y se necesita configuración inicial: setup por defecto pero login disponible */
+          <>
+            <Route path="/setup" element={<ErrorBoundary><Setup /></ErrorBoundary>} />
+            <Route path="/login" element={<Login />} />
+            <Route path="*" element={<Navigate to="/setup" replace />} />
+          </>
+        ) : (
+          /* 3. Si no hay sesión y ya está configurado: login por defecto pero setup disponible si se visita explícitamente */
+          <>
+            <Route path="/login" element={<Login />} />
+            <Route path="/setup" element={<ErrorBoundary><Setup /></ErrorBoundary>} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </>
         )}
       </Routes>
     </Router>
