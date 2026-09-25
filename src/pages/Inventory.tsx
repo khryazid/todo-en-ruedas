@@ -101,6 +101,69 @@ export const Inventory = () => {
     });
   }, [paymentMethods]);
 
+  const compressInvoiceFile = async (file: File): Promise<{ base64: string; mimeType: string }> => {
+    // Si es PDF, leer directamente
+    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve({ base64, mimeType: 'application/pdf' });
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Si es imagen, redimensionar en canvas a max 1600px y calidad JPEG 0.85
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const maxDim = 1600;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const base64 = dataUrl.split(',')[1];
+          resolve({ base64, mimeType: 'image/jpeg' });
+          return;
+        }
+        // Fallback si no hay 2D context
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve({ base64, mimeType: file.type || 'image/jpeg' });
+        };
+        reader.readAsDataURL(file);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve({ base64, mimeType: file.type || 'image/jpeg' });
+        };
+        reader.readAsDataURL(file);
+      };
+      img.src = url;
+    });
+  };
+
   const handleScanInvoice = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -109,77 +172,63 @@ export const Inventory = () => {
     const loadingToast = toast.loading("Analizando factura con Inteligencia Artificial...");
 
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = async () => {
+      const { base64: base64Str, mimeType } = await compressInvoiceFile(file);
+
+      const { data, error } = await supabase.functions.invoke('process-invoice', {
+        body: { imageBase64: base64Str, mimeType }
+      });
+
+      if (error) {
+        let errorMsg = error.message;
         try {
-          const base64Str = (reader.result as string).split(',')[1];
-          const mimeType = file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
-
-          const { data, error } = await supabase.functions.invoke('process-invoice', {
-            body: { imageBase64: base64Str, mimeType }
-          });
-
-          if (error) {
-            let errorMsg = error.message;
-            try {
-              // Si es un FunctionsHttpError, extraer el JSON devuelto por la Edge Function
-              if ('context' in error && error.context && typeof (error.context as Response).json === 'function') {
-                const body = await (error.context as Response).json();
-                if (body?.error) errorMsg = body.error;
-              }
-            } catch {
-              // mantener error.message
-            }
-            throw new Error(errorMsg);
+          if ('context' in error && error.context && typeof (error.context as Response).json === 'function') {
+            const body = await (error.context as Response).json();
+            if (body?.error) errorMsg = body.error;
           }
-
-          if (!data?.success) throw new Error(data?.error || "Error desconocido en el servidor");
-
-
-          const invoiceData = data.data;
-
-          const extractedSupplierName = (invoiceData.supplierName || '').trim();
-          const extractedRif = (invoiceData.supplierRif || '').trim();
-          const matchedSupplier = (extractedRif ? suppliers.find(s => s.rif && normalizeText(s.rif) === normalizeText(extractedRif)) : null)
-            || suppliers.find(s => normalizeText(s.name) === normalizeText(extractedSupplierName));
-
-          setInvoiceHeader((prev) => ({
-            ...prev,
-            number: invoiceData.number || '',
-            supplier: matchedSupplier ? matchedSupplier.id : extractedSupplierName,
-            dateIssue: invoiceData.dateIssue || new Date().toISOString().split('T')[0],
-            freight: invoiceData.freightTotalUSD || 0,
-            tax: invoiceData.taxTotalUSD || 0
-          }));
-
-          if (extractedSupplierName && !matchedSupplier) {
-            setIsAddingSupplierInvoice(true);
-          }
-
-          setInvoiceItems(invoiceData.items.map((item: { sku?: string; name?: string; quantity?: number | string; costUnitUSD?: number | string }) => ({
-            id: Date.now().toString() + Math.random(),
-            sku: item.sku || '',
-            name: item.name || '',
-            quantity: typeof item.quantity === 'number' ? item.quantity : parseFloat(String(item.quantity || '1')) || 1,
-            costUnitUSD: typeof item.costUnitUSD === 'number' ? item.costUnitUSD : parseFloat(String(item.costUnitUSD || '0')) || 0,
-            minStock: 0
-          })));
-
-          toast.success("¡Factura extraída con éxito! ✨ Revisa los datos.");
-        } catch (innerError: unknown) {
-          toast.error("Error del modelo: " + (innerError as Error).message);
-        } finally {
-          setIsScanning(false);
-          toast.dismiss(loadingToast);
+        } catch {
+          // mantener error.message
         }
-      };
+        throw new Error(errorMsg);
+      }
+
+      if (!data?.success) throw new Error(data?.error || "Error desconocido en el servidor");
+
+      const invoiceData = data.data;
+
+      const extractedSupplierName = (invoiceData.supplierName || '').trim();
+      const extractedRif = (invoiceData.supplierRif || '').trim();
+      const matchedSupplier = (extractedRif ? suppliers.find(s => s.rif && normalizeText(s.rif) === normalizeText(extractedRif)) : null)
+        || suppliers.find(s => normalizeText(s.name) === normalizeText(extractedSupplierName));
+
+      setInvoiceHeader((prev) => ({
+        ...prev,
+        number: invoiceData.number || '',
+        supplier: matchedSupplier ? matchedSupplier.id : extractedSupplierName,
+        dateIssue: invoiceData.dateIssue || new Date().toISOString().split('T')[0],
+        freight: invoiceData.freightTotalUSD || 0,
+        tax: invoiceData.taxTotalUSD || 0
+      }));
+
+      if (extractedSupplierName && !matchedSupplier) {
+        setIsAddingSupplierInvoice(true);
+      }
+
+      setInvoiceItems(invoiceData.items.map((item: { sku?: string; name?: string; quantity?: number | string; costUnitUSD?: number | string }) => ({
+        id: Date.now().toString() + Math.random(),
+        sku: item.sku || '',
+        name: item.name || '',
+        quantity: typeof item.quantity === 'number' ? item.quantity : parseFloat(String(item.quantity || '1')) || 1,
+        costUnitUSD: typeof item.costUnitUSD === 'number' ? item.costUnitUSD : parseFloat(String(item.costUnitUSD || '0')) || 0,
+        minStock: 0
+      })));
+
+      toast.success("¡Factura extraída con éxito! ✨ Revisa los datos.");
     } catch (err: unknown) {
-      toast.error("Error al procesar archivo: " + (err as Error).message);
+      toast.error("Error al procesar factura: " + (err as Error).message);
+    } finally {
       setIsScanning(false);
       toast.dismiss(loadingToast);
-    } finally {
-      e.target.value = ''; // clear input
+      e.target.value = '';
     }
   };
 
