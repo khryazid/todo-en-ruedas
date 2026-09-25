@@ -125,14 +125,64 @@ Deno.serve(async (req: Request) => {
       }, 500);
     }
 
-    // Lista de modelos ordenados con fallback automático
-    const configuredModel = Deno.env.get('GEMINI_MODEL');
-    const candidateModels = [
-      configuredModel,
-      'gemini-2.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
-    ].filter(Boolean) as string[];
+    // 4.1 Descubrimiento dinámico de modelos activos en Google AI para esta API Key
+    let discoveredModels: string[] = [];
+    try {
+      const listResp = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+        headers: { 'x-goog-api-key': geminiApiKey },
+        signal: AbortSignal.timeout(6000),
+      });
+
+      if (listResp.ok) {
+        const listData = await listResp.json() as {
+          models?: Array<{ name: string; supportedGenerationMethods?: string[] }>;
+        };
+        if (Array.isArray(listData.models)) {
+          discoveredModels = listData.models
+            .filter((m) => m.supportedGenerationMethods?.includes('generateContent'))
+            .map((m) => m.name.replace(/^models\//, ''));
+        }
+      } else {
+        const listErr = await listResp.text();
+        console.warn(`No se pudo listar modelos (HTTP ${listResp.status}):`, listErr);
+      }
+    } catch (discoveryErr) {
+      console.warn('Error en descubrimiento dinámico de modelos:', discoveryErr);
+    }
+
+    // 4.2 Lista de modelos según documentación oficial actual (Septiembre 2026):
+    // 1. gemini-3.6-flash (GA, recomendado para multimodal/coding/velocidad)
+    // 2. gemini-3.5-flash (GA estable)
+    // 3. gemini-3.5-flash-lite (baja latencia)
+    // 4. gemini-3.1-pro-preview (razonamiento multimodal)
+    const officialCurrentModels = [
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.1-pro-preview',
+    ];
+
+    const envModel = Deno.env.get('GEMINI_MODEL');
+
+    // Priorizar: Modelo en env -> Modelos descubiertos en cuenta de Google -> Modelos oficiales vigentes
+    const candidateModels: string[] = [];
+
+    if (envModel) {
+      candidateModels.push(envModel);
+    }
+
+    // Priorizar modelos Flash descubiertos en la cuenta del usuario
+    discoveredModels.forEach((m) => {
+      if (m.includes('3.6-flash') || m.includes('3.5-flash') || m.includes('flash')) {
+        candidateModels.push(m);
+      }
+    });
+
+    // Añadir modelos oficiales actuales
+    officialCurrentModels.forEach((m) => candidateModels.push(m));
+
+    // Añadir resto de descubiertos
+    discoveredModels.forEach((m) => candidateModels.push(m));
 
     const uniqueModels = [...new Set(candidateModels)];
 
@@ -186,7 +236,7 @@ Deno.serve(async (req: Request) => {
 
           lastError = new Error(`[${model}] HTTP ${response.status}: ${errDetail}`);
 
-          // Si el error es de clave API inválida, detener de inmediato
+          // Si el error es de clave API inválida, detener de inmediato para informar al usuario
           if (
             response.status === 401 ||
             response.status === 403 ||
@@ -196,7 +246,7 @@ Deno.serve(async (req: Request) => {
             throw lastError;
           }
 
-          // Si es 404 (modelo inexistente o deprecado), probar el siguiente modelo
+          // Si es 404 (modelo no disponible), continuar con el siguiente modelo candidato
           continue;
         }
 
