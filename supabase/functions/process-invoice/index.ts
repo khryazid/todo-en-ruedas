@@ -114,7 +114,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // ✅ DEVSECOPS: La API Key se traslada a la cabecera x-goog-api-key, protegiendo logs y proxies
-    const geminiModel = Deno.env.get('GEMINI_MODEL') || 'gemini-3.8-flash';
+    const geminiModel = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
 
     const response = await fetch(apiUrl, {
@@ -125,10 +125,14 @@ Deno.serve(async (req: Request) => {
       },
       signal: AbortSignal.timeout(30000), // ✅ SRE: 30 segundos de timeout para evitar workers colgados
       body: JSON.stringify({
+        systemInstruction: {
+          parts: [{ text: SYSTEM_PROMPT }]
+        },
         contents: [
           {
+            role: 'user',
             parts: [
-              { text: SYSTEM_PROMPT },
+              { text: 'Analiza esta factura y extrae los datos en el formato JSON indicado.' },
               { inlineData: { mimeType, data: imageBase64 } }
             ]
           }
