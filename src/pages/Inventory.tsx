@@ -114,14 +114,28 @@ export const Inventory = () => {
       reader.onload = async () => {
         try {
           const base64Str = (reader.result as string).split(',')[1];
-          const mimeType = file.type;
+          const mimeType = file.type || (file.name.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
 
           const { data, error } = await supabase.functions.invoke('process-invoice', {
             body: { imageBase64: base64Str, mimeType }
           });
 
-          if (error) throw error;
+          if (error) {
+            let errorMsg = error.message;
+            try {
+              // Si es un FunctionsHttpError, extraer el JSON devuelto por la Edge Function
+              if ('context' in error && error.context && typeof (error.context as Response).json === 'function') {
+                const body = await (error.context as Response).json();
+                if (body?.error) errorMsg = body.error;
+              }
+            } catch {
+              // mantener error.message
+            }
+            throw new Error(errorMsg);
+          }
+
           if (!data?.success) throw new Error(data?.error || "Error desconocido en el servidor");
+
 
           const invoiceData = data.data;
 

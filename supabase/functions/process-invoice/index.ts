@@ -17,23 +17,23 @@ const jsonResponse = (body: unknown, status: number) =>
   });
 
 const SYSTEM_PROMPT = `
-Eres un sistema contable experto en repuestos y suministros. Analiza la imagen o documento de la factura adjunta y extrae la información requerida.
-DEBES devolver ÚNICAMENTE un objeto JSON válido que cumpla estrictamente con esta estructura. No incluyas texto extra, ni bloques markdown como \`\`\`json.
+Eres un sistema contable experto en repuestos, insumos y suministros. Analiza la imagen o documento de la factura o nota de entrega adjunta y extrae la información requerida.
+DEBES devolver ÚNICAMENTE un objeto JSON válido que cumpla estrictamente con esta estructura. No incluyas texto extra, explicaciones ni bloques markdown como \`\`\`json.
 
 {
-  "number": "string (El número de factura, nota de entrega o documento)",
+  "number": "string (El número de factura, correlativo, control o nota de entrega)",
   "supplierName": "string (Razón social o nombre comercial del proveedor)",
   "supplierRif": "string (RIF o identificación fiscal del proveedor, ej. J-12345678-9. Si no está visible, dejar vacío)",
   "dateIssue": "string (Formato YYYY-MM-DD. Si no hay, usa la fecha de hoy)",
   "currency": "string (Moneda del documento: 'USD' o 'BS')",
-  "subtotalUSD": "number (El subtotal numérico. Si la factura está en USD o Bs, extrae el monto)",
+  "subtotalUSD": "number (El subtotal numérico)",
   "freightTotalUSD": "number (El flete, envío o delivery. Si no hay, es 0)",
   "taxTotalUSD": "number (El total de impuestos o IVA. Si no hay, es 0)",
   "items": [
     {
       "sku": "string (Código del producto o referencia del fabricante. Si no hay, genera uno corto de 4 letras basado en el nombre)",
       "name": "string (Descripción clara del repuesto o producto)",
-      "quantity": "number",
+      "quantity": "number (Cantidad numérica)",
       "costUnitUSD": "number (Costo unitario del producto)"
     }
   ]
@@ -50,14 +50,14 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ success: false, error: 'Método no permitido.' }, 405);
   }
 
-  // ─── 1. Control de Carga contra DoS / OOM (Límite: 10MB) ─────────────────────
+  // ─── 1. Control de Carga contra DoS / OOM (Límite: 15MB) ─────────────────────
   const contentLength = Number(req.headers.get('content-length') || 0);
-  const MAX_PAYLOAD_BYTES = 10 * 1024 * 1024;
+  const MAX_PAYLOAD_BYTES = 15 * 1024 * 1024;
   if (contentLength > MAX_PAYLOAD_BYTES) {
-    return jsonResponse({ success: false, error: 'El archivo excede el límite permitido de 10MB.' }, 413);
+    return jsonResponse({ success: false, error: 'El archivo excede el límite permitido de 15MB.' }, 413);
   }
 
-  // ─── 2. Autenticación y Autorización RBAC (ADMIN o MANAGER) ─────────────────
+  // ─── 2. Autenticación y Autorización RBAC ───────────────────────────────────
   const authHeader = req.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return jsonResponse({ success: false, error: 'No autorizado: se requiere token de sesión.' }, 401);
@@ -81,12 +81,21 @@ Deno.serve(async (req: Request) => {
       .eq('id', user.id)
       .maybeSingle();
 
-    if (profileError || !profile || profile.is_active === false) {
-      return jsonResponse({ success: false, error: 'Usuario inactivo o no autorizado.' }, 403);
+    if (profileError) {
+      console.warn('Advertencia al consultar users:', profileError.message);
     }
 
-    if (!['ADMIN', 'MANAGER'].includes(profile.role)) {
-      return jsonResponse({ success: false, error: 'Acceso denegado: permisos insuficientes para procesar facturas.' }, 403);
+    if (profile && profile.is_active === false) {
+      return jsonResponse({ success: false, error: 'Usuario inactivo o suspendido.' }, 403);
+    }
+
+    const role = (profile?.role || user.user_metadata?.role || user.app_metadata?.role || '').toUpperCase();
+    const allowedRoles = ['ADMIN', 'MANAGER', 'OWNER'];
+    if (role && !allowedRoles.includes(role)) {
+      return jsonResponse({
+        success: false,
+        error: `Acceso denegado: el rol ${role} no tiene permisos para procesar facturas (se requiere ADMIN o MANAGER).`
+      }, 403);
     }
   }
 
@@ -106,70 +115,146 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ success: false, error: 'imageBase64 y mimeType son requeridos.' }, 400);
   }
 
-  // ─── 4. Procesamiento Seguro con Gemini API ────────────────────────────────
+  // ─── 4. Procesamiento Seguro con Google Gemini API ──────────────────────────
   try {
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     if (!geminiApiKey) {
-      return jsonResponse({ success: false, error: 'Servidor mal configurado: GEMINI_API_KEY no encontrada.' }, 500);
+      return jsonResponse({
+        success: false,
+        error: 'Servidor mal configurado: GEMINI_API_KEY no encontrada en Supabase Secrets.'
+      }, 500);
     }
 
-    // ✅ DEVSECOPS: La API Key se traslada a la cabecera x-goog-api-key, protegiendo logs y proxies
-    const geminiModel = Deno.env.get('GEMINI_MODEL') || 'gemini-2.5-flash';
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent`;
+    // Lista de modelos ordenados con fallback automático
+    const configuredModel = Deno.env.get('GEMINI_MODEL');
+    const candidateModels = [
+      configuredModel,
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+    ].filter(Boolean) as string[];
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': geminiApiKey,
-      },
-      signal: AbortSignal.timeout(30000), // ✅ SRE: 30 segundos de timeout para evitar workers colgados
-      body: JSON.stringify({
-        systemInstruction: {
-          parts: [{ text: SYSTEM_PROMPT }]
-        },
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: 'Analiza esta factura y extrae los datos en el formato JSON indicado.' },
-              { inlineData: { mimeType, data: imageBase64 } }
-            ]
-          }
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json'
-        }
-      })
-    });
+    const uniqueModels = [...new Set(candidateModels)];
 
-    if (!response.ok) {
-      console.error(`Gemini upstream error: ${response.status}`);
-      throw new Error(`Error en el servicio de IA (HTTP ${response.status})`);
-    }
-
-    const geminiData = await response.json() as {
+    let lastError: Error | null = null;
+    let geminiData: {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-      error?: { message?: string };
-    };
+      error?: { message?: string; code?: number };
+    } | null = null;
+
+    for (const model of uniqueModels) {
+      try {
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': geminiApiKey,
+          },
+          signal: AbortSignal.timeout(35000),
+          body: JSON.stringify({
+            systemInstruction: {
+              parts: [{ text: SYSTEM_PROMPT }]
+            },
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { text: 'Extrae con alta precisión todos los datos de esta factura o documento contable en el formato JSON especificado.' },
+                  { inlineData: { mimeType, data: imageBase64 } }
+                ]
+              }
+            ],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.1,
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.warn(`Modelo ${model} retornó HTTP ${response.status}:`, errText);
+          let errDetail = errText;
+          try {
+            const p = JSON.parse(errText);
+            if (p.error?.message) errDetail = p.error.message;
+          } catch (e) {
+            console.debug('Error body no es JSON:', e);
+          }
+
+          lastError = new Error(`[${model}] HTTP ${response.status}: ${errDetail}`);
+
+          // Si el error es de clave API inválida, detener de inmediato
+          if (
+            response.status === 401 ||
+            response.status === 403 ||
+            errText.toLowerCase().includes('api_key_invalid') ||
+            errText.toLowerCase().includes('api key not valid')
+          ) {
+            throw lastError;
+          }
+
+          // Si es 404 (modelo inexistente o deprecado), probar el siguiente modelo
+          continue;
+        }
+
+        geminiData = await response.json();
+        break; // Éxito con este modelo
+      } catch (err: unknown) {
+        lastError = err as Error;
+        if ((err as Error).message?.includes('API_KEY')) throw err;
+      }
+    }
+
+    if (!geminiData) {
+      throw lastError || new Error('No se pudo procesar la factura con los modelos de IA disponibles.');
+    }
 
     let resultText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    resultText = resultText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    resultText = resultText.trim();
 
-    try {
-      const parsedJSON = JSON.parse(resultText);
-      return jsonResponse({ success: true, data: parsedJSON }, 200);
-    } catch {
-      console.error('Failed to parse Gemini output as JSON:', resultText.substring(0, 80));
-      return jsonResponse({ success: false, error: 'El modelo no devolvió un JSON contable estructurado.' }, 500);
+    // Limpieza robusta de cercas markdown
+    if (resultText.startsWith('```json')) {
+      resultText = resultText.slice(7);
+    } else if (resultText.startsWith('```')) {
+      resultText = resultText.slice(3);
     }
+    if (resultText.endsWith('```')) {
+      resultText = resultText.slice(0, -3);
+    }
+    resultText = resultText.trim();
+
+    const firstBrace = resultText.indexOf('{');
+    const lastBrace = resultText.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      resultText = resultText.substring(firstBrace, lastBrace + 1);
+    }
+
+    let parsedJSON: Record<string, unknown>;
+    try {
+      parsedJSON = JSON.parse(resultText);
+    } catch {
+      console.error('Failed to parse Gemini output as JSON:', resultText.substring(0, 200));
+      return jsonResponse({
+        success: false,
+        error: 'La IA no devolvió un formato JSON válido. Intenta con una imagen más nítida o en mejor ángulo.'
+      }, 500);
+    }
+
+    if (!Array.isArray(parsedJSON.items)) {
+      parsedJSON.items = [];
+    }
+
+    return jsonResponse({ success: true, data: parsedJSON }, 200);
 
   } catch (error: unknown) {
     const err = error as Error;
     console.error('Process Invoice Error:', err.name, err.message);
     const clientMessage = err.name === 'TimeoutError'
-      ? 'Tiempo de espera agotado con el proveedor de IA (30s).'
-      : 'Error interno al procesar factura.';
+      ? 'Tiempo de espera agotado con Google Gemini (35s). Verifica tu conexión.'
+      : (err.message || 'Error interno al procesar factura con IA.');
     return jsonResponse({ success: false, error: clientMessage }, 500);
   }
 });
