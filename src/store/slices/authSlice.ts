@@ -103,6 +103,30 @@ export const createAuthSlice = (set: SetState, get: GetState) => ({
     return true;
   },
 
+  signUp: async (email: string, password: string, fullName: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: fullName },
+      },
+    });
+    if (error) {
+      if (error.message.toLowerCase().includes('already registered')) {
+        toast.error('Este correo ya está registrado. ¿Quieres iniciar sesión?');
+      } else {
+        toast.error(`Error al registrar: ${error.message}`);
+      }
+      return false;
+    }
+    if (!data.user) {
+      toast.error('No se pudo crear la cuenta. Intenta de nuevo.');
+      return false;
+    }
+    return true;
+  },
+
+
   sendPasswordResetEmail: async (email: string) => {
     set({ isLoading: true });
 

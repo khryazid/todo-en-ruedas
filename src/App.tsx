@@ -20,9 +20,8 @@ import { RoleRoute } from './components/RoleRoute';
 import { PWAUpdatePrompt } from './components/PWAUpdatePrompt';
 import { Permission } from './utils/permissions';
 
-import { Login } from './pages/Login';
+import { Auth } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
-import { Setup } from './pages/Setup';
 import { ResetPassword } from './pages/ResetPassword';
 
 // Páginas con carga diferida (se descargan cuando el usuario navega)
@@ -247,20 +246,23 @@ function App() {
             }
           />
         ) : needsSetup ? (
-          /* 2. Si no hay sesión y se necesita configuración inicial: setup por defecto pero login disponible */
+          /* 2. Sin sesión + primera vez: /auth por defecto */
           <>
-            <Route path="/setup" element={<ErrorBoundary><Setup /></ErrorBoundary>} />
-            <Route path="/login" element={<Login />} />
-            <Route path="*" element={<Navigate to="/setup" replace />} />
+            <Route path="/auth" element={<ErrorBoundary><Auth /></ErrorBoundary>} />
+            <Route path="/login" element={<Navigate to="/auth" replace />} />
+            <Route path="/setup" element={<Navigate to="/auth" replace />} />
+            <Route path="*" element={<Navigate to="/auth" replace />} />
           </>
         ) : (
-          /* 3. Si no hay sesión y ya está configurado: login por defecto pero setup disponible si se visita explícitamente */
+          /* 3. Sin sesión, ya configurado: /auth por defecto */
           <>
-            <Route path="/login" element={<Login />} />
-            <Route path="/setup" element={<ErrorBoundary><Setup /></ErrorBoundary>} />
-            <Route path="*" element={<Navigate to="/login" replace />} />
+            <Route path="/auth" element={<ErrorBoundary><Auth /></ErrorBoundary>} />
+            <Route path="/login" element={<Navigate to="/auth" replace />} />
+            <Route path="/setup" element={<Navigate to="/auth" replace />} />
+            <Route path="*" element={<Navigate to="/auth" replace />} />
           </>
         )}
+
       </Routes>
     </Router>
   );

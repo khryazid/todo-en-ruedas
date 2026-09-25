@@ -52,10 +52,12 @@ export interface StoreState {
   checkSession: () => Promise<void>;
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  signUp: (email: string, password: string, fullName: string) => Promise<boolean>;
   sendPasswordResetEmail: (email: string) => Promise<boolean>;
   updateRecoveredPassword: (newPassword: string) => Promise<boolean>;
   fetchInitialData: () => Promise<void>;
   setRealtimeGuard: (reason: string, active: boolean) => void;
+
 
   // --- Settings ---
   fetchSettingsData: () => Promise<void>;
